@@ -5,6 +5,7 @@ import {
   getVesselById,
   updateVessel,
   deleteVessel,
+  searchVessels,
 } from '../controllers/vesselController';
 import authMiddleware from '../middleware/auth';
 
@@ -63,6 +64,34 @@ router.post('/', createVessel);
  *         description: Unauthorized
  */
 router.get('/', getAllVessels);
+
+/**
+ * @swagger
+ * /api/vessels/search:
+ *   get:
+ *     summary: Search vessels
+ *     description: Search vessels by uqms number or vessel name
+ *     tags: [Vessels]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: query
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Search term for uqms number or vessel name
+ *     responses:
+ *       200:
+ *         description: List of matched vessels
+ *       400:
+ *         description: Bad request
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/search', searchVessels);
 
 /**
  * @swagger

@@ -60,6 +60,35 @@ export const getAllVessels = async (_req: Request, res: Response): Promise<void>
   }
 };
 
+export const searchVessels = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const query = req.query.query as string | undefined;
+
+    let filter = {};
+    if (query) {
+      filter = {
+        $or: [
+          { uqmsNumber: { $regex: query, $options: 'i' } },
+          { vesselName: { $regex: query, $options: 'i' } },
+        ],
+      };
+    }
+
+    const vessels = await VesselModel.find(filter)
+      .populate('vesselType')
+      .populate('areaOfOperation')
+      .populate('sisterShips')
+      .populate('createdBy', 'username email')
+      .populate('updatedBy', 'username email')
+      .sort({ createdAt: -1 })
+      .limit(5);
+
+    res.status(200).json({ success: true, count: vessels.length, data: vessels });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Error searching vessels.', error: error.message });
+  }
+};
+
 export const getVesselById = async (req: Request, res: Response): Promise<void> => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {
