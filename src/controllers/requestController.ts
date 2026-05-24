@@ -913,3 +913,26 @@ export const getRequestSurveyPdf = async (req: Request, res: Response): Promise<
     res.status(500).json({ success: false, message: 'Error fetching request survey PDF.', error: error.message });
   }
 };
+
+export const getRequestSurveys = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      res.status(400).json({ success: false, message: 'Invalid request ID format.' });
+      return;
+    }
+
+    const request = await RequestModel.findById(req.params.id).populate('surveyTypes');
+    if (!request) {
+      res.status(404).json({ success: false, message: 'Request not found.' });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: request.surveyTypes,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Error fetching request surveys.', error: error.message });
+  }
+};
+

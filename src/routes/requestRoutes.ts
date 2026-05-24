@@ -13,6 +13,7 @@ import {
   deleteRequestDocument,
   generateRequestSurveyPdf,
   getRequestSurveyPdf,
+  getRequestSurveys,
 } from '../controllers/requestController';
 
 dotenv.config();
@@ -174,6 +175,42 @@ router.get('/', getAllRequests);
  *         description: Unauthorized
  */
 router.get('/:id', getRequestById);
+
+/**
+ * @swagger
+ * /api/requests/{id}/surveys:
+ *   get:
+ *     summary: Get all surveys for a request by ID
+ *     tags: [Requests]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of populated survey types for the request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       404:
+ *         description: Request not found
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/:id/surveys', getRequestSurveys);
+
 
 /**
  * @swagger
