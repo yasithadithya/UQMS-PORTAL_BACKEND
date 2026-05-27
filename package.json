@@ -4,7 +4,8 @@
   "description": "UQMS backend API with Node.js, TypeScript, MongoDB",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "dev": "node dist/server.js",
+    "dev:local": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "seed": "ts-node src/seed.ts",
