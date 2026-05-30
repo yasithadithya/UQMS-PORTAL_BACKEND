@@ -180,6 +180,35 @@ export const createFirstEntrySurveyBooking = async (req: Request, res: Response)
     const generatedReportNo = await getNextDocumentNumber('report');
     bookingData.reportNo = generatedReportNo;
 
+    // Compute lastVisitDate & lastVisit from visitDetails if a row is marked as the last visit
+    if (bookingData.visitDetails && Array.isArray(bookingData.visitDetails)) {
+      const lastVisitRowIndex = bookingData.visitDetails.findIndex(
+        (v: any) => v.isLastVisitDate === true || v.isLastVist === true
+      );
+      if (lastVisitRowIndex !== -1) {
+        const lastVisitRow = bookingData.visitDetails[lastVisitRowIndex];
+        bookingData.lastVisitDate = new Date(lastVisitRow.visitDate);
+        bookingData.lastVisit = new Date(lastVisitRow.visitDate);
+        
+        // Ensure all rows have correct boolean values
+        bookingData.visitDetails = bookingData.visitDetails.map((v: any, idx: number) => ({
+          ...v,
+          isLastVisitDate: idx === lastVisitRowIndex,
+          isLastVist: idx === lastVisitRowIndex
+        }));
+      } else {
+        bookingData.lastVisitDate = undefined;
+        bookingData.lastVisit = undefined;
+        
+        // Ensure all other rows are false
+        bookingData.visitDetails = bookingData.visitDetails.map((v: any) => ({
+          ...v,
+          isLastVisitDate: false,
+          isLastVist: false
+        }));
+      }
+    }
+
     const newBooking = new FirstEntrySurveyBookingModel({
       ...bookingData,
       createdBy: userId,
@@ -362,6 +391,35 @@ export const updateFirstEntrySurveyBooking = async (req: Request, res: Response)
     // Sync vessel details with the Vessel collection using the final data
     const vesselId = await syncVesselDetails(bookingData, userId);
     bookingData.vesselId = vesselId;
+
+    // Compute lastVisitDate & lastVisit from visitDetails if a row is marked as the last visit
+    if (bookingData.visitDetails && Array.isArray(bookingData.visitDetails)) {
+      const lastVisitRowIndex = bookingData.visitDetails.findIndex(
+        (v: any) => v.isLastVisitDate === true || v.isLastVist === true
+      );
+      if (lastVisitRowIndex !== -1) {
+        const lastVisitRow = bookingData.visitDetails[lastVisitRowIndex];
+        bookingData.lastVisitDate = new Date(lastVisitRow.visitDate);
+        bookingData.lastVisit = new Date(lastVisitRow.visitDate);
+        
+        // Ensure all rows have correct boolean values
+        bookingData.visitDetails = bookingData.visitDetails.map((v: any, idx: number) => ({
+          ...v,
+          isLastVisitDate: idx === lastVisitRowIndex,
+          isLastVist: idx === lastVisitRowIndex
+        }));
+      } else {
+        bookingData.lastVisitDate = undefined;
+        bookingData.lastVisit = undefined;
+        
+        // Ensure all other rows are false
+        bookingData.visitDetails = bookingData.visitDetails.map((v: any) => ({
+          ...v,
+          isLastVisitDate: false,
+          isLastVist: false
+        }));
+      }
+    }
 
     if (userId) {
       bookingData.updatedBy = userId;

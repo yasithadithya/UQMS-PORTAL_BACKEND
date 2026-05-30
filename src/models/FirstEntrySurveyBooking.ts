@@ -15,6 +15,8 @@ export interface IVisitDetail {
     endSurvey?: string;
     location?: string;
     status?: string;
+    isLastVist?: boolean;
+    isLastVisitDate?: boolean;
     surveyorAssignments: ISurveyorAssignment[]; // Nested array per visit
 }
 
@@ -46,6 +48,8 @@ export interface IFirstEntrySurveyBooking extends Document {
     officialNo?: string;
     gt?: number;                       // Maps to Vessel's grossTonnage
     callSign?: string;
+    lastVisitDate?: Date;
+    lastVisit?: Date;
 
     // Grid / Sub-section Arrays
     visitDetails: IVisitDetail[];
@@ -76,6 +80,8 @@ const visitDetailSchema = new Schema<IVisitDetail>({
     endSurvey: { type: String, trim: true },
     location: { type: String, trim: true },
     status: { type: String, trim: true },
+    isLastVist: { type: Boolean, default: false },
+    isLastVisitDate: { type: Boolean, default: false },
     surveyorAssignments: [surveyorAssignmentSchema] // Array nested inside the visit row
 });
 
@@ -109,6 +115,8 @@ const firstEntrySurveyBookingSchema: Schema = new Schema(
         officialNo: { type: String, trim: true },
         gt: { type: Number },
         callSign: { type: String, trim: true },
+        lastVisitDate: { type: Date },
+        lastVisit: { type: Date },
 
         // Master Grid Data arrays
         visitDetails: [visitDetailSchema],
