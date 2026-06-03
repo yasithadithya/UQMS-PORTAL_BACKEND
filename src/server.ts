@@ -14,6 +14,7 @@ import requestRoutes from './routes/requestRoutes';
 import vesselRoutes from './routes/vesselRoutes';
 import firstEntryRoutes from './routes/firstEntryRoutes';
 import firstEntrySurveyBookingRoutes from './routes/firstEntrySurveyBookingRoutes';
+import firstEntrySurveyReportRoutes from './routes/firstEntrySurveyReportRoutes';
 import { seedModulesAndAdminPermissions } from './config/seedModules';
 import { formatDate } from './utils/date';
 
@@ -48,6 +49,7 @@ app.use('/api/requests', requestRoutes);
 app.use('/api/vessels', vesselRoutes);
 app.use('/api/first-entries', firstEntryRoutes);
 app.use('/api/first-entry-survey-bookings', firstEntrySurveyBookingRoutes);
+app.use('/api/first-entry-survey-reports', firstEntrySurveyReportRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
