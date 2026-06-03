@@ -45,6 +45,7 @@ export interface IScheduleII extends Document {
   firstEntry: mongoose.Types.ObjectId;
   documents: IScheduleIIDocument[];
   status: string;
+  emailSent?: boolean;
   createdBy?: mongoose.Types.ObjectId;
   updatedBy?: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -66,6 +67,10 @@ const scheduleIISchema: Schema = new Schema(
       type: String,
       trim: true,
       default: 'pending',
+    },
+    emailSent: {
+      type: Boolean,
+      default: false,
     },
     createdBy: {
       type: Schema.Types.ObjectId,

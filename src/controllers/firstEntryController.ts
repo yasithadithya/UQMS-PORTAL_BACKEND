@@ -5,6 +5,7 @@ import ScheduleIIModel from '../models/ScheduleII';
 import RequestModel from '../models/Request';
 import VesselModel from '../models/Vessel';
 import { getNextDocumentNumber } from '../services/documentNumberService';
+import nodemailer from 'nodemailer';
 
 // ==========================================
 // FIRST ENTRY CONTROLLERS
@@ -327,5 +328,69 @@ export const deleteScheduleII = async (req: Request, res: Response): Promise<voi
     res.status(200).json({ success: true, message: 'Schedule II deleted successfully.' });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Error deleting Schedule II.', error: error.message });
+  }
+};
+
+export const sendScheduleIIEmail = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { scheduleId } = req.params;
+    if (!mongoose.isValidObjectId(scheduleId)) {
+      res.status(400).json({ success: false, message: 'Invalid schedule ID format.' });
+      return;
+    }
+
+    const schedule = await ScheduleIIModel.findById(scheduleId).populate({
+      path: 'firstEntry',
+      populate: { path: 'vessel' }
+    });
+
+    if (!schedule) {
+      res.status(404).json({ success: false, message: 'Schedule II not found.' });
+      return;
+    }
+
+    if (schedule.emailSent) {
+      res.status(400).json({ success: false, message: 'Email has already been sent for this Schedule II.' });
+      return;
+    }
+
+    const firstEntry: any = schedule.firstEntry;
+    const vesselName = firstEntry?.vessel?.vesselName || 'Unknown Vessel';
+
+    const attachments = (schedule.documents || []).map(doc => ({
+      filename: doc.name,
+      path: doc.url
+    }));
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'mail.uqms.net',
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: process.env.SMTP_PORT === '465',
+      auth: {
+        user: process.env.SENDER_EMAIL,
+        pass: process.env.SENDER_EMAIL_PASSWORD,
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+
+    const mailOptions = {
+      from: process.env.SENDER_EMAIL,
+      to: process.env.DSSC_EMAIL,
+      subject: `Schedule II Documents - ${vesselName}`,
+      text: `Please find the attached Schedule II documents for the vessel: ${vesselName}.`,
+      attachments,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    schedule.emailSent = true;
+    await schedule.save();
+
+    res.status(200).json({ success: true, message: 'Email sent successfully.' });
+  } catch (error: any) {
+    console.error('Error sending Schedule II email:', error);
+    res.status(500).json({ success: false, message: 'Error sending email.', error: error.message });
   }
 };

@@ -287,9 +287,19 @@ export const createRequest = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-export const getAllRequests = async (_req: Request, res: Response): Promise<void> => {
+export const getAllRequests = async (req: Request, res: Response): Promise<void> => {
   try {
-    const requests = await RequestModel.find()
+    const search = req.query.search as string;
+    const query: any = {};
+    
+    if (search) {
+      query.$or = [
+        { requestNumber: { $regex: search, $options: 'i' } },
+        { vesselName: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const requests = await RequestModel.find(query)
       .populate('vesselType')
       .populate('areaOfOperation')
       .populate('surveyTypes')

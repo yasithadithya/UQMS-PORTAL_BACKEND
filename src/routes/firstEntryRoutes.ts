@@ -9,6 +9,7 @@ import {
   getScheduleIIById,
   updateScheduleII,
   deleteScheduleII,
+  sendScheduleIIEmail,
 } from '../controllers/firstEntryController';
 import authMiddleware from '../middleware/auth';
 
@@ -245,5 +246,25 @@ router.put('/schedule2/:scheduleId', updateScheduleII);
  *         description: Schedule II deleted successfully
  */
 router.delete('/schedule2/:scheduleId', deleteScheduleII);
+
+/**
+ * @swagger
+ * /api/first-entries/schedule2/{scheduleId}/send-email:
+ *   post:
+ *     summary: Send Schedule II documents via email
+ *     tags: [Schedule II]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: scheduleId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Email sent successfully
+ */
+router.post('/schedule2/:scheduleId/send-email', sendScheduleIIEmail);
 
 export default router;
