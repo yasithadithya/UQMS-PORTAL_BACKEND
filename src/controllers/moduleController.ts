@@ -86,7 +86,7 @@ export const getModules = async (_req: Request, res: Response): Promise<void> =>
 export const updateModule = async (req: Request, res: Response): Promise<void> => {
   try {
     const { name, description, parentId, order } = req.body;
-    const moduleId = req.params.id;
+    const moduleId: string = req.params.id as string;
 
     // Prevent setting self as parent
     if (parentId && parentId === moduleId) {
