@@ -4,6 +4,7 @@ export interface IModule extends Document {
   name: string;
   description?: string;
   parentId?: mongoose.Types.ObjectId;
+  order?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -24,6 +25,10 @@ const moduleSchema: Schema = new Schema(
       type: Schema.Types.ObjectId,
       ref: 'Module',
       default: null,
+    },
+    order: {
+      type: Number,
+      default: 0,
     },
   },
   {
