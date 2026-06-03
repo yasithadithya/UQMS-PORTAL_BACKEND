@@ -1,5 +1,5 @@
 import PDFDocument from 'pdfkit';
-
+import path from 'path';
 type RequestLike = {
   requestNumber: string;
   vesselName: string;
@@ -112,6 +112,22 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
     // ─────────────────────────────────────────────
 
     // Header
+    let logoPath = path.join(__dirname, '../public/logo.png');
+    // Fallback for compiled dist/services/requestPdfService.js
+    if (!require('fs').existsSync(logoPath)) {
+      logoPath = path.join(__dirname, '../../src/public/logo.png');
+    }
+
+    try {
+      if (require('fs').existsSync(logoPath)) {
+        doc.image(logoPath, PAGE_MARGIN, PAGE_MARGIN - 5, { width: 50 });
+      } else {
+        console.warn('Logo image not found at', logoPath);
+      }
+    } catch (err) {
+      console.warn('Could not load logo image:', err);
+    }
+    doc.y = PAGE_MARGIN + 5;
     doc
       .font('Helvetica-Bold')
       .fontSize(14)
@@ -125,6 +141,9 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
       .fillColor('#000000')
       .text('No: 08, Chandralekha Mawatha, Colombo 08, Sri Lanka.', { align: 'center' });
 
+    if (doc.y < PAGE_MARGIN + 55) {
+      doc.y = PAGE_MARGIN + 55;
+    }
     doc.moveDown(0.4);
     const ruleY = doc.y;
     doc
