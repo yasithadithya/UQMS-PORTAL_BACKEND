@@ -4,6 +4,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import mongoose from 'mongoose';
 import path from 'path';
+import nodemailer from 'nodemailer';
 import RequestModel from '../models/Request';
 import RequestDocumentModel from '../models/RequestDocument';
 import VesselType from '../models/VesselType';
@@ -943,6 +944,151 @@ export const getRequestSurveys = async (req: Request, res: Response): Promise<vo
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Error fetching request surveys.', error: error.message });
+  }
+};
+
+export const getRequestSurveyPreview = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      res.status(400).json({ success: false, message: 'Invalid request ID format.' });
+      return;
+    }
+
+    const request = await getPopulatedRequestForPdf(req.params.id as string);
+    if (!request) {
+      res.status(404).json({ success: false, message: 'Request not found.' });
+      return;
+    }
+
+    const pdfBuffer = await createRequestSurveyPdfBuffer(request.toObject());
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="survey-preview.pdf"');
+    res.send(pdfBuffer);
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Error generating survey preview.', error: error.message });
+  }
+};
+
+export const printAndSendRequestSurveyPdf = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      res.status(400).json({ success: false, message: 'Invalid request ID format.' });
+      return;
+    }
+
+    const request = await getPopulatedRequestForPdf(req.params.id as string);
+    if (!request) {
+      res.status(404).json({ success: false, message: 'Request not found.' });
+      return;
+    }
+
+    if (!request.companyEmail) {
+      res.status(400).json({ success: false, message: 'Client company email is not specified in the request.' });
+      return;
+    }
+
+    const pdfBuffer = await createRequestSurveyPdfBuffer(request.toObject());
+    const filename = buildSurveyPdfFilename(request.requestNumber, request.vesselName);
+    const key = buildSurveyPdfKey(request.requestNumber, request.vesselName);
+    
+    const uploadResult = await uploadToR2({
+      key,
+      body: pdfBuffer,
+      contentType: 'application/pdf',
+      contentLength: pdfBuffer.length,
+    });
+
+    if (request.status === 'active') {
+      request.status = 'print';
+      if ((req as any).user?.id) {
+        request.updatedBy = (req as any).user.id;
+      }
+      await request.save();
+    }
+
+    const existingDocument = await RequestDocumentModel.findOne({ requestId: request._id });
+    if (existingDocument?.key && existingDocument.key !== uploadResult.key) {
+      try {
+        await deleteFromR2(existingDocument.key);
+      } catch (error) {
+        // ignore delete error
+      }
+    }
+
+    const storedDocument = await RequestDocumentModel.findOneAndUpdate(
+      { requestId: request._id },
+      {
+        requestId: request._id,
+        requestNumber: request.requestNumber,
+        vesselName: request.vesselName,
+        key: uploadResult.key,
+        url: uploadResult.url,
+        bucket: uploadResult.bucket,
+        mimeType: 'application/pdf',
+        filename,
+        size: pdfBuffer.length,
+        etag: uploadResult.etag,
+        generatedAt: new Date(),
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    const url = await getRequestSurveyPdfUrl({
+      bucket: uploadResult.bucket,
+      key: uploadResult.key,
+    });
+
+    // Send the email to the client using transporter configuration
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'mail.uqms.net',
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: process.env.SMTP_PORT === '465',
+      auth: {
+        user: process.env.SENDER_EMAIL,
+        pass: process.env.SENDER_EMAIL_PASSWORD,
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+
+    const mailOptions = {
+      from: process.env.SENDER_EMAIL,
+      to: request.companyEmail,
+      subject: `Request for Survey PDF - ${request.vesselName} (${request.requestNumber})`,
+      text: `Dear Client,\n\nPlease find attached the Request for Survey PDF for the vessel "${request.vesselName}" (Request Number: ${request.requestNumber}).\n\nBest Regards,\nUniversal Quality Management Systems (PVT) Ltd.`,
+      attachments: [
+        {
+          filename: filename,
+          content: pdfBuffer,
+          contentType: 'application/pdf'
+        }
+      ],
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.status(201).json({
+      success: true,
+      message: 'Request survey PDF generated and sent to client email successfully.',
+      data: {
+        _id: storedDocument?._id,
+        requestId: storedDocument?.requestId,
+        requestNumber: storedDocument?.requestNumber,
+        vesselName: storedDocument?.vesselName,
+        key: storedDocument?.key,
+        bucket: storedDocument?.bucket,
+        filename: storedDocument?.filename,
+        mimeType: storedDocument?.mimeType,
+        size: storedDocument?.size,
+        etag: storedDocument?.etag,
+        generatedAt: storedDocument?.generatedAt,
+        url,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Error generating and sending survey request PDF.', error: error.message });
   }
 };
 
