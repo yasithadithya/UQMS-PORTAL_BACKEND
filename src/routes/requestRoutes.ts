@@ -14,6 +14,8 @@ import {
   generateRequestSurveyPdf,
   getRequestSurveyPdf,
   getRequestSurveys,
+  getRequestSurveyPreview,
+  printAndSendRequestSurveyPdf,
 } from '../controllers/requestController';
 
 dotenv.config();
@@ -237,6 +239,61 @@ router.get('/:id/surveys', getRequestSurveys);
  *         description: Request not found
  */
 router.post('/:id/survey-pdf', generateRequestSurveyPdf);
+
+/**
+ * @swagger
+ * /api/requests/{id}/survey-preview:
+ *   get:
+ *     summary: Dynamically generate and stream the survey request PDF preview
+ *     tags: [Requests]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: PDF preview file returned successfully
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       404:
+ *         description: Request not found
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/:id/survey-preview', getRequestSurveyPreview);
+
+/**
+ * @swagger
+ * /api/requests/{id}/survey-print-send:
+ *   post:
+ *     summary: Generate PDF, store it, and email it to the client
+ *     tags: [Requests]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       201:
+ *         description: PDF generated and sent successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Request not found
+ */
+router.post('/:id/survey-print-send', printAndSendRequestSurveyPdf);
 
 /**
  * @swagger
