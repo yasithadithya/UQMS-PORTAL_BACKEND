@@ -8,6 +8,8 @@ export interface IChecklistQuestion extends Document {
   boatTypes: mongoose.Types.ObjectId[];
   createdBy?: mongoose.Types.ObjectId;
   updatedBy?: mongoose.Types.ObjectId;
+  vesselCode?: string;
+  qCategory?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,6 +36,14 @@ const checklistQuestionSchema: Schema = new Schema(
     boatTypes: {
       type: [{ type: Schema.Types.ObjectId, ref: 'VesselType' }],
       default: [],
+    },
+    vesselCode: {
+      type: String,
+      default: null,
+    },
+    qCategory: {
+      type: String,
+      default: null,
     },
     createdBy: {
       type: Schema.Types.ObjectId,

@@ -49,6 +49,12 @@ router.use(authMiddleware);
  *           items:
  *             type: string
  *           description: Reference IDs of the associated VesselTypes/BoatTypes
+ *         vesselCode:
+ *           type: string
+ *           description: Vessel code (optional)
+ *         qCategory:
+ *           type: string
+ *           description: Question category (optional)
  *         createdBy:
  *           type: string
  *           description: User ID who created the question
@@ -108,6 +114,14 @@ router.use(authMiddleware);
  *                   type: string
  *                 description: Array of VesselType IDs (optional)
  *                 example: ["65cb7b09be87a0c8680327bf"]
+ *               vesselCode:
+ *                 type: string
+ *                 description: Vessel code (optional)
+ *                 example: "VC-01"
+ *               qCategory:
+ *                 type: string
+ *                 description: Question category (optional)
+ *                 example: "HULL"
  *     responses:
  *       201:
  *         description: Checklist question created successfully
@@ -165,6 +179,16 @@ router.post('/', createChecklistQuestion);
  *         schema:
  *           type: string
  *         description: Filter by vessel length (or comma-separated list of numeric values)
+ *       - in: query
+ *         name: vesselCode
+ *         schema:
+ *           type: string
+ *         description: Filter by vessel code (optional)
+ *       - in: query
+ *         name: qCategory
+ *         schema:
+ *           type: string
+ *         description: Filter by question category (optional)
  *     responses:
  *       200:
  *         description: List of checklist questions
@@ -268,6 +292,12 @@ router.get('/:id', getChecklistQuestionById);
  *                 type: array
  *                 items:
  *                   type: string
+ *                 nullable: true
+ *               vesselCode:
+ *                 type: string
+ *                 nullable: true
+ *               qCategory:
+ *                 type: string
  *                 nullable: true
  *     responses:
  *       200:

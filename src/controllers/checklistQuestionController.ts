@@ -10,7 +10,7 @@ const isNonEmptyString = (value: unknown): value is string =>
 
 export const createChecklistQuestion = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { question, surveyCategories, lengths, areaOfOperations, boatTypes } = req.body;
+    const { question, surveyCategories, lengths, areaOfOperations, boatTypes, vesselCode, qCategory } = req.body;
 
     // Validation
     if (!isNonEmptyString(question)) {
@@ -68,6 +68,25 @@ export const createChecklistQuestion = async (req: Request, res: Response): Prom
       }
     }
 
+    // Validate vessel code and question category
+    let validatedVesselCode: string | null = null;
+    if (vesselCode !== undefined && vesselCode !== null) {
+      if (typeof vesselCode !== 'string') {
+        res.status(400).json({ success: false, message: 'vesselCode must be a string.' });
+        return;
+      }
+      validatedVesselCode = vesselCode.trim() || null;
+    }
+
+    let validatedQCategory: string | null = null;
+    if (qCategory !== undefined && qCategory !== null) {
+      if (typeof qCategory !== 'string') {
+        res.status(400).json({ success: false, message: 'qCategory must be a string.' });
+        return;
+      }
+      validatedQCategory = qCategory.trim() || null;
+    }
+
     // Verify database reference existence
     const surveyCategoryCount = await SurveyType.countDocuments({ _id: { $in: uniqueSurveyCategories } });
     if (surveyCategoryCount !== uniqueSurveyCategories.length) {
@@ -97,6 +116,8 @@ export const createChecklistQuestion = async (req: Request, res: Response): Prom
       lengths: validatedLengths,
       areaOfOperations: uniqueAreaIds,
       boatTypes: uniqueBoatTypeIds,
+      vesselCode: validatedVesselCode,
+      qCategory: validatedQCategory,
       createdBy: (req as any).user?.id,
       updatedBy: (req as any).user?.id,
     });
@@ -126,11 +147,19 @@ export const createChecklistQuestion = async (req: Request, res: Response): Prom
 
 export const getAllChecklistQuestions = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { search, surveyCategory, areaOfOperation, boatType, length } = req.query;
+    const { search, surveyCategory, areaOfOperation, boatType, length, vesselCode, qCategory } = req.query;
     const query: any = {};
 
     if (search && typeof search === 'string') {
       query.question = { $regex: search.trim(), $options: 'i' };
+    }
+
+    if (vesselCode && typeof vesselCode === 'string') {
+      query.vesselCode = { $regex: vesselCode.trim(), $options: 'i' };
+    }
+
+    if (qCategory && typeof qCategory === 'string') {
+      query.qCategory = { $regex: qCategory.trim(), $options: 'i' };
     }
 
     // Support single values or comma-separated lists for surveyCategory
@@ -228,7 +257,7 @@ export const getChecklistQuestionById = async (req: Request, res: Response): Pro
 export const updateChecklistQuestion = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { question, surveyCategories, lengths, areaOfOperations, boatTypes } = req.body;
+    const { question, surveyCategories, lengths, areaOfOperations, boatTypes, vesselCode, qCategory } = req.body;
 
     if (!mongoose.isValidObjectId(id)) {
       res.status(400).json({ success: false, message: 'Invalid checklist question ID format.' });
@@ -323,6 +352,30 @@ export const updateChecklistQuestion = async (req: Request, res: Response): Prom
           return;
         }
         updates.boatTypes = uniqueBoatTypeIds;
+      }
+    }
+
+    if (vesselCode !== undefined) {
+      if (vesselCode === null) {
+        updates.vesselCode = null;
+      } else {
+        if (typeof vesselCode !== 'string') {
+          res.status(400).json({ success: false, message: 'vesselCode must be a string.' });
+          return;
+        }
+        updates.vesselCode = vesselCode.trim() || null;
+      }
+    }
+
+    if (qCategory !== undefined) {
+      if (qCategory === null) {
+        updates.qCategory = null;
+      } else {
+        if (typeof qCategory !== 'string') {
+          res.status(400).json({ success: false, message: 'qCategory must be a string.' });
+          return;
+        }
+        updates.qCategory = qCategory.trim() || null;
       }
     }
 
