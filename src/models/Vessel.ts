@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IVessel extends Document {
     uqmsNumber?: string;
     imoNumber?: string;
+    vesselCode?: string;
     vesselName: string;
     vesselType?: mongoose.Types.ObjectId;
     areaOfOperation?: mongoose.Types.ObjectId;
@@ -65,6 +66,7 @@ const vesselSchema: Schema = new Schema(
     {
         uqmsNumber: { type: String, trim: true },
         imoNumber: { type: String, trim: true },
+        vesselCode: { type: String, trim: true },
         vesselName: { type: String, required: [true, 'Vessel name is required'], trim: true },
         vesselType: { type: Schema.Types.ObjectId, ref: 'VesselType' },
         areaOfOperation: { type: Schema.Types.ObjectId, ref: 'AreaOfOperation' },

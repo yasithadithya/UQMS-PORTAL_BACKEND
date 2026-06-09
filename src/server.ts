@@ -15,6 +15,7 @@ import vesselRoutes from './routes/vesselRoutes';
 import firstEntryRoutes from './routes/firstEntryRoutes';
 import firstEntrySurveyBookingRoutes from './routes/firstEntrySurveyBookingRoutes';
 import firstEntrySurveyReportRoutes from './routes/firstEntrySurveyReportRoutes';
+import firstEntryFullReportRoutes from './routes/firstEntryFullReportRoutes';
 import checklistQuestionRoutes from './routes/checklistQuestionRoutes';
 import { seedModulesAndAdminPermissions } from './config/seedModules';
 import { formatDate } from './utils/date';
@@ -51,6 +52,7 @@ app.use('/api/vessels', vesselRoutes);
 app.use('/api/first-entries', firstEntryRoutes);
 app.use('/api/first-entry-survey-bookings', firstEntrySurveyBookingRoutes);
 app.use('/api/first-entry-survey-reports', firstEntrySurveyReportRoutes);
+app.use('/api/first-entry-full-reports', firstEntryFullReportRoutes);
 app.use('/api/checklist-questions', checklistQuestionRoutes);
 
 // Health check

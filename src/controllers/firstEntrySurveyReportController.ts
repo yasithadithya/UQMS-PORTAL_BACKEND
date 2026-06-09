@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import FirstEntrySurveyReportModel, { IFirstEntrySurveyReport } from '../models/FirstEntrySurveyReport';
 import FirstEntrySurveyBookingModel from '../models/FirstEntrySurveyBooking';
 import RequestModel from '../models/Request';
+import { generateFullReport } from './firstEntryFullReportController';
 
 // Helper function to extract and pre-populate report details from a booking
 const getPrePopulatedData = async (bookingId: string): Promise<any> => {
@@ -140,6 +141,14 @@ export const createFirstEntrySurveyReport = async (req: Request, res: Response):
 
     const newReport = new FirstEntrySurveyReportModel(reportData);
     await newReport.save();
+
+    // Generate First Entry Full Report automatically
+    try {
+      await generateFullReport(newReport);
+    } catch (fullReportError: any) {
+      console.error('Error generating First Entry Full Report:', fullReportError.message);
+      // We log the error but don't fail the primary creation of the survey report
+    }
 
     const populatedReport = await FirstEntrySurveyReportModel.findById(newReport._id)
       .populate('bookingId')

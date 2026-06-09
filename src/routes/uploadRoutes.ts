@@ -17,6 +17,8 @@ const allowedMimeTypes = new Set([
   'image/png',
   'image/webp',
   'image/gif',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]);
 
 const upload = multer({
@@ -28,7 +30,7 @@ const upload = multer({
       return;
     }
 
-    cb(new Error('Invalid file type. Only PDF and images are allowed.'));
+    cb(new Error('Invalid file type. Only PDF, Word documents, and images are allowed.'));
   },
 });
 

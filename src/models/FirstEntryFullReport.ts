@@ -1,0 +1,139 @@
+import mongoose, { Schema, Document } from 'mongoose';
+
+// Sub-interface for the files uploaded per checklist item
+export interface IChecklistItemFile {
+  filename: string;
+  key: string;
+  url?: string;
+  mimeType?: string;
+  size?: number;
+}
+
+// Sub-interface for the checklist items in the full report
+export interface IChecklistItem {
+  checklistQuestionId: mongoose.Types.ObjectId;
+  status: 'satisfied' | 'unsatisfied' | 'N/A';
+  visitNumber?: string;
+  surveyNames?: string[];
+  surveyDate?: Date;
+  updatedDate?: Date;
+  remarks?: string;
+  files?: IChecklistItemFile[];
+  surveyorId?: mongoose.Types.ObjectId;
+  surveyorName?: string;
+}
+
+// Main Interface for the First Entry Full Report
+export interface IFirstEntryFullReport extends Document {
+  firstEntrySurveyReportId: mongoose.Types.ObjectId; // Links to FirstEntrySurveyReport
+  bookingId: mongoose.Types.ObjectId;                 // Links to FirstEntrySurveyBooking
+  vesselId: mongoose.Types.ObjectId;                  // Links to Vessel
+  uqmsNo?: string;
+  checklist: IChecklistItem[];
+  createdBy?: mongoose.Types.ObjectId;
+  updatedBy?: mongoose.Types.ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Sub-schema for files uploaded per checklist item
+const checklistItemFileSchema = new Schema<IChecklistItemFile>({
+  filename: { type: String, required: true, trim: true },
+  key: { type: String, required: true, trim: true },
+  url: { type: String, trim: true },
+  mimeType: { type: String, trim: true },
+  size: { type: Number }
+});
+
+// Sub-schema for individual checklist items
+const checklistItemSchema = new Schema<IChecklistItem>({
+  checklistQuestionId: { 
+    type: Schema.Types.ObjectId, 
+    ref: 'ChecklistQuestion', 
+    required: [true, 'Checklist question reference is required'] 
+  },
+  status: { 
+    type: String, 
+    enum: ['satisfied', 'unsatisfied', 'N/A'], 
+    default: 'N/A',
+    trim: true
+  },
+  visitNumber: { 
+    type: String, 
+    trim: true,
+    default: ''
+  },
+  surveyNames: { 
+    type: [String], 
+    default: []
+  },
+  surveyDate: { 
+    type: Date 
+  },
+  updatedDate: { 
+    type: Date, 
+    default: Date.now 
+  },
+  remarks: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  files: {
+    type: [checklistItemFileSchema],
+    default: []
+  },
+  surveyorId: {
+    type: Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  surveyorName: {
+    type: String,
+    trim: true
+  }
+});
+
+// Main Full Report Schema
+const firstEntryFullReportSchema: Schema = new Schema(
+  {
+    firstEntrySurveyReportId: {
+      type: Schema.Types.ObjectId,
+      ref: 'FirstEntrySurveyReport',
+      required: [true, 'First Entry Survey Report reference is required'],
+      unique: true // A survey report should map to at most one full report
+    },
+    bookingId: {
+      type: Schema.Types.ObjectId,
+      ref: 'FirstEntrySurveyBooking',
+      required: [true, 'Booking reference is required']
+    },
+    vesselId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Vessel',
+      required: [true, 'Vessel reference is required']
+    },
+    uqmsNo: {
+      type: String,
+      trim: true
+    },
+    checklist: {
+      type: [checklistItemSchema],
+      default: []
+    },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    updatedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User'
+    }
+  },
+  {
+    timestamps: true,
+  }
+);
+
+const FirstEntryFullReport = mongoose.model<IFirstEntryFullReport>('FirstEntryFullReport', firstEntryFullReportSchema);
+
+export default FirstEntryFullReport;
