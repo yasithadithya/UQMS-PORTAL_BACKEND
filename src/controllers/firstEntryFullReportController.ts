@@ -43,6 +43,7 @@ export const generateFullReport = async (surveyReport: any): Promise<any> => {
     checklistQuestionId: any;
     surveyNames: Set<string>;
     surveyDate?: Date;
+    additionalFields: { name: string; value: string }[];
   }>();
 
   // 2. Process each survey category in the survey report
@@ -105,7 +106,8 @@ export const generateFullReport = async (surveyReport: any): Promise<any> => {
         checklistMap.set(qIdStr, {
           checklistQuestionId: q._id,
           surveyNames: new Set([surveyCategoryName]),
-          surveyDate: survey.surveyDate || surveyReport.firstSurveyDate || null
+          surveyDate: survey.surveyDate || surveyReport.firstSurveyDate || null,
+          additionalFields: (q.additionalFields || []).map((f: string) => ({ name: f, value: '' }))
         });
       }
     });
@@ -114,12 +116,14 @@ export const generateFullReport = async (surveyReport: any): Promise<any> => {
   // Convert the map to the flat checklist array
   const checklist = Array.from(checklistMap.values()).map((item) => ({
     checklistQuestionId: item.checklistQuestionId,
-    status: 'N/A' as const,
+    isChecked: false,
+    comment: '' as const,
     visitNumber: '',
     surveyNames: Array.from(item.surveyNames),
     surveyDate: item.surveyDate,
     updatedDate: new Date(),
     remarks: '',
+    additionalFields: item.additionalFields,
     files: []
   }));
 
@@ -347,16 +351,22 @@ export const updateFirstEntryFullReport = async (req: Request, res: Response): P
         if (!existingItem) {
           isChanged = true;
         } else {
-          const statusChanged = item.status !== existingItem.status;
+          const isCheckedChanged = item.isChecked !== existingItem.isChecked;
+          const commentChanged = (item.comment || '') !== (existingItem.comment || '');
           const remarksChanged = (item.remarks || '') !== (existingItem.remarks || '');
           const visitChanged = (item.visitNumber || '') !== (existingItem.visitNumber || '');
+          
+          const existingAddFields = existingItem.additionalFields || [];
+          const newAddFields = item.additionalFields || [];
+          const addFieldsChanged = existingAddFields.length !== newAddFields.length ||
+            newAddFields.some((nf: any, idx: number) => !existingAddFields[idx] || nf.name !== existingAddFields[idx].name || nf.value !== existingAddFields[idx].value);
           
           const existingFiles = existingItem.files || [];
           const newFiles = item.files || [];
           const filesChanged = existingFiles.length !== newFiles.length || 
             newFiles.some((f: any, idx: number) => !existingFiles[idx] || f.key !== existingFiles[idx].key);
 
-          if (statusChanged || remarksChanged || visitChanged || filesChanged) {
+          if (isCheckedChanged || commentChanged || remarksChanged || visitChanged || addFieldsChanged || filesChanged) {
             isChanged = true;
           }
         }

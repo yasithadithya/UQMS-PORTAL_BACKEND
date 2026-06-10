@@ -1,9 +1,10 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IChecklistQuestion extends Document {
-  question: string;
+  item: string;
+  description?: string;
+  additionalFields?: string[];
   surveyCategories: mongoose.Types.ObjectId[];
-  lengths: string[];
   areaOfOperations: mongoose.Types.ObjectId[];
   boatTypes: mongoose.Types.ObjectId[];
   createdBy?: mongoose.Types.ObjectId;
@@ -16,17 +17,22 @@ export interface IChecklistQuestion extends Document {
 
 const checklistQuestionSchema: Schema = new Schema(
   {
-    question: {
+    item: {
       type: String,
-      required: [true, 'Question text is required'],
+      required: [true, 'Item text is required'],
       trim: true,
+    },
+    description: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    additionalFields: {
+      type: [{ type: String, enum: ['Model', 'Serial Number', 'Qty', 'Capacity', 'Type', 'Last Service'] }],
+      default: [],
     },
     surveyCategories: {
       type: [{ type: Schema.Types.ObjectId, ref: 'SurveyType' }],
-      default: [],
-    },
-    lengths: {
-      type: [{ type: String }],
       default: [],
     },
     areaOfOperations: {

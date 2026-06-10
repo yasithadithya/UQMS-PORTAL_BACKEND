@@ -20,15 +20,24 @@ router.use(authMiddleware);
  *     ChecklistQuestion:
  *       type: object
  *       required:
- *         - question
+ *         - item
  *         - surveyCategories
  *       properties:
  *         id:
  *           type: string
  *           description: Auto-generated MongoDB ObjectId of the checklist question
- *         question:
+ *         item:
  *           type: string
- *           description: The text of the question
+ *           description: The text of the checklist item
+ *         description:
+ *           type: string
+ *           description: Detailed description of the checklist item
+ *         additionalFields:
+ *           type: array
+ *           items:
+ *             type: string
+ *             enum: [Qty, Capacity, Model or Serial Number]
+ *           description: Custom input fields required for the item when filling reports
  *         surveyCategories:
  *           type: array
  *           items:
@@ -84,12 +93,21 @@ router.use(authMiddleware);
  *           schema:
  *             type: object
  *             required:
- *               - question
+ *               - item
  *               - surveyCategories
  *             properties:
- *               question:
+ *               item:
  *                 type: string
- *                 example: "Are all lifeboats fully equipped and functional?"
+ *                 example: "Lifeboats"
+ *               description:
+ *                 type: string
+ *                 example: "Ensure all lifeboats are fully equipped and functional."
+ *               additionalFields:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   enum: [Qty, Capacity, Model or Serial Number]
+ *                 example: ["Qty", "Capacity"]
  *               surveyCategories:
  *                 type: array
  *                 items:
@@ -270,10 +288,16 @@ router.get('/:id', getChecklistQuestionById);
  *       content:
  *         application/json:
  *           schema:
- *             type: object
  *             properties:
- *               question:
+ *               item:
  *                 type: string
+ *               description:
+ *                 type: string
+ *               additionalFields:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   enum: [Qty, Capacity, Model or Serial Number]
  *               surveyCategories:
  *                 type: array
  *                 items:

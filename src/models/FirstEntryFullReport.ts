@@ -12,12 +12,14 @@ export interface IChecklistItemFile {
 // Sub-interface for the checklist items in the full report
 export interface IChecklistItem {
   checklistQuestionId: mongoose.Types.ObjectId;
-  status: 'satisfied' | 'unsatisfied' | 'N/A';
+  isChecked?: boolean;
+  comment?: 'Satisfactory' | 'Unsatisfactory' | 'N/A' | '';
   visitNumber?: string;
   surveyNames?: string[];
   surveyDate?: Date;
   updatedDate?: Date;
   remarks?: string;
+  additionalFields?: { name: string; value: string }[];
   files?: IChecklistItemFile[];
   surveyorId?: mongoose.Types.ObjectId;
   surveyorName?: string;
@@ -59,10 +61,14 @@ const checklistItemSchema = new Schema<IChecklistItem>({
     ref: 'ChecklistQuestion', 
     required: [true, 'Checklist question reference is required'] 
   },
-  status: { 
+  isChecked: {
+    type: Boolean,
+    default: false
+  },
+  comment: { 
     type: String, 
-    enum: ['satisfied', 'unsatisfied', 'N/A'], 
-    default: 'N/A',
+    enum: ['Satisfactory', 'Unsatisfactory', 'N/A', ''], 
+    default: '',
     trim: true
   },
   visitNumber: { 
@@ -85,6 +91,13 @@ const checklistItemSchema = new Schema<IChecklistItem>({
     type: String,
     trim: true,
     default: ''
+  },
+  additionalFields: {
+    type: [{
+      name: { type: String, required: true },
+      value: { type: String, default: '' }
+    }],
+    default: []
   },
   files: {
     type: [checklistItemFileSchema],

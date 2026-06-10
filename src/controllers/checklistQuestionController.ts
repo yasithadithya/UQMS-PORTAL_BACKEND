@@ -10,11 +10,11 @@ const isNonEmptyString = (value: unknown): value is string =>
 
 export const createChecklistQuestion = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { question, surveyCategories, lengths, areaOfOperations, boatTypes, vesselCode, qCategory } = req.body;
+    const { item, description, additionalFields, surveyCategories, lengths, areaOfOperations, boatTypes, vesselCode, qCategory } = req.body;
 
     // Validation
-    if (!isNonEmptyString(question)) {
-      res.status(400).json({ success: false, message: 'Question text is required.' });
+    if (!isNonEmptyString(item)) {
+      res.status(400).json({ success: false, message: 'Item text is required.' });
       return;
     }
 
@@ -27,6 +27,32 @@ export const createChecklistQuestion = async (req: Request, res: Response): Prom
     if (!uniqueSurveyCategories.every((id) => mongoose.isValidObjectId(id))) {
       res.status(400).json({ success: false, message: 'One or more survey category IDs are invalid.' });
       return;
+    }
+
+    // Validate description
+    let validatedDescription: string | null = null;
+    if (description !== undefined && description !== null) {
+      if (typeof description !== 'string') {
+        res.status(400).json({ success: false, message: 'description must be a string.' });
+        return;
+      }
+      validatedDescription = description.trim() || null;
+    }
+
+    // Validate additional fields
+    let validatedAdditionalFields: string[] = [];
+    if (additionalFields !== undefined && additionalFields !== null) {
+      if (!Array.isArray(additionalFields)) {
+        res.status(400).json({ success: false, message: 'additionalFields must be an array.' });
+        return;
+      }
+      const allowedFields = ['Qty', 'Capacity', 'Model or Serial Number'];
+      const invalidFields = additionalFields.filter((f) => !allowedFields.includes(f));
+      if (invalidFields.length > 0) {
+        res.status(400).json({ success: false, message: `Invalid additional field(s): ${invalidFields.join(', ')}` });
+        return;
+      }
+      validatedAdditionalFields = Array.from(new Set(additionalFields.map((f: any) => String(f).trim())));
     }
 
     // Validate lengths
@@ -111,7 +137,9 @@ export const createChecklistQuestion = async (req: Request, res: Response): Prom
     }
 
     const newQuestion = new ChecklistQuestion({
-      question: question.trim(),
+      item: item.trim(),
+      description: validatedDescription,
+      additionalFields: validatedAdditionalFields,
       surveyCategories: uniqueSurveyCategories,
       lengths: validatedLengths,
       areaOfOperations: uniqueAreaIds,
@@ -151,7 +179,7 @@ export const getAllChecklistQuestions = async (req: Request, res: Response): Pro
     const query: any = {};
 
     if (search && typeof search === 'string') {
-      query.question = { $regex: search.trim(), $options: 'i' };
+      query.item = { $regex: search.trim(), $options: 'i' };
     }
 
     if (vesselCode && typeof vesselCode === 'string') {
@@ -257,7 +285,7 @@ export const getChecklistQuestionById = async (req: Request, res: Response): Pro
 export const updateChecklistQuestion = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { question, surveyCategories, lengths, areaOfOperations, boatTypes, vesselCode, qCategory } = req.body;
+    const { item, description, additionalFields, surveyCategories, lengths, areaOfOperations, boatTypes, vesselCode, qCategory } = req.body;
 
     if (!mongoose.isValidObjectId(id)) {
       res.status(400).json({ success: false, message: 'Invalid checklist question ID format.' });
@@ -272,12 +300,42 @@ export const updateChecklistQuestion = async (req: Request, res: Response): Prom
 
     const updates: any = {};
 
-    if (question !== undefined) {
-      if (!isNonEmptyString(question)) {
-        res.status(400).json({ success: false, message: 'Question text cannot be empty.' });
+    if (item !== undefined) {
+      if (!isNonEmptyString(item)) {
+        res.status(400).json({ success: false, message: 'Item text cannot be empty.' });
         return;
       }
-      updates.question = question.trim();
+      updates.item = item.trim();
+    }
+
+    if (description !== undefined) {
+      if (description === null) {
+        updates.description = null;
+      } else {
+        if (typeof description !== 'string') {
+          res.status(400).json({ success: false, message: 'description must be a string.' });
+          return;
+        }
+        updates.description = description.trim() || null;
+      }
+    }
+
+    if (additionalFields !== undefined) {
+      if (additionalFields === null) {
+        updates.additionalFields = [];
+      } else {
+        if (!Array.isArray(additionalFields)) {
+          res.status(400).json({ success: false, message: 'additionalFields must be an array.' });
+          return;
+        }
+        const allowedFields = ['Qty', 'Capacity', 'Model or Serial Number'];
+        const invalidFields = additionalFields.filter((f) => !allowedFields.includes(f));
+        if (invalidFields.length > 0) {
+          res.status(400).json({ success: false, message: `Invalid additional field(s): ${invalidFields.join(', ')}` });
+          return;
+        }
+        updates.additionalFields = Array.from(new Set(additionalFields.map((f: any) => String(f).trim())));
+      }
     }
 
     if (surveyCategories !== undefined) {
