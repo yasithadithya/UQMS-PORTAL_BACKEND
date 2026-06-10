@@ -6,13 +6,23 @@ import {
   updateFirstEntryFullReport,
   deleteFirstEntryFullReport,
   triggerFullReportGeneration,
+  generateDailyReportPdf,
+  getDailyReportPdfPreview,
+  getPublicDailyReportPdf,
 } from '../controllers/firstEntryFullReportController';
 import authMiddleware from '../middleware/auth';
 
 const router = Router();
 
-// Protect all routes under first entry full reports
+// Public route to view daily report PDF via QR scan (unauthenticated)
+router.get('/public-pdf/:id', getPublicDailyReportPdf);
+
+// Protect all routes below under first entry full reports
 router.use(authMiddleware);
+
+// Daily visit report PDF generation routes (authenticated)
+router.post('/:id/daily-report', generateDailyReportPdf);
+router.get('/:id/daily-report-preview', getDailyReportPdfPreview);
 
 /**
  * @swagger

@@ -30,6 +30,13 @@ export interface IFirstEntryFullReport extends Document {
   vesselId: mongoose.Types.ObjectId;                  // Links to Vessel
   uqmsNo?: string;
   checklist: IChecklistItem[];
+  dailyReportPdfKey?: string;
+  dailyReportPdfUrl?: string;
+  dailyReportPdfBucket?: string;
+  dailyReportPdfFilename?: string;
+  dailyReportPdfSize?: number;
+  dailyReportPdfEtag?: string;
+  dailyReportPdfGeneratedAt?: Date;
   createdBy?: mongoose.Types.ObjectId;
   updatedBy?: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -119,6 +126,32 @@ const firstEntryFullReportSchema: Schema = new Schema(
     checklist: {
       type: [checklistItemSchema],
       default: []
+    },
+    dailyReportPdfKey: {
+      type: String,
+      trim: true
+    },
+    dailyReportPdfUrl: {
+      type: String,
+      trim: true
+    },
+    dailyReportPdfBucket: {
+      type: String,
+      trim: true
+    },
+    dailyReportPdfFilename: {
+      type: String,
+      trim: true
+    },
+    dailyReportPdfSize: {
+      type: Number
+    },
+    dailyReportPdfEtag: {
+      type: String,
+      trim: true
+    },
+    dailyReportPdfGeneratedAt: {
+      type: Date
     },
     createdBy: {
       type: Schema.Types.ObjectId,

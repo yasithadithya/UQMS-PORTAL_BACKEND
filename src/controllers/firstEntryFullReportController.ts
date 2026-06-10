@@ -6,6 +6,12 @@ import Vessel from '../models/Vessel';
 import ChecklistQuestion from '../models/ChecklistQuestion';
 import SurveyType from '../models/SurveyType';
 import User from '../models/User';
+import QRCode from 'qrcode';
+import { createDailyReportPdfBuffer } from '../services/dailyReportPdfService';
+import { uploadToR2, deleteFromR2 } from '../services/r2Storage';
+import { getR2Client, getR2Config } from '../config/r2';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { GetObjectCommand } from '@aws-sdk/client-s3';
 
 const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -472,5 +478,183 @@ export const triggerFullReportGeneration = async (req: Request, res: Response): 
       message: 'Error generating First Entry Full Report.',
       error: error.message
     });
+  }
+};
+
+/**
+ * Generate Daily Visit Report PDF, upload to R2, and update FirstEntryFullReport document.
+ */
+export const generateDailyReportPdf = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      res.status(400).json({ success: false, message: 'Invalid full report ID format.' });
+      return;
+    }
+
+    const report = await FirstEntryFullReport.findById(id)
+      .populate('firstEntrySurveyReportId')
+      .populate('bookingId')
+      .populate('vesselId')
+      .populate('checklist.checklistQuestionId');
+
+    if (!report) {
+      res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      return;
+    }
+
+    // Construct the public URL that the QR code will scan redirect to
+    const protocol = req.protocol;
+    const host = req.get('host');
+    const publicUrl = `${protocol}://${host}/api/first-entry-full-reports/public-pdf/${id}`;
+
+    // Generate QR Code PNG Buffer
+    const qrBuffer = await QRCode.toBuffer(publicUrl, { margin: 1, errorCorrectionLevel: 'M' });
+
+    // Generate PDF Buffer
+    const pdfBuffer = await createDailyReportPdfBuffer(report, qrBuffer);
+
+    const filename = `daily-visit-report-${id}.pdf`;
+    const key = `daily-visit-reports/daily-visit-report-${id}.pdf`;
+
+    // Upload PDF to R2
+    const uploadResult = await uploadToR2({
+      key,
+      body: pdfBuffer,
+      contentType: 'application/pdf',
+      contentLength: pdfBuffer.length,
+    });
+
+    // Delete old PDF key from R2 if it exists and is different
+    if (report.dailyReportPdfKey && report.dailyReportPdfKey !== uploadResult.key) {
+      try {
+        await deleteFromR2(report.dailyReportPdfKey);
+      } catch (err) {
+        console.error('Failed to delete old daily visit report PDF from R2:', err);
+      }
+    }
+
+    // Update FirstEntryFullReport PDF metadata
+    report.dailyReportPdfKey = uploadResult.key;
+    report.dailyReportPdfUrl = uploadResult.url;
+    report.dailyReportPdfBucket = uploadResult.bucket;
+    report.dailyReportPdfFilename = filename;
+    report.dailyReportPdfSize = pdfBuffer.length;
+    report.dailyReportPdfEtag = uploadResult.etag;
+    report.dailyReportPdfGeneratedAt = new Date();
+
+    if ((req as any).user?.id) {
+      report.updatedBy = (req as any).user.id;
+    }
+
+    await report.save();
+
+    const populatedReport = await FirstEntryFullReport.findById(report._id)
+      .populate('firstEntrySurveyReportId')
+      .populate('bookingId')
+      .populate('vesselId')
+      .populate('checklist.checklistQuestionId')
+      .populate('createdBy', 'username email')
+      .populate('updatedBy', 'username email');
+
+    const userId = (req as any).user?.id;
+    const filteredReport = filterVisitsForUser(populatedReport, userId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Daily Visit Report PDF generated successfully.',
+      data: filteredReport,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: 'Error generating Daily Visit Report PDF.',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Generate PDF preview on-the-fly and stream it to user.
+ */
+export const getDailyReportPdfPreview = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      res.status(400).json({ success: false, message: 'Invalid full report ID format.' });
+      return;
+    }
+
+    const report = await FirstEntryFullReport.findById(id)
+      .populate('firstEntrySurveyReportId')
+      .populate('bookingId')
+      .populate('vesselId')
+      .populate('checklist.checklistQuestionId');
+
+    if (!report) {
+      res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      return;
+    }
+
+    // Construct a public URL using the request details
+    const protocol = req.protocol;
+    const host = req.get('host');
+    const publicUrl = `${protocol}://${host}/api/first-entry-full-reports/public-pdf/${id}`;
+
+    // Generate QR Code PNG Buffer
+    const qrBuffer = await QRCode.toBuffer(publicUrl, { margin: 1, errorCorrectionLevel: 'M' });
+
+    // Generate PDF Buffer
+    const pdfBuffer = await createDailyReportPdfBuffer(report, qrBuffer);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="daily-report-preview.pdf"');
+    res.send(pdfBuffer);
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: 'Error generating PDF preview.',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Public route to access the PDF. It redirects to a fresh S3/R2 presigned URL.
+ */
+export const getPublicDailyReportPdf = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      res.status(400).send('Invalid report ID format.');
+      return;
+    }
+
+    const report = await FirstEntryFullReport.findById(id);
+    if (!report) {
+      res.status(404).send('First Entry Full Report not found.');
+      return;
+    }
+
+    if (!report.dailyReportPdfKey) {
+      res.status(404).send('Daily visit report PDF has not been generated yet.');
+      return;
+    }
+
+    const client = getR2Client();
+    const config = getR2Config();
+
+    const presignedUrl = await getSignedUrl(
+      client,
+      new GetObjectCommand({
+        Bucket: report.dailyReportPdfBucket || config.bucket,
+        Key: report.dailyReportPdfKey,
+      }),
+      { expiresIn: 60 * 15 } // 15 minutes
+    );
+
+    res.redirect(presignedUrl);
+  } catch (error: any) {
+    res.status(500).send('Error retrieving PDF: ' + error.message);
   }
 };
