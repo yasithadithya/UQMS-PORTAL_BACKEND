@@ -10,6 +10,8 @@ const allowedMimeTypes = new Set([
   'image/png',
   'image/webp',
   'image/gif',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]);
 
 const mimeToExtension = (mimetype: string): string => {
@@ -24,6 +26,10 @@ const mimeToExtension = (mimetype: string): string => {
       return '.webp';
     case 'image/gif':
       return '.gif';
+    case 'application/msword':
+      return '.doc';
+    case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+      return '.docx';
     default:
       return '';
   }
@@ -62,7 +68,7 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
     if (!allowedMimeTypes.has(file.mimetype)) {
       res.status(400).json({
         success: false,
-        message: 'Invalid file type. Only PDF and images are allowed.',
+        message: 'Invalid file type. Only PDF, Word documents, and images are allowed.',
       });
       return;
     }

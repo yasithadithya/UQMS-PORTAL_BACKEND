@@ -70,6 +70,7 @@ export const searchVessels = async (req: Request, res: Response): Promise<void> 
         $or: [
           { uqmsNumber: { $regex: query, $options: 'i' } },
           { vesselName: { $regex: query, $options: 'i' } },
+          { vesselCode: { $regex: query, $options: 'i' } },
         ],
       };
     }
