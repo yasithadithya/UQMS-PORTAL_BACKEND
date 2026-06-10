@@ -220,7 +220,7 @@ export const createDailyReportPdfBuffer = async (
       
       doc.text('No.', innerLeft + 4, y + 5, { width: colWidths[0] - 8, align: 'center' });
       doc.text('Question / Item', innerLeft + colWidths[0] + 5, y + 5, { width: colWidths[1] - 10 });
-      doc.text('Status', innerLeft + colWidths[0] + colWidths[1] + 5, y + 5, { width: colWidths[2] - 10, align: 'center' });
+      doc.text('Checked?', innerLeft + colWidths[0] + colWidths[1] + 5, y + 5, { width: colWidths[2] - 10, align: 'center' });
       doc.text('Remarks & Attachments', innerLeft + colWidths[0] + colWidths[1] + colWidths[2] + 5, y + 5, { width: colWidths[3] - 10 });
 
       return y + 20;
@@ -246,9 +246,31 @@ export const createDailyReportPdfBuffer = async (
 
       const items = grouped[cat];
       items.forEach((item, idx) => {
-        const questionText = toText(item.checklistQuestionId?.question || 'Unknown Question');
-        const status = toText(item.status || 'N/A').toUpperCase();
-        const remarks = toText(item.remarks, '');
+        const questionText = toText(item.checklistQuestionId?.item || item.checklistQuestionId?.question || 'Unknown Item');
+        const isCheckedText = item.isChecked ? 'YES' : 'NO';
+        
+        const addFieldsInfo: string[] = [];
+        
+        // Include the description if it exists
+        if (item.checklistQuestionId?.description) {
+          addFieldsInfo.push(`Description: ${item.checklistQuestionId.description}`);
+        }
+        if (item.additionalFields && Array.isArray(item.additionalFields)) {
+          item.additionalFields.forEach((af: any) => {
+            addFieldsInfo.push(`${af.name}: ${af.value || ''}`);
+          });
+        }
+        
+        if (item.comment) {
+          addFieldsInfo.push(`Comment: ${item.comment}`);
+        }
+        
+        let remarks = toText(item.remarks, '');
+        if (addFieldsInfo.length > 0) {
+          const addFieldsStr = addFieldsInfo.join(' | ');
+          remarks = remarks ? `${remarks}\n(${addFieldsStr})` : `(${addFieldsStr})`;
+        }
+        
         const files = item.files || [];
 
         // Determine text heights to compute required row height
@@ -301,16 +323,13 @@ export const createDailyReportPdfBuffer = async (
           .fillColor('#1f2937')
           .text(questionText, innerLeft + colWidths[0] + 5, currentY + 6, { width: colWidths[1] - 10 });
 
-        // Draw Cell 3: Status
-        let statusColor = '#4b5563'; // gray for N/A
-        if (item.status === 'satisfied') statusColor = '#15803d'; // green
-        if (item.status === 'unsatisfied') statusColor = '#b91c1c'; // red
+        let statusColor = item.isChecked ? '#15803d' : '#b91c1c';
 
         doc
           .font('Helvetica-Bold')
           .fontSize(9)
           .fillColor(statusColor)
-          .text(status, innerLeft + colWidths[0] + colWidths[1] + 5, currentY + 6, {
+          .text(isCheckedText, innerLeft + colWidths[0] + colWidths[1] + 5, currentY + 6, {
             width: colWidths[2] - 10,
             align: 'center',
           });
