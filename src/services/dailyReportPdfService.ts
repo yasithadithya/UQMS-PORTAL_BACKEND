@@ -28,7 +28,8 @@ const formatDate = (value?: Date | string): string => {
   if (!value) return '-';
   const dateObj = typeof value === 'string' ? new Date(value) : value;
   if (isNaN(dateObj.getTime())) return '-';
-  return new Intl.DateTimeFormat('en-LK', {
+  // Use en-GB locale to guarantee dd/mm/yyyy formatting standard
+  return new Intl.DateTimeFormat('en-GB', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',

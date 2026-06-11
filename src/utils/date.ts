@@ -1,3 +1,9 @@
+/**
+ * Project Date Formatting Standard: dd/mm/yyyy
+ * All displayed/reported dates in the backend must be formatted consistently in dd/mm/yyyy format.
+ * Developers should utilize formatting helpers defined in this file.
+ */
+
 const IST_TIME_ZONE = 'Asia/Kolkata';
 
 const ddMmYyyyFormatter = new Intl.DateTimeFormat('en-GB', {
