@@ -30,12 +30,17 @@ const getPrePopulatedData = async (bookingId: string): Promise<any> => {
     if (sortedVisits[0]?.visitDate) {
       firstSurveyDate = new Date(sortedVisits[0].visitDate);
     }
-    if (sortedVisits[sortedVisits.length - 1]?.visitDate) {
-      lastSurveyDate = new Date(sortedVisits[sortedVisits.length - 1].visitDate);
+    
+    // Find the visit marked as the last visit date
+    const lastVisitDetail = booking.visitDetails.find(
+      (v: any) => v.isLastVisitDate === true || v.isLastVist === true
+    );
+    if (lastVisitDetail?.visitDate) {
+      lastSurveyDate = new Date(lastVisitDetail.visitDate);
     }
   }
 
-  // Fallback for last visit date if no visits are in the list but booking has a last visit date
+  // Fallback for last visit date if no visits are in the list or none is marked, but booking has a last visit date
   if (!lastSurveyDate && (booking.lastVisitDate || booking.lastVisit)) {
     lastSurveyDate = booking.lastVisitDate ? new Date(booking.lastVisitDate) : new Date(booking.lastVisit!);
   }

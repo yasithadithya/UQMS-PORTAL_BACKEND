@@ -180,6 +180,8 @@ export const getAllFirstEntryFullReports = async (req: Request, res: Response): 
       .populate('checklist.checklistQuestionId')
       .populate('createdBy', 'username email')
       .populate('updatedBy', 'username email')
+      .populate('remarks.createdBy', 'username email')
+      .populate('remarks.comments.createdBy', 'username email')
       .sort({ createdAt: -1 });
 
     const userId = (req as any).user?.id;
@@ -216,7 +218,9 @@ export const getFirstEntryFullReportById = async (req: Request, res: Response): 
       .populate('vesselId')
       .populate('checklist.checklistQuestionId')
       .populate('createdBy', 'username email')
-      .populate('updatedBy', 'username email');
+      .populate('updatedBy', 'username email')
+      .populate('remarks.createdBy', 'username email')
+      .populate('remarks.comments.createdBy', 'username email');
 
     if (!report) {
       res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
@@ -256,7 +260,9 @@ export const getFirstEntryFullReportBySurveyReportId = async (req: Request, res:
       .populate('vesselId')
       .populate('checklist.checklistQuestionId')
       .populate('createdBy', 'username email')
-      .populate('updatedBy', 'username email');
+      .populate('updatedBy', 'username email')
+      .populate('remarks.createdBy', 'username email')
+      .populate('remarks.comments.createdBy', 'username email');
 
     if (!report) {
       res.status(404).json({ success: false, message: 'First Entry Full Report not found for this survey report.' });
@@ -394,7 +400,9 @@ export const updateFirstEntryFullReport = async (req: Request, res: Response): P
       .populate('vesselId')
       .populate('checklist.checklistQuestionId')
       .populate('createdBy', 'username email')
-      .populate('updatedBy', 'username email');
+      .populate('updatedBy', 'username email')
+      .populate('remarks.createdBy', 'username email')
+      .populate('remarks.comments.createdBy', 'username email');
 
     if (!updatedReport) {
       res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
@@ -472,7 +480,9 @@ export const triggerFullReportGeneration = async (req: Request, res: Response): 
       .populate('vesselId')
       .populate('checklist.checklistQuestionId')
       .populate('createdBy', 'username email')
-      .populate('updatedBy', 'username email');
+      .populate('updatedBy', 'username email')
+      .populate('remarks.createdBy', 'username email')
+      .populate('remarks.comments.createdBy', 'username email');
 
     const userId = (req as any).user?.id;
     const filteredReport = filterVisitsForUser(populatedFullReport, userId);
@@ -488,6 +498,51 @@ export const triggerFullReportGeneration = async (req: Request, res: Response): 
       message: 'Error generating First Entry Full Report.',
       error: error.message
     });
+  }
+};
+
+/**
+ * Helper to validate that PDF generation is allowed based on remarks.
+ */
+const validatePdfGenerationRemarks = (report: any): void => {
+  if (!report.remarks || report.remarks.length === 0) {
+    throw new Error('Cannot generate Daily Visit Report PDF without adding a general remark first.');
+  }
+
+  // Find latest checklist update time
+  let latestChecklistUpdate = new Date(0);
+  if (report.checklist && report.checklist.length > 0) {
+    report.checklist.forEach((item: any) => {
+      if (item.updatedDate) {
+        const upDate = new Date(item.updatedDate);
+        if (upDate > latestChecklistUpdate) {
+          latestChecklistUpdate = upDate;
+        }
+      }
+    });
+  }
+
+  // Find latest remark activity time
+  let latestRemarkActivity = new Date(0);
+  if (report.remarks && report.remarks.length > 0) {
+    report.remarks.forEach((rem: any) => {
+      if (rem.createdAt) {
+        const cDate = new Date(rem.createdAt);
+        if (cDate > latestRemarkActivity) {
+          latestRemarkActivity = cDate;
+        }
+      }
+      if (rem.updatedAt) {
+        const uDate = new Date(rem.updatedAt);
+        if (uDate > latestRemarkActivity) {
+          latestRemarkActivity = uDate;
+        }
+      }
+    });
+  }
+
+  if (latestChecklistUpdate.getTime() > latestRemarkActivity.getTime()) {
+    throw new Error('You have modified checklist items since the last remark activity. Please add a new remark or close/reopen a remark before generating the report.');
   }
 };
 
@@ -510,6 +565,14 @@ export const generateDailyReportPdf = async (req: Request, res: Response): Promi
 
     if (!report) {
       res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      return;
+    }
+
+    // Validate remarks constraints
+    try {
+      validatePdfGenerationRemarks(report);
+    } catch (validationErr: any) {
+      res.status(400).json({ success: false, message: validationErr.message });
       return;
     }
 
@@ -565,7 +628,9 @@ export const generateDailyReportPdf = async (req: Request, res: Response): Promi
       .populate('vesselId')
       .populate('checklist.checklistQuestionId')
       .populate('createdBy', 'username email')
-      .populate('updatedBy', 'username email');
+      .populate('updatedBy', 'username email')
+      .populate('remarks.createdBy', 'username email')
+      .populate('remarks.comments.createdBy', 'username email');
 
     const userId = (req as any).user?.id;
     const filteredReport = filterVisitsForUser(populatedReport, userId);
@@ -603,6 +668,14 @@ export const getDailyReportPdfPreview = async (req: Request, res: Response): Pro
 
     if (!report) {
       res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      return;
+    }
+
+    // Validate remarks constraints
+    try {
+      validatePdfGenerationRemarks(report);
+    } catch (validationErr: any) {
+      res.status(400).json({ success: false, message: validationErr.message });
       return;
     }
 
@@ -666,5 +739,310 @@ export const getPublicDailyReportPdf = async (req: Request, res: Response): Prom
     res.redirect(presignedUrl);
   } catch (error: any) {
     res.status(500).send('Error retrieving PDF: ' + error.message);
+  }
+};
+
+/**
+ * Add a new general remark to a full report.
+ */
+export const addGeneralRemark = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { text } = req.body;
+    const userId = (req as any).user?.id;
+
+    if (!text || !text.trim()) {
+      res.status(400).json({ success: false, message: 'Remark text is required.' });
+      return;
+    }
+
+    const userObj = await User.findById(userId);
+    if (!userObj) {
+      res.status(401).json({ success: false, message: 'User not found.' });
+      return;
+    }
+
+    const report = await FirstEntryFullReport.findById(id);
+    if (!report) {
+      res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      return;
+    }
+
+    const newRemark = {
+      text: text.trim(),
+      isClosed: false,
+      createdBy: userObj._id,
+      createdByName: userObj.username,
+      comments: []
+    };
+
+    report.remarks = report.remarks || [];
+    report.remarks.push(newRemark as any);
+
+    await report.save();
+
+    const updatedReport = await FirstEntryFullReport.findById(id)
+      .populate('firstEntrySurveyReportId')
+      .populate('bookingId')
+      .populate('vesselId')
+      .populate('checklist.checklistQuestionId')
+      .populate('createdBy', 'username email')
+      .populate('updatedBy', 'username email')
+      .populate('remarks.createdBy', 'username email')
+      .populate('remarks.comments.createdBy', 'username email');
+
+    res.status(200).json({
+      success: true,
+      message: 'General remark added successfully.',
+      data: filterVisitsForUser(updatedReport, userId)
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: 'Error adding general remark.',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Edit an existing general remark (only the creator can edit).
+ */
+export const editGeneralRemark = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id, remarkId } = req.params;
+    const { text } = req.body;
+    const userId = (req as any).user?.id;
+
+    if (!text || !text.trim()) {
+      res.status(400).json({ success: false, message: 'Remark text is required.' });
+      return;
+    }
+
+    const report = await FirstEntryFullReport.findById(id);
+    if (!report) {
+      res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      return;
+    }
+
+    const remark = report.remarks.find((r: any) => r._id.toString() === remarkId);
+    if (!remark) {
+      res.status(404).json({ success: false, message: 'Remark not found.' });
+      return;
+    }
+
+    if (remark.createdBy.toString() !== userId) {
+      res.status(403).json({ success: false, message: 'Only the creator of the remark can edit it.' });
+      return;
+    }
+
+    remark.text = text.trim();
+    remark.updatedAt = new Date();
+
+    await report.save();
+
+    const updatedReport = await FirstEntryFullReport.findById(id)
+      .populate('firstEntrySurveyReportId')
+      .populate('bookingId')
+      .populate('vesselId')
+      .populate('checklist.checklistQuestionId')
+      .populate('createdBy', 'username email')
+      .populate('updatedBy', 'username email')
+      .populate('remarks.createdBy', 'username email')
+      .populate('remarks.comments.createdBy', 'username email');
+
+    res.status(200).json({
+      success: true,
+      message: 'General remark updated successfully.',
+      data: filterVisitsForUser(updatedReport, userId)
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: 'Error updating general remark.',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Toggle the open/closed status of a general remark.
+ */
+export const toggleCloseGeneralRemark = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id, remarkId } = req.params;
+    const userId = (req as any).user?.id;
+
+    const report = await FirstEntryFullReport.findById(id);
+    if (!report) {
+      res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      return;
+    }
+
+    const remark = report.remarks.find((r: any) => r._id.toString() === remarkId);
+    if (!remark) {
+      res.status(404).json({ success: false, message: 'Remark not found.' });
+      return;
+    }
+
+    remark.isClosed = !remark.isClosed;
+    remark.updatedAt = new Date();
+
+    await report.save();
+
+    const updatedReport = await FirstEntryFullReport.findById(id)
+      .populate('firstEntrySurveyReportId')
+      .populate('bookingId')
+      .populate('vesselId')
+      .populate('checklist.checklistQuestionId')
+      .populate('createdBy', 'username email')
+      .populate('updatedBy', 'username email')
+      .populate('remarks.createdBy', 'username email')
+      .populate('remarks.comments.createdBy', 'username email');
+
+    res.status(200).json({
+      success: true,
+      message: `General remark ${remark.isClosed ? 'closed' : 'reopened'} successfully.`,
+      data: filterVisitsForUser(updatedReport, userId)
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: 'Error toggling remark closed status.',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Add a comment to a general remark.
+ */
+export const addRemarkComment = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id, remarkId } = req.params;
+    const { text } = req.body;
+    const userId = (req as any).user?.id;
+
+    if (!text || !text.trim()) {
+      res.status(400).json({ success: false, message: 'Comment text is required.' });
+      return;
+    }
+
+    const userObj = await User.findById(userId);
+    if (!userObj) {
+      res.status(401).json({ success: false, message: 'User not found.' });
+      return;
+    }
+
+    const report = await FirstEntryFullReport.findById(id);
+    if (!report) {
+      res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      return;
+    }
+
+    const remark = report.remarks.find((r: any) => r._id.toString() === remarkId);
+    if (!remark) {
+      res.status(404).json({ success: false, message: 'Remark not found.' });
+      return;
+    }
+
+    const newComment = {
+      text: text.trim(),
+      createdBy: userObj._id,
+      createdByName: userObj.username
+    };
+
+    remark.comments = remark.comments || [];
+    remark.comments.push(newComment as any);
+
+    await report.save();
+
+    const updatedReport = await FirstEntryFullReport.findById(id)
+      .populate('firstEntrySurveyReportId')
+      .populate('bookingId')
+      .populate('vesselId')
+      .populate('checklist.checklistQuestionId')
+      .populate('createdBy', 'username email')
+      .populate('updatedBy', 'username email')
+      .populate('remarks.createdBy', 'username email')
+      .populate('remarks.comments.createdBy', 'username email');
+
+    res.status(200).json({
+      success: true,
+      message: 'Comment added successfully.',
+      data: filterVisitsForUser(updatedReport, userId)
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: 'Error adding comment to remark.',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Edit an existing comment on a general remark (only the creator can edit).
+ */
+export const editRemarkComment = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id, remarkId, commentId } = req.params;
+    const { text } = req.body;
+    const userId = (req as any).user?.id;
+
+    if (!text || !text.trim()) {
+      res.status(400).json({ success: false, message: 'Comment text is required.' });
+      return;
+    }
+
+    const report = await FirstEntryFullReport.findById(id);
+    if (!report) {
+      res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      return;
+    }
+
+    const remark = report.remarks.find((r: any) => r._id.toString() === remarkId);
+    if (!remark) {
+      res.status(404).json({ success: false, message: 'Remark not found.' });
+      return;
+    }
+
+    const comment = remark.comments.find((c: any) => c._id.toString() === commentId);
+    if (!comment) {
+      res.status(404).json({ success: false, message: 'Comment not found.' });
+      return;
+    }
+
+    if (comment.createdBy.toString() !== userId) {
+      res.status(403).json({ success: false, message: 'Only the creator of the comment can edit it.' });
+      return;
+    }
+
+    comment.text = text.trim();
+    comment.updatedAt = new Date();
+
+    await report.save();
+
+    const updatedReport = await FirstEntryFullReport.findById(id)
+      .populate('firstEntrySurveyReportId')
+      .populate('bookingId')
+      .populate('vesselId')
+      .populate('checklist.checklistQuestionId')
+      .populate('createdBy', 'username email')
+      .populate('updatedBy', 'username email')
+      .populate('remarks.createdBy', 'username email')
+      .populate('remarks.comments.createdBy', 'username email');
+
+    res.status(200).json({
+      success: true,
+      message: 'Comment updated successfully.',
+      data: filterVisitsForUser(updatedReport, userId)
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: 'Error updating comment.',
+      error: error.message
+    });
   }
 };
