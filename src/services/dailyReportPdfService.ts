@@ -28,7 +28,8 @@ const formatDate = (value?: Date | string): string => {
   if (!value) return '-';
   const dateObj = typeof value === 'string' ? new Date(value) : value;
   if (isNaN(dateObj.getTime())) return '-';
-  return new Intl.DateTimeFormat('en-LK', {
+  // Use en-GB locale to guarantee dd/mm/yyyy formatting standard
+  return new Intl.DateTimeFormat('en-GB', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -205,23 +206,30 @@ export const createDailyReportPdfBuffer = async (
       grouped[cat].push(item);
     });
 
-    const colWidths = [30, 260, 80, 145]; // Total 515 matching pageWidth
+    const colWidths = [25, 210, 55, 85, 140]; // Total 515 matching pageWidth
 
     const drawTableHeaders = (y: number) => {
-      doc.rect(innerLeft, y, colWidths[0], 20).stroke();
-      doc.rect(innerLeft + colWidths[0], y, colWidths[1], 20).stroke();
-      doc.rect(innerLeft + colWidths[0] + colWidths[1], y, colWidths[2], 20).stroke();
-      doc.rect(innerLeft + colWidths[0] + colWidths[1] + colWidths[2], y, colWidths[3], 20).stroke();
+      let currentX = innerLeft;
+      colWidths.forEach((width) => {
+        doc.rect(currentX, y, width, 20).stroke();
+        currentX += width;
+      });
 
       doc
         .font('Helvetica-Bold')
         .fontSize(9)
         .fillColor('#000000');
       
-      doc.text('No.', innerLeft + 4, y + 5, { width: colWidths[0] - 8, align: 'center' });
-      doc.text('Question / Item', innerLeft + colWidths[0] + 5, y + 5, { width: colWidths[1] - 10 });
-      doc.text('Checked?', innerLeft + colWidths[0] + colWidths[1] + 5, y + 5, { width: colWidths[2] - 10, align: 'center' });
-      doc.text('Remarks & Attachments', innerLeft + colWidths[0] + colWidths[1] + colWidths[2] + 5, y + 5, { width: colWidths[3] - 10 });
+      let x = innerLeft;
+      doc.text('No.', x + 2, y + 5, { width: colWidths[0] - 4, align: 'center' });
+      x += colWidths[0];
+      doc.text('Question / Item', x + 5, y + 5, { width: colWidths[1] - 10 });
+      x += colWidths[1];
+      doc.text('Checked?', x + 2, y + 5, { width: colWidths[2] - 4, align: 'center' });
+      x += colWidths[2];
+      doc.text('Comment', x + 5, y + 5, { width: colWidths[3] - 10, align: 'center' });
+      x += colWidths[3];
+      doc.text('Remarks & Attachments', x + 5, y + 5, { width: colWidths[4] - 10 });
 
       return y + 20;
     };
@@ -248,21 +256,14 @@ export const createDailyReportPdfBuffer = async (
       items.forEach((item, idx) => {
         const questionText = toText(item.checklistQuestionId?.item || item.checklistQuestionId?.question || 'Unknown Item');
         const isCheckedText = item.isChecked ? 'YES' : 'NO';
+        const commentText = toText(item.comment, '-');
         
         const addFieldsInfo: string[] = [];
         
-        // Include the description if it exists
-        if (item.checklistQuestionId?.description) {
-          addFieldsInfo.push(`Description: ${item.checklistQuestionId.description}`);
-        }
         if (item.additionalFields && Array.isArray(item.additionalFields)) {
           item.additionalFields.forEach((af: any) => {
             addFieldsInfo.push(`${af.name}: ${af.value || ''}`);
           });
-        }
-        
-        if (item.comment) {
-          addFieldsInfo.push(`Comment: ${item.comment}`);
         }
         
         let remarks = toText(item.remarks, '');
@@ -275,14 +276,24 @@ export const createDailyReportPdfBuffer = async (
 
         // Determine text heights to compute required row height
         doc.font('Helvetica').fontSize(9);
-        const qHeight = doc.heightOfString(questionText, { width: colWidths[1] - 10 }) + 10;
+        let qHeight = doc.heightOfString(questionText, { width: colWidths[1] - 10 });
         
-        let remarksHeight = doc.heightOfString(remarks || '-', { width: colWidths[3] - 10 }) + 10;
+        const descriptionText = item.checklistQuestionId?.description ? toText(item.checklistQuestionId.description, '') : '';
+        if (descriptionText) {
+          doc.font('Helvetica-Oblique').fontSize(8);
+          qHeight += doc.heightOfString(descriptionText, { width: colWidths[1] - 10 }) + 4;
+        }
+        qHeight += 10;
+
+        doc.font('Helvetica').fontSize(9);
+        const commentHeight = doc.heightOfString(commentText, { width: colWidths[3] - 10 }) + 10;
+        
+        let remarksHeight = doc.heightOfString(remarks || '-', { width: colWidths[4] - 10 }) + 10;
         if (files.length > 0) {
           remarksHeight += files.length * 14;
         }
 
-        const rowHeight = Math.max(30, qHeight, remarksHeight);
+        const rowHeight = Math.max(30, qHeight, commentHeight, remarksHeight);
 
         // Check page overflow
         if (currentY + rowHeight > pageContentBottom) {
@@ -292,7 +303,7 @@ export const createDailyReportPdfBuffer = async (
         }
 
         // Highlight unsatisfied row in red
-        const isUnsatisfied = item.status === 'unsatisfied';
+        const isUnsatisfied = item.comment === 'Unsatisfactory';
         if (isUnsatisfied) {
           doc
             .rect(innerLeft, currentY, pageWidth, rowHeight)
@@ -314,38 +325,70 @@ export const createDailyReportPdfBuffer = async (
           .font('Helvetica')
           .fontSize(9)
           .fillColor('#4b5563')
-          .text(String(idx + 1), innerLeft + 4, currentY + 6, { width: colWidths[0] - 8, align: 'center' });
+          .text(String(idx + 1), innerLeft + 2, currentY + 6, { width: colWidths[0] - 4, align: 'center' });
 
-        // Draw Cell 2: Question
+        // Draw Cell 2: Question & Description
+        let qTextY = currentY + 6;
         doc
           .font('Helvetica')
           .fontSize(9)
           .fillColor('#1f2937')
-          .text(questionText, innerLeft + colWidths[0] + 5, currentY + 6, { width: colWidths[1] - 10 });
+          .text(questionText, innerLeft + colWidths[0] + 5, qTextY, { width: colWidths[1] - 10 });
+        
+        if (descriptionText) {
+          qTextY += doc.font('Helvetica').fontSize(9).heightOfString(questionText, { width: colWidths[1] - 10 }) + 4;
+          doc
+            .font('Helvetica-Oblique')
+            .fontSize(8)
+            .fillColor('#4b5563')
+            .text(descriptionText, innerLeft + colWidths[0] + 5, qTextY, { width: colWidths[1] - 10 });
+        }
 
         let statusColor = item.isChecked ? '#15803d' : '#b91c1c';
 
+        // Draw Cell 3: Checked
         doc
           .font('Helvetica-Bold')
           .fontSize(9)
           .fillColor(statusColor)
-          .text(isCheckedText, innerLeft + colWidths[0] + colWidths[1] + 5, currentY + 6, {
-            width: colWidths[2] - 10,
+          .text(isCheckedText, innerLeft + colWidths[0] + colWidths[1] + 2, currentY + 6, {
+            width: colWidths[2] - 4,
             align: 'center',
           });
 
-        // Draw Cell 4: Remarks & Attachments
+        // Draw Cell 4: Comment (New Column)
+        let commentColor = '#1f2937';
+        if (item.comment === 'Satisfactory') {
+          commentColor = '#15803d';
+        } else if (item.comment === 'Unsatisfactory') {
+          commentColor = '#b91c1c';
+        } else if (item.comment === 'N/A') {
+          commentColor = '#4b5563';
+        }
+
+        const commentX = innerLeft + colWidths[0] + colWidths[1] + colWidths[2];
+        doc
+          .font('Helvetica-Bold')
+          .fontSize(9)
+          .fillColor(commentColor)
+          .text(commentText, commentX + 5, currentY + 6, {
+            width: colWidths[3] - 10,
+            align: 'center',
+          });
+
+        // Draw Cell 5: Remarks & Attachments
+        const remarksX = innerLeft + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3];
         let textY = currentY + 6;
         doc
           .font('Helvetica')
           .fontSize(9)
           .fillColor('#1f2937')
-          .text(remarks || (files.length === 0 ? '-' : ''), innerLeft + colWidths[0] + colWidths[1] + colWidths[2] + 5, textY, {
-            width: colWidths[3] - 10,
+          .text(remarks || (files.length === 0 ? '-' : ''), remarksX + 5, textY, {
+            width: colWidths[4] - 10,
           });
 
         if (remarks) {
-          textY += doc.heightOfString(remarks, { width: colWidths[3] - 10 }) + 4;
+          textY += doc.heightOfString(remarks, { width: colWidths[4] - 10 }) + 4;
         }
 
         if (files.length > 0) {
@@ -355,8 +398,8 @@ export const createDailyReportPdfBuffer = async (
               .font('Helvetica-Bold')
               .fontSize(8.5)
               .fillColor('#1d4ed8')
-              .text(`📎 ${filename}`, innerLeft + colWidths[0] + colWidths[1] + colWidths[2] + 5, textY, {
-                width: colWidths[3] - 10,
+              .text(`📎 ${filename}`, remarksX + 5, textY, {
+                width: colWidths[4] - 10,
                 link: file.url,
                 underline: true,
               });
@@ -369,6 +412,74 @@ export const createDailyReportPdfBuffer = async (
 
       currentY += 15; // gap between categories
     }
+
+    // 5. Draw General Remarks Section
+    const openRemarks = (report.remarks || []).filter((rem: any) => !rem.isClosed);
+    if (openRemarks.length > 0) {
+      if (currentY + 50 > pageContentBottom) {
+        doc.addPage();
+        currentY = drawHeaderAndQR(doc.bufferedPageRange().count - 1);
+      }
+
+      currentY += 10;
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(10)
+        .fillColor('#1f4e79')
+        .text('GENERAL REMARKS', innerLeft, currentY);
+
+      currentY += 15;
+
+      openRemarks.forEach((rem: any) => {
+        const dateStr = formatDate(rem.createdAt);
+        const creatorName = rem.createdByName || (rem.createdBy && rem.createdBy.username) || 'System';
+        const remarkHeader = `${creatorName} (${dateStr})`;
+        const remarkText = rem.text || '';
+
+        doc.font('Helvetica-Bold').fontSize(9);
+        const headerHeight = doc.heightOfString(remarkHeader, { width: pageWidth - 20 }) + 2;
+
+        doc.font('Helvetica').fontSize(9);
+        const textHeight = doc.heightOfString(remarkText, { width: pageWidth - 20 }) + 5;
+
+        const remarkHeight = headerHeight + textHeight + 10;
+
+        if (currentY + remarkHeight > pageContentBottom) {
+          doc.addPage();
+          currentY = drawHeaderAndQR(doc.bufferedPageRange().count - 1);
+        }
+
+        // Draw light grey container
+        doc
+          .rect(innerLeft, currentY, pageWidth, remarkHeight)
+          .fillColor('#f9fafb')
+          .fill();
+
+        // Draw border line
+        doc
+          .rect(innerLeft, currentY, pageWidth, remarkHeight)
+          .lineWidth(0.5)
+          .strokeColor('#e5e7eb')
+          .stroke();
+
+        // Draw text
+        doc
+          .font('Helvetica-Bold')
+          .fontSize(8.5)
+          .fillColor('#4b5563')
+          .text(remarkHeader, innerLeft + 10, currentY + 6, { width: pageWidth - 20 });
+
+        doc
+          .font('Helvetica')
+          .fontSize(9)
+          .fillColor('#1f2937')
+          .text(remarkText, innerLeft + 10, currentY + 6 + headerHeight, { width: pageWidth - 20 });
+
+        currentY += remarkHeight + 8;
+      });
+    }
+
+    doc.lineWidth(1).strokeColor('#000000'); // Reset stroke settings
 
     // Add Page Numbers to Footers dynamically
     const totalPages = doc.bufferedPageRange().count;

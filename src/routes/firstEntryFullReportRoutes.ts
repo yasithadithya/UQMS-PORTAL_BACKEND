@@ -9,6 +9,11 @@ import {
   generateDailyReportPdf,
   getDailyReportPdfPreview,
   getPublicDailyReportPdf,
+  addGeneralRemark,
+  editGeneralRemark,
+  toggleCloseGeneralRemark,
+  addRemarkComment,
+  editRemarkComment,
 } from '../controllers/firstEntryFullReportController';
 import authMiddleware from '../middleware/auth';
 
@@ -23,6 +28,13 @@ router.use(authMiddleware);
 // Daily visit report PDF generation routes (authenticated)
 router.post('/:id/daily-report', generateDailyReportPdf);
 router.get('/:id/daily-report-preview', getDailyReportPdfPreview);
+
+// Remarks and comments routes (authenticated)
+router.post('/:id/remarks', addGeneralRemark);
+router.put('/:id/remarks/:remarkId', editGeneralRemark);
+router.put('/:id/remarks/:remarkId/toggle-close', toggleCloseGeneralRemark);
+router.post('/:id/remarks/:remarkId/comments', addRemarkComment);
+router.put('/:id/remarks/:remarkId/comments/:commentId', editRemarkComment);
 
 /**
  * @swagger

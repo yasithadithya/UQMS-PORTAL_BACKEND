@@ -55,6 +55,34 @@ const options: swaggerJsdoc.Options = {
             },
           },
         },
+        VesselCode: {
+          type: 'object',
+          required: ['code', 'description'],
+          properties: {
+            _id: {
+              type: 'string',
+              description: 'Auto-generated MongoDB ID',
+            },
+            code: {
+              type: 'string',
+              description: 'Vessel code identifier',
+              example: 'VC01',
+            },
+            description: {
+              type: 'string',
+              description: 'Vessel code description',
+              example: 'Standard Cargo Code 01',
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time',
+            },
+          },
+        },
         SurveyType: {
           type: 'object',
           required: ['code', 'name'],

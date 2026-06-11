@@ -10,7 +10,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "seed": "ts-node src/seed.ts",
-    "seed:operations": "ts-node src/seedOperations.ts"
+    "seed:operations": "ts-node src/seedOperations.ts",
+    "seed:vessel-codes": "ts-node src/seedVesselCodes.ts"
   },
   "keywords": [],
   "author": "",
