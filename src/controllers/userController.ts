@@ -5,7 +5,7 @@ import Role from '../models/Role';
 // Create a new user
 export const createUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { username, email, password, role } = req.body;
+    const { username, email, password, role, fullName, nameWithInitials, phoneNumber, address, dob, empNumber } = req.body;
 
     // Check if role exists
     const roleExists = await Role.findById(role);
@@ -30,7 +30,18 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    const user = new User({ username, email, password, role });
+    const user = new User({
+      username,
+      email,
+      password,
+      role,
+      fullName,
+      nameWithInitials,
+      phoneNumber,
+      address,
+      dob: dob ? new Date(dob) : null,
+      empNumber
+    });
     await user.save();
 
     // Return user without password
@@ -119,7 +130,7 @@ export const getUserById = async (req: Request, res: Response): Promise<void> =>
 // Update user
 export const updateUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { username, email, password, role } = req.body;
+    const { username, email, password, role, fullName, nameWithInitials, phoneNumber, address, dob, empNumber } = req.body;
 
     // If role is being updated, verify it exists
     if (role) {
@@ -148,6 +159,12 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
     if (email) user.email = email;
     if (password) user.password = password; // Will be hashed by pre-save hook
     if (role) user.role = role;
+    if (fullName !== undefined) user.fullName = fullName;
+    if (nameWithInitials !== undefined) user.nameWithInitials = nameWithInitials;
+    if (phoneNumber !== undefined) user.phoneNumber = phoneNumber;
+    if (address !== undefined) user.address = address;
+    if (dob !== undefined) user.dob = dob ? new Date(dob) : null;
+    if (empNumber !== undefined) user.empNumber = empNumber;
 
     await user.save();
 

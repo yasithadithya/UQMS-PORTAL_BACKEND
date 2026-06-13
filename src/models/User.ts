@@ -6,6 +6,12 @@ export interface IUser extends Document {
   email: string;
   password: string;
   role: mongoose.Types.ObjectId;
+  fullName: string;
+  nameWithInitials?: string;
+  phoneNumber: string;
+  address?: string;
+  dob?: Date | null;
+  empNumber?: string;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -37,6 +43,32 @@ const userSchema: Schema = new Schema(
       type: Schema.Types.ObjectId,
       ref: 'Role',
       required: [true, 'Role is required'],
+    },
+    fullName: {
+      type: String,
+      required: [true, 'Full name is required'],
+      trim: true,
+    },
+    nameWithInitials: {
+      type: String,
+      trim: true,
+    },
+    phoneNumber: {
+      type: String,
+      required: [true, 'Phone number is required'],
+      trim: true,
+    },
+    address: {
+      type: String,
+      trim: true,
+    },
+    dob: {
+      type: Date,
+      default: null,
+    },
+    empNumber: {
+      type: String,
+      trim: true,
     },
   },
   {

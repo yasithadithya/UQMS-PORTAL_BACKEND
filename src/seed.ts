@@ -37,6 +37,8 @@ const seedData = async () => {
       email: 'admin@shipping.com',
       password: 'admin123',
       role: adminRole!._id,
+      fullName: 'Administrator',
+      phoneNumber: '0000000000',
     });
     console.log(`✅ Created admin user: ${adminUser.email} (password: admin123)`);
 
