@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { AuthRequest } from '../middleware/auth';
 import User from '../models/User';
 import Role from '../models/Role';
 
@@ -128,12 +129,43 @@ export const getUserById = async (req: Request, res: Response): Promise<void> =>
 };
 
 // Update user
-export const updateUser = async (req: Request, res: Response): Promise<void> => {
+export const updateUser = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { username, email, password, role, fullName, nameWithInitials, phoneNumber, address, dob, empNumber } = req.body;
 
-    // If role is being updated, verify it exists
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'Forbidden. No authentication user details found.',
+      });
+      return;
+    }
+
+    const targetUserId = req.params.id;
+    const currentUserId = req.user.id;
+
+    // Check if the current user is an admin or the target user itself
+    const roleObj = req.user.role as any;
+    const roleName = typeof roleObj === 'object' && roleObj !== null ? roleObj.roleName : roleObj;
+    const isAdmin = typeof roleName === 'string' && roleName.toLowerCase() === 'admin';
+
+    if (currentUserId !== targetUserId && !isAdmin) {
+      res.status(403).json({
+        success: false,
+        message: 'Forbidden. You are not authorized to update this user.',
+      });
+      return;
+    }
+
+    // If role is being updated, verify it exists and caller is admin
     if (role) {
+      if (!isAdmin) {
+        res.status(403).json({
+          success: false,
+          message: 'Forbidden. Non-admin users cannot change roles.',
+        });
+        return;
+      }
       const roleExists = await Role.findById(role);
       if (!roleExists) {
         res.status(400).json({
@@ -144,7 +176,7 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
       }
     }
 
-    const user = await User.findById(req.params.id);
+    const user = await User.findById(targetUserId);
 
     if (!user) {
       res.status(404).json({
