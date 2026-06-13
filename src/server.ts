@@ -18,6 +18,8 @@ import firstEntrySurveyBookingRoutes from './routes/firstEntrySurveyBookingRoute
 import firstEntrySurveyReportRoutes from './routes/firstEntrySurveyReportRoutes';
 import firstEntryFullReportRoutes from './routes/firstEntryFullReportRoutes';
 import checklistQuestionRoutes from './routes/checklistQuestionRoutes';
+import scccosRoutes from './routes/scccosRoutes';
+import noteRoutes from './routes/noteRoutes';
 import { seedModulesAndAdminPermissions } from './config/seedModules';
 import { formatDate } from './utils/date';
 
@@ -56,6 +58,8 @@ app.use('/api/first-entry-survey-bookings', firstEntrySurveyBookingRoutes);
 app.use('/api/first-entry-survey-reports', firstEntrySurveyReportRoutes);
 app.use('/api/first-entry-full-reports', firstEntryFullReportRoutes);
 app.use('/api/checklist-questions', checklistQuestionRoutes);
+app.use('/api/scccos', scccosRoutes);
+app.use('/api/notes', noteRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
