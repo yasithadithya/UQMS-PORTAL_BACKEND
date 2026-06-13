@@ -309,7 +309,7 @@ const options: swaggerJsdoc.Options = {
         },
         User: {
           type: 'object',
-          required: ['username', 'email', 'password', 'role'],
+          required: ['username', 'email', 'password', 'role', 'fullName', 'phoneNumber'],
           properties: {
             _id: {
               type: 'string',
@@ -335,6 +335,37 @@ const options: swaggerJsdoc.Options = {
               type: 'string',
               description: 'Role ID reference',
               example: '507f1f77bcf86cd799439011',
+            },
+            fullName: {
+              type: 'string',
+              description: 'Full Name of the user',
+              example: 'John Doe',
+            },
+            nameWithInitials: {
+              type: 'string',
+              description: 'Name with initials',
+              example: 'J. Doe',
+            },
+            phoneNumber: {
+              type: 'string',
+              description: 'Contact phone number',
+              example: '+1234567890',
+            },
+            address: {
+              type: 'string',
+              description: 'Residential or postal address',
+              example: '123 Main Street, City',
+            },
+            dob: {
+              type: 'string',
+              format: 'date',
+              description: 'Date of birth',
+              example: '1990-01-01',
+            },
+            empNumber: {
+              type: 'string',
+              description: 'Employee registration number',
+              example: 'EMP001',
             },
             createdAt: {
               type: 'string',
