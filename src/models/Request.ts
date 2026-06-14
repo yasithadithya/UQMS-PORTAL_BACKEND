@@ -2,6 +2,8 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IRequest extends Document {
   requestNumber: string;
+  rfsDocNo?: string;
+  vesselCode?: string;
   uqmsNumber?: string;
   imoNumber?: string;
   vesselName: string;
@@ -70,6 +72,14 @@ const requestSchema: Schema = new Schema(
       type: String,
       required: [true, 'Request number is required'],
       unique: true,
+      trim: true,
+    },
+    rfsDocNo: {
+      type: String,
+      trim: true,
+    },
+    vesselCode: {
+      type: String,
       trim: true,
     },
     uqmsNumber: {

@@ -56,6 +56,20 @@ const seedData = async () => {
     );
     console.log('Created document number config: request (RQ####)');
 
+    await DocumentNumber.findOneAndUpdate(
+      { name: 'rfsDocNo' },
+      {
+        $setOnInsert: {
+          name: 'rfsDocNo',
+          prefix: 'RFS-',
+          digits: 4,
+          lastNumber: -1,
+        },
+      },
+      { upsert: true, new: true }
+    );
+    console.log('Created document number config: rfsDocNo (RFS-####)');
+
     console.log('\n🎉 Seed completed successfully!\n');
     process.exit(0);
   } catch (error) {

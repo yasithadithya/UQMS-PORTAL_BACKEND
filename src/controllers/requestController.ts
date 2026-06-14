@@ -12,6 +12,7 @@ import AreaOfOperation from '../models/AreaOfOperation';
 import SurveyType from '../models/SurveyType';
 import { getR2Client } from '../config/r2';
 import { getNextDocumentNumber } from '../services/documentNumberService';
+import DocumentNumber from '../models/DocumentNumber';
 import { deleteFromR2, uploadToR2 } from '../services/r2Storage';
 import { createRequestSurveyPdfBuffer } from '../services/requestPdfService';
 import { getIstDateParts } from '../utils/date';
@@ -127,6 +128,7 @@ const getRequestSurveyPdfUrl = async (document: { url?: string; bucket: string; 
 export const createRequest = async (req: Request, res: Response): Promise<void> => {
   try {
     const {
+      vesselCode,
       uqmsNumber,
       imoNumber,
       vesselName,
@@ -143,6 +145,10 @@ export const createRequest = async (req: Request, res: Response): Promise<void> 
       status,
     } = req.body;
 
+    if (vesselCode !== undefined && typeof vesselCode !== 'string') {
+      res.status(400).json({ success: false, message: 'Vessel code must be a string.' });
+      return;
+    }
     if (imoNumber !== undefined && typeof imoNumber !== 'string') {
       res.status(400).json({ success: false, message: 'IMO number must be a string.' });
       return;
@@ -243,10 +249,24 @@ export const createRequest = async (req: Request, res: Response): Promise<void> 
 
     const requestNumber = await getNextDocumentNumber('request');
 
+    let rfsDocNoConfig = await DocumentNumber.findOne({ name: 'rfsDocNo' });
+    if (!rfsDocNoConfig) {
+      rfsDocNoConfig = new DocumentNumber({
+        name: 'rfsDocNo',
+        prefix: 'RFS-',
+        digits: 4,
+        lastNumber: -1,
+      });
+      await rfsDocNoConfig.save();
+    }
+    const rfsDocNo = await getNextDocumentNumber('rfsDocNo');
+
     const normalizedImoNumber = typeof imoNumber === 'string' ? toTrimmedString(imoNumber) : '';
 
     const newRequest = new RequestModel({
       requestNumber,
+      rfsDocNo,
+      vesselCode: typeof vesselCode === 'string' ? toTrimmedString(vesselCode) : undefined,
       uqmsNumber: typeof uqmsNumber === 'string' ? toTrimmedString(uqmsNumber) : undefined,
       imoNumber: normalizedImoNumber || undefined,
       vesselName: toTrimmedString(vesselName),
@@ -342,6 +362,7 @@ export const getRequestById = async (req: Request, res: Response): Promise<void>
 export const updateRequest = async (req: Request, res: Response): Promise<void> => {
   try {
     const {
+      vesselCode,
       uqmsNumber,
       imoNumber,
       vesselName,
@@ -363,6 +384,10 @@ export const updateRequest = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
+    if (vesselCode !== undefined && typeof vesselCode !== 'string') {
+      res.status(400).json({ success: false, message: 'Vessel code must be a string.' });
+      return;
+    }
     if (imoNumber !== undefined && typeof imoNumber !== 'string') {
       res.status(400).json({ success: false, message: 'IMO number must be a string.' });
       return;
@@ -488,6 +513,9 @@ export const updateRequest = async (req: Request, res: Response): Promise<void> 
       request.set('surveyTypes', uniqueSurveyTypeIds);
     }
 
+    if (vesselCode !== undefined) {
+      request.vesselCode = vesselCode ? toTrimmedString(vesselCode) : '';
+    }
     if (uqmsNumber !== undefined) {
       request.uqmsNumber = uqmsNumber ? toTrimmedString(uqmsNumber) : '';
     }

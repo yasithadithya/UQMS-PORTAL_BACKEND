@@ -83,6 +83,85 @@ const options: swaggerJsdoc.Options = {
             },
           },
         },
+        RecEquipQues: {
+          type: 'object',
+          required: ['codeRefNo', 'description'],
+          properties: {
+            _id: {
+              type: 'string',
+              description: 'Auto-generated MongoDB ID',
+            },
+            codeRefNo: {
+              type: 'string',
+              description: 'Equipment question code reference number (can be duplicate)',
+              example: '11.4',
+            },
+            description: {
+              type: 'string',
+              description: 'Equipment question description',
+              example: 'Total number of Life rafts (Total number of persons accommodated)',
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+            },
+             updatedAt: {
+              type: 'string',
+              format: 'date-time',
+            },
+          },
+        },
+        VesselEquipmentRecord: {
+          type: 'object',
+          required: ['vesselId', 'surveyReportId', 'equipmentRecords'],
+          properties: {
+            _id: {
+              type: 'string',
+              description: 'Auto-generated MongoDB ID',
+            },
+            vesselId: {
+              type: 'string',
+              description: 'Vessel ID reference',
+              example: '60c72b2f9b1d8b2d1c8b4567',
+            },
+            surveyReportId: {
+              type: 'string',
+              description: 'First Entry Survey Report ID reference',
+              example: '60c72b2f9b1d8b2d1c8b4569',
+            },
+            equipmentRecords: {
+              type: 'array',
+              items: {
+                type: 'object',
+                required: ['questionId', 'status'],
+                properties: {
+                  questionId: {
+                    type: 'string',
+                    description: 'RecEquipQues ID reference',
+                    example: '60c72b2f9b1d8b2d1c8b4568',
+                  },
+                  status: {
+                    type: 'string',
+                    enum: ['Provided', 'Not Provided', 'Not Applicable'],
+                    example: 'Provided',
+                  },
+                  remarks: {
+                    type: 'string',
+                    example: 'Inspected and certified.',
+                  },
+                },
+              },
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time',
+            },
+          },
+        },
         SurveyType: {
           type: 'object',
           required: ['code', 'name'],
