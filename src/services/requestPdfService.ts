@@ -128,6 +128,7 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
     } catch (err) {
       console.warn('Could not load logo image:', err);
     }
+
     doc.y = PAGE_MARGIN + 5;
     doc
       .font('Helvetica-Bold')
@@ -177,7 +178,7 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
     doc.rect(startX, currentY, boxLabelW, 20).stroke();
     doc.rect(startX + boxLabelW, currentY, boxValW, 20).stroke();
     doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#000000')
-       .text('Doc. No.', startX + 4, currentY + 5.5, { width: boxLabelW - 8, lineBreak: false });
+       .text('RFS No.', startX + 4, currentY + 5.5, { width: boxLabelW - 8, lineBreak: false });
     doc.font('Helvetica').fontSize(8.5)
        .text(request.rfsDocNo || '-', startX + boxLabelW + 4, currentY + 5.5, { width: boxValW - 8, lineBreak: false });
 
@@ -415,6 +416,18 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
     const totalPages = doc.bufferedPageRange().count;
     for (let i = 0; i < totalPages; i++) {
       doc.switchToPage(i);
+      
+      doc
+        .font('Helvetica')
+        .fontSize(8)
+        .fillColor('#000000')
+        .text(
+          'Document No: UQMS-FM-009  |  Revision: 00  |  Effective Date: [25/01/2026]  |  Approved By: Technical Committee',
+          PAGE_MARGIN,
+          doc.page.height - PAGE_MARGIN - 12,
+          { width: pageWidth, align: 'left', lineBreak: false },
+        );
+
       doc
         .font('Helvetica')
         .fontSize(8)
