@@ -2,6 +2,8 @@ import PDFDocument from 'pdfkit';
 import path from 'path';
 type RequestLike = {
   requestNumber: string;
+  rfsDocNo?: string;
+  vesselCode?: string;
   vesselName: string;
   uqmsNumber?: string;
   imoNumber?: string;
@@ -55,8 +57,6 @@ const formatDate = (value?: Date): string => {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
   }).format(value);
 };
 
@@ -128,6 +128,7 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
     } catch (err) {
       console.warn('Could not load logo image:', err);
     }
+
     doc.y = PAGE_MARGIN + 5;
     doc
       .font('Helvetica-Bold')
@@ -165,30 +166,48 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
       .text('REQUEST FOR SURVEY', { align: 'center' });
     doc.moveDown(0.7);
 
-    // Date box — drawn at absolute position, top-right corner
-    const dateLabelW = 42;
-    const dateBoxW = 148;
+    // Date/Info boxes — drawn at absolute position, top-right corner
+    const boxLabelW = 55;
+    const boxValW = 135;
+    const boxTotalW = boxLabelW + boxValW; // 190
+    const startX = doc.page.width - PAGE_MARGIN - boxTotalW;
     const dateY = doc.y;
-    doc.rect(doc.page.width - PAGE_MARGIN - dateLabelW - dateBoxW, dateY, dateLabelW, 22).stroke();
-    doc.rect(doc.page.width - PAGE_MARGIN - dateBoxW, dateY, dateBoxW, 22).stroke();
-    doc
-      .font('Helvetica')
-      .fontSize(9)
-      .fillColor('#000000')
-      .text('Date', doc.page.width - PAGE_MARGIN - dateLabelW - dateBoxW + 4, dateY + 6, {
-        width: dateLabelW - 8,
-        lineBreak: false,
-      });
-    doc.text(formatDate(request.createdAt), doc.page.width - PAGE_MARGIN - dateBoxW + 4, dateY + 6, {
-      width: dateBoxW - 8,
-      lineBreak: false,
-    });
+    let currentY = dateY;
 
-    // "To," block — back at left margin, same Y as date box
-    doc.font('Helvetica').fontSize(10).text('To,', innerLeft, dateY, { lineBreak: false });
-    // Move past the date box height before continuing
-    doc.moveDown(0.3);
-    doc.font('Helvetica').fontSize(9).text('Universal Quality Management System.', innerLeft, dateY + 26);
+    // 1. Doc Number Box
+    doc.rect(startX, currentY, boxLabelW, 20).stroke();
+    doc.rect(startX + boxLabelW, currentY, boxValW, 20).stroke();
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#000000')
+       .text('RFS No.', startX + 4, currentY + 5.5, { width: boxLabelW - 8, lineBreak: false });
+    doc.font('Helvetica').fontSize(8.5)
+       .text(request.rfsDocNo || '-', startX + boxLabelW + 4, currentY + 5.5, { width: boxValW - 8, lineBreak: false });
+
+    currentY += 20;
+
+    // 2. Request Number Box
+    doc.rect(startX, currentY, boxLabelW, 20).stroke();
+    doc.rect(startX + boxLabelW, currentY, boxValW, 20).stroke();
+    doc.font('Helvetica-Bold').fontSize(8.5)
+       .text('Req. No.', startX + 4, currentY + 5.5, { width: boxLabelW - 8, lineBreak: false });
+    doc.font('Helvetica').fontSize(8.5)
+       .text(request.requestNumber || '-', startX + boxLabelW + 4, currentY + 5.5, { width: boxValW - 8, lineBreak: false });
+
+    currentY += 20;
+
+    // 3. Date Box
+    doc.rect(startX, currentY, boxLabelW, 20).stroke();
+    doc.rect(startX + boxLabelW, currentY, boxValW, 20).stroke();
+    doc.font('Helvetica-Bold').fontSize(8.5)
+       .text('Date', startX + 4, currentY + 5.5, { width: boxLabelW - 8, lineBreak: false });
+    doc.font('Helvetica').fontSize(8.5)
+       .text(formatDate(request.createdAt), startX + boxLabelW + 4, currentY + 5.5, { width: boxValW - 8, lineBreak: false });
+
+    // "To," block — back at left margin, same Y as doc number box
+    doc.font('Helvetica-Bold').fontSize(10).text('To,', innerLeft, dateY);
+    doc.font('Helvetica').fontSize(9.5).text('Universal Quality Management System.', innerLeft, dateY + 18);
+    
+    // Set doc.y safely below the boxes before continuing
+    doc.y = dateY + 65;
     doc.moveDown(0.6);
 
     // Intro paragraph
@@ -221,8 +240,8 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
       ['Company Name', request.companyName, 'Telephone No.', request.contactPersonNumber], 24);
     y = drawTableRow(doc, innerLeft, y, [col1, col2, col3, col4],
       ['Vessel Name', request.vesselName, 'UQMS No.', request.uqmsNumber ?? '-'], 24);
-    y = drawTableRow(doc, innerLeft, y, [col1, pageWidth - col1],
-      ['IMO Number', request.imoNumber ?? '-'], 22);
+    y = drawTableRow(doc, innerLeft, y, [col1, col2, col3, col4],
+      ['IMO Number', request.imoNumber ?? '-', 'Vessel Code', request.vesselCode ?? '-'], 24);
     y = drawTableRow(doc, innerLeft, y, [col1, pageWidth - col1],
       ['Registered Address', request.registerdAddress ?? '-'], 36);
     y = drawTableRow(doc, innerLeft, y, [col1, pageWidth - col1],
@@ -397,6 +416,18 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
     const totalPages = doc.bufferedPageRange().count;
     for (let i = 0; i < totalPages; i++) {
       doc.switchToPage(i);
+      
+      doc
+        .font('Helvetica')
+        .fontSize(8)
+        .fillColor('#000000')
+        .text(
+          'Document No: UQMS-FM-009  |  Revision: 00  |  Effective Date: [25/01/2026]  |  Approved By: Technical Committee',
+          PAGE_MARGIN,
+          doc.page.height - PAGE_MARGIN - 12,
+          { width: pageWidth, align: 'left', lineBreak: false },
+        );
+
       doc
         .font('Helvetica')
         .fontSize(8)

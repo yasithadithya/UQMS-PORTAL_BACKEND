@@ -11,7 +11,8 @@
     "start": "node dist/server.js",
     "seed": "ts-node src/seed.ts",
     "seed:operations": "ts-node src/seedOperations.ts",
-    "seed:vessel-codes": "ts-node src/seedVesselCodes.ts"
+    "seed:vessel-codes": "ts-node src/seedVesselCodes.ts",
+    "seed:rec-equip-ques": "ts-node src/seedRecEquipQues.ts"
   },
   "keywords": [],
   "author": "",
