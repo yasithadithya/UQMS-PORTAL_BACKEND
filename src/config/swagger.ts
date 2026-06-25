@@ -105,7 +105,7 @@ const options: swaggerJsdoc.Options = {
               type: 'string',
               format: 'date-time',
             },
-             updatedAt: {
+            updatedAt: {
               type: 'string',
               format: 'date-time',
             },
@@ -252,7 +252,7 @@ const options: swaggerJsdoc.Options = {
             },
             imoNumber: {
               type: 'string',
-              description: 'IMO number',
+              description: 'IMO/MMSI number',
             },
             companyName: {
               type: 'string',
