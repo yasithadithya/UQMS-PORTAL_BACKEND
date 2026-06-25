@@ -76,6 +76,8 @@ router.use(authMiddleware);
  *                 type: string
  *               imoNumber:
  *                 type: string
+ *               mmsiNumber:
+ *                 type: string
  *               companyName:
  *                 type: string
  *               contactPersonName:
@@ -348,6 +350,8 @@ router.get('/:id/survey-pdf', getRequestSurveyPdf);
  *               uqmsNumber:
  *                 type: string
  *               imoNumber:
+ *                 type: string
+ *               mmsiNumber:
  *                 type: string
  *               companyName:
  *                 type: string

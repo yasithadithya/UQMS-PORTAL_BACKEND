@@ -7,6 +7,7 @@ type RequestLike = {
   vesselName: string;
   uqmsNumber?: string;
   imoNumber?: string;
+  mmsiNumber?: string;
   companyName: string;
   contactPersonName: string;
   contactPersonNumber: string;
@@ -251,13 +252,13 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
     y = drawTableRow(doc, innerLeft, y, [col1, col2, col3, col4],
       ['Vessel Name', request.vesselName, 'UQMS No.', request.uqmsNumber ?? '-'], 24);
     y = drawTableRow(doc, innerLeft, y, [col1, col2, col3, col4],
-      ['IMO/MMSI Number', request.imoNumber ?? '-', 'Vessel Code', request.vesselCode ?? '-'], 24);
+      ['IMO Number', request.imoNumber ?? '-', 'MMSI Number', request.mmsiNumber ?? '-'], 24);
     y = drawTableRow(doc, innerLeft, y, [col1, pageWidth - col1],
       ['Registered Address', request.registerdAddress ?? '-'], 36);
     y = drawTableRow(doc, innerLeft, y, [col1, pageWidth - col1],
       ['Invoicing Address', request.invoicingAddress], 30);
     y = drawTableRow(doc, innerLeft, y, [col1, col2, col3, col4],
-      ['Purchase Order (PO) Number', request.uqmsNumber ?? '-', 'Sector', request.sector], 24);
+      ['Vessel Code', request.vesselCode ?? '-', 'Sector', request.sector], 24);
     y = drawTableRow(doc, innerLeft, y, [col1, col2, col3, col4],
       ['Company email ID', request.companyEmail, 'Status', request.status], 24);
     y = drawTableRow(doc, innerLeft, y, [col1, pageWidth - col1],
