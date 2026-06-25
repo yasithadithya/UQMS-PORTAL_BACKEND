@@ -24,6 +24,7 @@ import recEquipQuesRoutes from './routes/recEquipQuesRoutes';
 import vesselEquipmentRecordRoutes from './routes/vesselEquipmentRecordRoutes';
 import surveyReportRoutes from './routes/surveyReportRoutes';
 import documentTemplateRoutes from './routes/documentTemplateRoutes';
+import hrRoutes from './HR/routes';
 import { seedModulesAndAdminPermissions } from './config/seedModules';
 import { formatDate } from './utils/date';
 
@@ -68,6 +69,7 @@ app.use('/api/rec-equip-ques', recEquipQuesRoutes);
 app.use('/api/vessel-equipment-records', vesselEquipmentRecordRoutes);
 app.use('/api/survey-reports', surveyReportRoutes);
 app.use('/api/document-templates', documentTemplateRoutes);
+app.use('/api/hr', hrRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

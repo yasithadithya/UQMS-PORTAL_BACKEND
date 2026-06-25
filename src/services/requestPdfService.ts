@@ -71,14 +71,24 @@ const drawTableRow = (
   y: number,
   widths: number[],
   values: string[],
-  height: number,
+  minHeight: number,
 ): number => {
+  doc.font('Helvetica').fontSize(9);
+
+  let height = minHeight;
+  widths.forEach((width, index) => {
+    const text = values[index] ?? '-';
+    const textHeight = doc.heightOfString(text, { width: width - 10 });
+    const cellHeight = textHeight + 10;
+    if (cellHeight > height) {
+      height = cellHeight;
+    }
+  });
+
   let currentX = x;
   widths.forEach((width, index) => {
     doc.rect(currentX, y, width, height).stroke();
     doc
-      .font('Helvetica')
-      .fontSize(9)
       .fillColor('#000000')
       .text(values[index] ?? '-', currentX + 5, y + 5, {
         width: width - 10,
@@ -178,9 +188,9 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
     doc.rect(startX, currentY, boxLabelW, 20).stroke();
     doc.rect(startX + boxLabelW, currentY, boxValW, 20).stroke();
     doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#000000')
-       .text('RFS No.', startX + 4, currentY + 5.5, { width: boxLabelW - 8, lineBreak: false });
+      .text('RFS No.', startX + 4, currentY + 5.5, { width: boxLabelW - 8, lineBreak: false });
     doc.font('Helvetica').fontSize(8.5)
-       .text(request.rfsDocNo || '-', startX + boxLabelW + 4, currentY + 5.5, { width: boxValW - 8, lineBreak: false });
+      .text(request.rfsDocNo || '-', startX + boxLabelW + 4, currentY + 5.5, { width: boxValW - 8, lineBreak: false });
 
     currentY += 20;
 
@@ -188,9 +198,9 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
     doc.rect(startX, currentY, boxLabelW, 20).stroke();
     doc.rect(startX + boxLabelW, currentY, boxValW, 20).stroke();
     doc.font('Helvetica-Bold').fontSize(8.5)
-       .text('Req. No.', startX + 4, currentY + 5.5, { width: boxLabelW - 8, lineBreak: false });
+      .text('Req. No.', startX + 4, currentY + 5.5, { width: boxLabelW - 8, lineBreak: false });
     doc.font('Helvetica').fontSize(8.5)
-       .text(request.requestNumber || '-', startX + boxLabelW + 4, currentY + 5.5, { width: boxValW - 8, lineBreak: false });
+      .text(request.requestNumber || '-', startX + boxLabelW + 4, currentY + 5.5, { width: boxValW - 8, lineBreak: false });
 
     currentY += 20;
 
@@ -198,14 +208,14 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
     doc.rect(startX, currentY, boxLabelW, 20).stroke();
     doc.rect(startX + boxLabelW, currentY, boxValW, 20).stroke();
     doc.font('Helvetica-Bold').fontSize(8.5)
-       .text('Date', startX + 4, currentY + 5.5, { width: boxLabelW - 8, lineBreak: false });
+      .text('Date', startX + 4, currentY + 5.5, { width: boxLabelW - 8, lineBreak: false });
     doc.font('Helvetica').fontSize(8.5)
-       .text(formatDate(request.createdAt), startX + boxLabelW + 4, currentY + 5.5, { width: boxValW - 8, lineBreak: false });
+      .text(formatDate(request.createdAt), startX + boxLabelW + 4, currentY + 5.5, { width: boxValW - 8, lineBreak: false });
 
     // "To," block — back at left margin, same Y as doc number box
     doc.font('Helvetica-Bold').fontSize(10).text('To,', innerLeft, dateY);
     doc.font('Helvetica').fontSize(9.5).text('Universal Quality Management System.', innerLeft, dateY + 18);
-    
+
     // Set doc.y safely below the boxes before continuing
     doc.y = dateY + 65;
     doc.moveDown(0.6);
@@ -233,7 +243,7 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
     const col2 = 180;
     const col3 = 90;
     const col4 = pageWidth - col1 - col2 - col3;
-//
+    //
     let y = doc.y;
 
     y = drawTableRow(doc, innerLeft, y, [col1, col2, col3, col4],
@@ -241,7 +251,7 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
     y = drawTableRow(doc, innerLeft, y, [col1, col2, col3, col4],
       ['Vessel Name', request.vesselName, 'UQMS No.', request.uqmsNumber ?? '-'], 24);
     y = drawTableRow(doc, innerLeft, y, [col1, col2, col3, col4],
-      ['IMO Number', request.imoNumber ?? '-', 'Vessel Code', request.vesselCode ?? '-'], 24);
+      ['IMO/MMSI Number', request.imoNumber ?? '-', 'Vessel Code', request.vesselCode ?? '-'], 24);
     y = drawTableRow(doc, innerLeft, y, [col1, pageWidth - col1],
       ['Registered Address', request.registerdAddress ?? '-'], 36);
     y = drawTableRow(doc, innerLeft, y, [col1, pageWidth - col1],
@@ -416,7 +426,7 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
     const totalPages = doc.bufferedPageRange().count;
     for (let i = 0; i < totalPages; i++) {
       doc.switchToPage(i);
-      
+
       doc
         .font('Helvetica')
         .fontSize(8)
