@@ -252,7 +252,11 @@ const options: swaggerJsdoc.Options = {
             },
             imoNumber: {
               type: 'string',
-              description: 'IMO/MMSI number',
+              description: 'IMO number',
+            },
+            mmsiNumber: {
+              type: 'string',
+              description: 'MMSI number',
             },
             companyName: {
               type: 'string',

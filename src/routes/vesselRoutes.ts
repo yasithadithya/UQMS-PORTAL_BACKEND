@@ -36,6 +36,8 @@ router.use(authMiddleware);
  *                 type: string
  *               imoNumber:
  *                 type: string
+ *               mmsiNumber:
+ *                 type: string
  *               status:
  *                 type: string
  *     responses:

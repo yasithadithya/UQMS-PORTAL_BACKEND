@@ -6,6 +6,7 @@ export interface IRequest extends Document {
   vesselCode?: string;
   uqmsNumber?: string;
   imoNumber?: string;
+  mmsiNumber?: string;
   vesselName: string;
   companyName: string;
   contactPersonName: string;
@@ -87,6 +88,10 @@ const requestSchema: Schema = new Schema(
       trim: true,
     },
     imoNumber: {
+      type: String,
+      trim: true,
+    },
+    mmsiNumber: {
       type: String,
       trim: true,
     },
