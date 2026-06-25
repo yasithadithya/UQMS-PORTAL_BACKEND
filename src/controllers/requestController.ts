@@ -150,7 +150,7 @@ export const createRequest = async (req: Request, res: Response): Promise<void> 
       return;
     }
     if (imoNumber !== undefined && typeof imoNumber !== 'string') {
-      res.status(400).json({ success: false, message: 'IMO number must be a string.' });
+      res.status(400).json({ success: false, message: 'IMO/MMSI number must be a string.' });
       return;
     }
     if (!isNonEmptyString(vesselName)) {
@@ -312,7 +312,7 @@ export const getAllRequests = async (req: Request, res: Response): Promise<void>
   try {
     const search = req.query.search as string;
     const query: any = {};
-    
+
     if (search) {
       query.$or = [
         { requestNumber: { $regex: search, $options: 'i' } },
@@ -389,7 +389,7 @@ export const updateRequest = async (req: Request, res: Response): Promise<void> 
       return;
     }
     if (imoNumber !== undefined && typeof imoNumber !== 'string') {
-      res.status(400).json({ success: false, message: 'IMO number must be a string.' });
+      res.status(400).json({ success: false, message: 'IMO/MMSI number must be a string.' });
       return;
     }
     if (vesselName !== undefined && !isNonEmptyString(vesselName)) {
@@ -549,7 +549,7 @@ export const updateRequest = async (req: Request, res: Response): Promise<void> 
     if (normalizedStatus !== undefined) {
       request.status = normalizedStatus;
     }
-    
+
     if ((req as any).user?.id) {
       request.updatedBy = (req as any).user.id;
     }
@@ -989,7 +989,7 @@ export const getRequestSurveyPreview = async (req: Request, res: Response): Prom
     }
 
     const pdfBuffer = await createRequestSurveyPdfBuffer(request.toObject());
-    
+
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'inline; filename="survey-preview.pdf"');
     res.send(pdfBuffer);
@@ -1019,7 +1019,7 @@ export const printAndSendRequestSurveyPdf = async (req: Request, res: Response):
     const pdfBuffer = await createRequestSurveyPdfBuffer(request.toObject());
     const filename = buildSurveyPdfFilename(request.requestNumber, request.vesselName);
     const key = buildSurveyPdfKey(request.requestNumber, request.vesselName);
-    
+
     const uploadResult = await uploadToR2({
       key,
       body: pdfBuffer,

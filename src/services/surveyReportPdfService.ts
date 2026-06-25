@@ -167,7 +167,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     const leftFields = [
       { label: 'Name of Vessel', val: vessel?.vesselName },
       { label: 'Call Sign', val: vessel?.callSign },
-      { label: 'IMO/MMSI No', val: vessel?.imoNumber },
+      { label: 'IMO/MMSI/MMSI No', val: vessel?.imoNumber },
       { label: 'Official Number', val: booking?.officialNo || vessel?.imoNumber },
       { label: 'Certificate Number', val: report?.certificateNumber },
       { label: 'Flag of Registry', val: vessel?.flag || booking?.flag },
@@ -458,7 +458,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     const tmHarbour = report?.thicknessMeasurement?.harbour || 'Dikkowita Fisheries Harbour';
     const tmDate = report?.thicknessMeasurement?.date ? formatDate(report.thicknessMeasurement.date) : '08th February 2026';
     const tmReportNo = report?.thicknessMeasurement?.reportNo || 'LHT-SB-TM-25-03-1874';
-    
+
     const thicknessText = `Thickness measurements were carried out by ${tmCarriedBy} at the ${tmHarbour} on ${tmDate} under the verification of a UQMS Surveyor. The relevant Thickness Measurement Report (Report No. ${tmReportNo}) was reviewed at the time of survey.`;
 
     doc.font('Helvetica').fontSize(9.5).fillColor('#374151').lineGap(3.5).text(thicknessText, innerLeft, currentY, { width: pageWidth, align: 'justify' });
@@ -497,10 +497,10 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     // Access Openings
     doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('ACCESS OPENINGS & VENTILATIONS:', innerLeft, currentY);
     currentY += 16;
-    
+
     const accessOpen = report?.accessOpeningsCondition || 'satisfactory';
     const accessText = `General examination carried out. Engine room maintenance hatches, Engine room emergency escape hatch, Accommodation space escape hatch and other accommodation ventilation port hole condition found ${accessOpen} with efficient weather tightness.`;
-    
+
     doc.font('Helvetica').fontSize(9.5).fillColor('#374151').lineGap(3.5).text(accessText, innerLeft, currentY, { width: pageWidth, align: 'justify' });
     currentY += doc.heightOfString(accessText, { width: pageWidth }) + 15;
 
@@ -554,11 +554,11 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     // Wheel House
     doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('WHEEL HOUSE/ OPERATING STATION & PASSENGER SEATING AREA:', innerLeft, currentY);
     currentY += 16;
-    
+
     const whStruct = report?.wheelhouse?.structureCondition || 'satisfactory';
     const whSeat = report?.wheelhouse?.passengerSeatingCondition || 'good';
     const whText = `The vessel’s structure was found to be ${whStruct}. The condition of passenger seating was found to be ${whSeat}.`;
-    
+
     doc.font('Helvetica').fontSize(9.5).fillColor('#374151').text(whText, innerLeft, currentY, { width: pageWidth });
     currentY += 25;
 
@@ -640,10 +640,10 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     // Fire Fighting Equipment
     doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#111827').text('Fire Fighting Equipment:', innerLeft, currentY);
     currentY += 14;
-    
+
     const feRec = findRecord('11.8', ['Portable fire extinguishers']);
     const extinguishersText = feRec?.remarks || '';
-    
+
     doc.font('Helvetica').fontSize(9.5).fillColor('#374151').text(`Portable fire extinguishing equipment – Total Six Nos.`, innerLeft, currentY);
     currentY += 16;
 
@@ -882,7 +882,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     // Machinery - Main Engine
     doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('MACHINERY:', innerLeft, currentY);
     currentY += 16;
-    
+
     const mainEngCount = report?.machinery?.mainEngineCount ?? (vessel?.noOfEngines || 2);
     const mainEngModel = report?.machinery?.mainEngineModel || (vessel?.mainEngineModel || 'Caterpillar');
     const mainEngPower = report?.machinery?.mainEnginePower || (vessel?.totalPower ? `${vessel.totalPower}kW (${Math.round(vessel.totalPower * 1.341)} HP)` : '714kW (970 HP)');
@@ -915,21 +915,21 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     // Piping
     doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('Piping', innerLeft, currentY);
     currentY += 14;
-    
+
     const pipeCond = report?.pipingCondition || 'satisfactory';
     const pipingText = `General examination carried in working condition and found ${pipeCond}.`;
-    
+
     doc.font('Helvetica').fontSize(9.5).fillColor('#374151').text(pipingText, innerLeft, currentY);
     currentY += 25;
 
     // Electrical
     doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('ELECTRICAL SYSTEMS', innerLeft, currentY);
     currentY += 14;
-    
+
     const elecExam = report?.electricalExamCondition || 'as far as practicable';
     const electricalText = `The electrical equipment and cabling forming the main and emergency electrical installations have been generally examined under operation condition ${elecExam}.\n\n` +
       `Power Generation: ${report?.machinery?.powerGeneration || '6x200Ah,12V'}`;
-    
+
     doc.font('Helvetica').fontSize(9.5).fillColor('#374151').lineGap(3).text(electricalText, innerLeft, currentY, { width: pageWidth });
     currentY += doc.heightOfString(electricalText, { width: pageWidth }) + 50;
 
@@ -944,17 +944,17 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
       .fontSize(9.5)
       .fillColor('#111827')
       .text(`SIGNED: Date of issue: ${issueDateStr}`, innerLeft, currentY);
-    
+
     currentY += 35;
     doc.text('....................................................................', innerLeft, currentY);
-    
+
     currentY += 16;
     doc
       .font('Helvetica-Bold')
       .fontSize(10)
       .fillColor('#111827')
       .text(surveyorName.toUpperCase(), innerLeft, currentY);
-    
+
     currentY += 14;
     doc.font('Helvetica-Bold').fontSize(9).fillColor('#4b5563').text(surveyorTitle, innerLeft, currentY);
     currentY += 14;
@@ -966,9 +966,9 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     const totalPages = doc.bufferedPageRange().count;
     for (let i = 0; i < totalPages; i++) {
       doc.switchToPage(i);
-      
+
       const footerY = doc.page.height - PAGE_MARGIN - 20;
-      
+
       // Draw horizontal line
       doc
         .moveTo(PAGE_MARGIN, footerY - 5)
@@ -976,13 +976,13 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
         .strokeColor('#e5e7eb')
         .lineWidth(0.5)
         .stroke();
-        
+
       doc
         .font('Helvetica-Bold')
         .fontSize(7.5)
         .fillColor('#4b5563')
         .text('RECORD OF EQUIPMENT & SURVEY REPORT', PAGE_MARGIN, footerY);
-        
+
       doc
         .font('Helvetica')
         .fontSize(7.5)
