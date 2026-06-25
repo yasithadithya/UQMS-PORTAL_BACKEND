@@ -131,6 +131,7 @@ export const createRequest = async (req: Request, res: Response): Promise<void> 
       vesselCode,
       uqmsNumber,
       imoNumber,
+      mmsiNumber,
       vesselName,
       companyName,
       contactPersonName,
@@ -150,7 +151,11 @@ export const createRequest = async (req: Request, res: Response): Promise<void> 
       return;
     }
     if (imoNumber !== undefined && typeof imoNumber !== 'string') {
-      res.status(400).json({ success: false, message: 'IMO/MMSI number must be a string.' });
+      res.status(400).json({ success: false, message: 'IMO number must be a string.' });
+      return;
+    }
+    if (mmsiNumber !== undefined && typeof mmsiNumber !== 'string') {
+      res.status(400).json({ success: false, message: 'MMSI number must be a string.' });
       return;
     }
     if (!isNonEmptyString(vesselName)) {
@@ -262,6 +267,7 @@ export const createRequest = async (req: Request, res: Response): Promise<void> 
     const rfsDocNo = await getNextDocumentNumber('rfsDocNo');
 
     const normalizedImoNumber = typeof imoNumber === 'string' ? toTrimmedString(imoNumber) : '';
+    const normalizedMmsiNumber = typeof mmsiNumber === 'string' ? toTrimmedString(mmsiNumber) : '';
 
     const newRequest = new RequestModel({
       requestNumber,
@@ -269,6 +275,7 @@ export const createRequest = async (req: Request, res: Response): Promise<void> 
       vesselCode: typeof vesselCode === 'string' ? toTrimmedString(vesselCode) : undefined,
       uqmsNumber: typeof uqmsNumber === 'string' ? toTrimmedString(uqmsNumber) : undefined,
       imoNumber: normalizedImoNumber || undefined,
+      mmsiNumber: normalizedMmsiNumber || undefined,
       vesselName: toTrimmedString(vesselName),
       companyName: toTrimmedString(companyName),
       contactPersonName: toTrimmedString(contactPersonName),
@@ -365,6 +372,7 @@ export const updateRequest = async (req: Request, res: Response): Promise<void> 
       vesselCode,
       uqmsNumber,
       imoNumber,
+      mmsiNumber,
       vesselName,
       companyName,
       contactPersonName,
@@ -389,7 +397,11 @@ export const updateRequest = async (req: Request, res: Response): Promise<void> 
       return;
     }
     if (imoNumber !== undefined && typeof imoNumber !== 'string') {
-      res.status(400).json({ success: false, message: 'IMO/MMSI number must be a string.' });
+      res.status(400).json({ success: false, message: 'IMO number must be a string.' });
+      return;
+    }
+    if (mmsiNumber !== undefined && typeof mmsiNumber !== 'string') {
+      res.status(400).json({ success: false, message: 'MMSI number must be a string.' });
       return;
     }
     if (vesselName !== undefined && !isNonEmptyString(vesselName)) {
@@ -521,6 +533,9 @@ export const updateRequest = async (req: Request, res: Response): Promise<void> 
     }
     if (imoNumber !== undefined) {
       request.imoNumber = imoNumber ? toTrimmedString(imoNumber) : '';
+    }
+    if (mmsiNumber !== undefined) {
+      request.mmsiNumber = mmsiNumber ? toTrimmedString(mmsiNumber) : '';
     }
     if (vesselName !== undefined) {
       request.vesselName = toTrimmedString(vesselName);

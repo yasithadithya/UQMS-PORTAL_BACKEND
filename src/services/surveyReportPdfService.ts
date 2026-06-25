@@ -143,7 +143,10 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
         .fontSize(8)
         .fillColor('#111827');
 
-      doc.text(text || '-', x + 6, y + (height - 8) / 2, {
+      const textHeight = doc.heightOfString(text || '-', { width: width - 12 });
+      const verticalOffset = Math.max(2, (height - textHeight) / 2);
+
+      doc.text(text || '-', x + 6, y + verticalOffset, {
         width: width - 12,
         align,
         lineBreak: true,
@@ -167,7 +170,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     const leftFields = [
       { label: 'Name of Vessel', val: vessel?.vesselName },
       { label: 'Call Sign', val: vessel?.callSign },
-      { label: 'IMO/MMSI/MMSI No', val: vessel?.imoNumber },
+      { label: 'IMO/MMSI No', val: [vessel?.imoNumber, vessel?.mmsiNumber].filter(Boolean).join(' / ') },
       { label: 'Official Number', val: booking?.officialNo || vessel?.imoNumber },
       { label: 'Certificate Number', val: report?.certificateNumber },
       { label: 'Flag of Registry', val: vessel?.flag || booking?.flag },
@@ -221,8 +224,6 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     currentY += 100;
 
     // Other particulars
-    doc.rect(innerLeft, currentY, pageWidth, 115).strokeColor('#d1d5db').lineWidth(1).stroke();
-
     const middleFields1 = [
       { label: 'Date of Build', val: formatDate(vessel?.dateOfBuild || booking?.buildDate) },
       { label: 'Yard Number', val: vessel?.yardNo || booking?.yardNo },
@@ -237,20 +238,49 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
       { label: 'Category 4 or 5', val: vessel?.areaOfOperation?.AreaCategory || '-' }
     ];
 
-    let midY = currentY + 8;
+    // Compute dynamic row heights
+    let totalParticularsHeight = 16; // Top & bottom padding (8 + 8)
+    const rowHeights: number[] = [];
     for (let idx = 0; idx < 4; idx++) {
-      // Left
-      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#1f4e79').text(middleFields1[idx].label, innerLeft + 10, midY);
-      doc.font('Helvetica').fontSize(8.5).fillColor('#111827').text(`: ${middleFields1[idx].val || '-'}`, innerLeft + 120, midY, { width: 130, ellipsis: true });
+      const label1 = middleFields1[idx].label || '';
+      const val1 = `: ${middleFields1[idx].val || '-'}`;
+      const label2 = middleFields2[idx].label || '';
+      const val2 = `: ${middleFields2[idx].val || '-'}`;
 
-      // Right
-      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#1f4e79').text(middleFields2[idx].label, innerLeft + 265, midY);
-      doc.font('Helvetica').fontSize(8.5).fillColor('#111827').text(`: ${middleFields2[idx].val || '-'}`, innerLeft + 375, midY, { width: 130, ellipsis: true });
+      doc.font('Helvetica-Bold').fontSize(8.5);
+      const l1H = doc.heightOfString(label1, { width: 105 });
+      const l2H = doc.heightOfString(label2, { width: 105 });
 
-      midY += 26;
+      doc.font('Helvetica').fontSize(8.5);
+      const v1H = doc.heightOfString(val1, { width: 130 });
+      const v2H = doc.heightOfString(val2, { width: 130 });
+
+      const rH = Math.max(l1H, l2H, v1H, v2H, 14);
+      rowHeights.push(rH);
+      totalParticularsHeight += rH + (idx < 3 ? 6 : 0); // 6pt gap between rows
     }
 
-    currentY += 125;
+    doc.rect(innerLeft, currentY, pageWidth, totalParticularsHeight).strokeColor('#d1d5db').lineWidth(1).stroke();
+
+    let midY = currentY + 8;
+    for (let idx = 0; idx < 4; idx++) {
+      const label1 = middleFields1[idx].label;
+      const val1 = `: ${middleFields1[idx].val || '-'}`;
+      const label2 = middleFields2[idx].label;
+      const val2 = `: ${middleFields2[idx].val || '-'}`;
+
+      // Left
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#1f4e79').text(label1, innerLeft + 10, midY, { width: 105 });
+      doc.font('Helvetica').fontSize(8.5).fillColor('#111827').text(val1, innerLeft + 120, midY, { width: 130 });
+
+      // Right
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#1f4e79').text(label2, innerLeft + 265, midY, { width: 105 });
+      doc.font('Helvetica').fontSize(8.5).fillColor('#111827').text(val2, innerLeft + 375, midY, { width: 130 });
+
+      midY += rowHeights[idx] + 6;
+    }
+
+    currentY += totalParticularsHeight + 15;
 
     // Dimensions Table
     const dimWidths = [73, 73, 73, 73, 75, 75, 73]; // Total 515
@@ -364,10 +394,39 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
 
       let remarksText = rec.remarks || '-';
       if (remarksText.startsWith('ROWS:')) {
-        remarksText = 'Extinguisher locations & sizes detailed in Part C';
+        try {
+          const rows = remarksText.substring(5).split(';').map(rowStr => {
+            const parts = rowStr.split(',');
+            const loc = parts[0] || '';
+            const nos = parts[1] || '';
+            const type = parts[2] || '';
+            const cap = parts[3] || '';
+            return `${nos}x ${type} (${cap}) at ${loc}`;
+          });
+          remarksText = rows.filter(Boolean).join(', ');
+          if (!remarksText) remarksText = '-';
+        } catch (e) {
+          remarksText = 'Portable fire extinguishers';
+        }
       } else if (remarksText.startsWith('RAFTS:')) {
-        remarksText = 'Life raft particulars detailed in Part C';
+        try {
+          const parts = remarksText.substring(6).split(',');
+          const qty = parts[0] || '0';
+          const cap = parts[1] || '-';
+          const mfg = parts[2] || '-';
+          const pack = parts[3] || '-';
+          const sn = parts[4] || '-';
+          remarksText = `Qty: ${qty}, Cap: ${cap}, Mfg: ${mfg}, Pack: ${pack}, S/N: ${sn}`;
+        } catch (e) {
+          remarksText = 'Life raft particulars';
+        }
       }
+
+      // Calculate dynamic row height
+      doc.font('Helvetica').fontSize(8);
+      const descH = doc.heightOfString(descText, { width: colWidthsRecord[1] - 12 });
+      const remH = doc.heightOfString(remarksText, { width: colWidthsRecord[3] - 12 });
+      const dynamicRowHeight = Math.max(descH + 12, remH + 12, 22);
 
       // If we are starting a new group
       if (ref !== currentGroupRef) {
@@ -378,8 +437,8 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
         groupStartY = currentY;
       }
 
-      // Check for page break
-      if (currentY + rowHeight > doc.page.height - PAGE_MARGIN - 35) {
+      // Check for page break using dynamicRowHeight
+      if (currentY + dynamicRowHeight > doc.page.height - PAGE_MARGIN - 35) {
         drawCodeRefCell(groupStartY, currentY, currentGroupRef);
 
         doc.addPage();
@@ -397,17 +456,17 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
       let rx = innerLeft + colWidthsRecord[0];
 
       // Description
-      drawTableCell(rx, currentY, colWidthsRecord[1], rowHeight, descText, 'left', false);
+      drawTableCell(rx, currentY, colWidthsRecord[1], dynamicRowHeight, descText, 'left', false);
       rx += colWidthsRecord[1];
 
       // Status
-      drawTableCell(rx, currentY, colWidthsRecord[2], rowHeight, statusText, 'center', false);
+      drawTableCell(rx, currentY, colWidthsRecord[2], dynamicRowHeight, statusText, 'center', false);
       rx += colWidthsRecord[2];
 
       // Remarks
-      drawTableCell(rx, currentY, colWidthsRecord[3], rowHeight, remarksText, 'left', false);
+      drawTableCell(rx, currentY, colWidthsRecord[3], dynamicRowHeight, remarksText, 'left', false);
 
-      currentY += rowHeight;
+      currentY += dynamicRowHeight;
     }
 
     if (currentGroupRef !== '') {
