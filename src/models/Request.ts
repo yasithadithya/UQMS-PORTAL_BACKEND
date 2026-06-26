@@ -19,7 +19,8 @@ export interface IRequest extends Document {
   areaOfOperation: mongoose.Types.ObjectId;
   surveyTypes: mongoose.Types.ObjectId[];
   documents: IRequestDocument[];
-  status: 'active' | 'print' | 'reject';
+  signedPdf?: IRequestDocument;
+  status: 'active' | 'print' | 'reject' | 'success';
   createdBy: mongoose.Types.ObjectId;
   updatedBy: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -155,6 +156,10 @@ const requestSchema: Schema = new Schema(
     documents: {
       type: [requestDocumentSchema],
       default: [],
+    },
+    signedPdf: {
+      type: requestDocumentSchema,
+      required: false,
     },
     status: {
       type: String,
