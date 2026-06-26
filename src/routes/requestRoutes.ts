@@ -16,6 +16,8 @@ import {
   getRequestSurveys,
   getRequestSurveyPreview,
   printAndSendRequestSurveyPdf,
+  uploadSignedPdf,
+  deleteSignedPdf,
 } from '../controllers/requestController';
 
 dotenv.config();
@@ -502,6 +504,70 @@ router.put('/:id/documents/:documentId', upload.single('file'), updateRequestDoc
  *         description: Unauthorized
  */
 router.delete('/:id/documents/:documentId', deleteRequestDocument);
+
+/**
+ * @swagger
+ * /api/requests/{id}/signed-pdf:
+ *   post:
+ *     summary: Upload signed PDF for a request
+ *     tags: [Requests]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - signedPdf
+ *             properties:
+ *               signedPdf:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Signed PDF uploaded successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Request not found
+ */
+router.post('/:id/signed-pdf', upload.single('signedPdf'), uploadSignedPdf);
+
+/**
+ * @swagger
+ * /api/requests/{id}/signed-pdf:
+ *   delete:
+ *     summary: Delete signed PDF from a request
+ *     tags: [Requests]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Signed PDF deleted successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Request not found
+ */
+router.delete('/:id/signed-pdf', deleteSignedPdf);
 
 /**
  * @swagger
