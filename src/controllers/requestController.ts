@@ -107,6 +107,17 @@ const buildSurveyPdfKey = (requestNumber: string, vesselName: string): string =>
   return `request-documents/${safeRequest}/${safeVessel}/${year}/${month}/${day}/${fileId}.pdf`;
 };
 
+const buildSignedPdfKey = (requestNumber: string, originalname: string): string => {
+  const extension = path.extname(originalname) || '.pdf';
+  const safeExtension = extension ? extension.toLowerCase() : '.pdf';
+  const safeRequest = sanitizeSegment(requestNumber) || 'request';
+  const { year, month, day } = getIstDateParts();
+  const fileId = crypto.randomUUID();
+
+  return `requests/${safeRequest}/signed-pdf/${year}/${month}/${day}/${fileId}${safeExtension}`;
+};
+
+
 const getPopulatedRequestForPdf = async (requestId: string) =>
   RequestModel.findById(requestId)
     .populate('vesselType')
@@ -1134,4 +1145,131 @@ export const printAndSendRequestSurveyPdf = async (req: Request, res: Response):
     res.status(500).json({ success: false, message: 'Error generating and sending survey request PDF.', error: error.message });
   }
 };
+
+export const uploadSignedPdf = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      res.status(400).json({ success: false, message: 'Invalid request ID format.' });
+      return;
+    }
+
+    const request = await RequestModel.findById(req.params.id);
+    if (!request) {
+      res.status(404).json({ success: false, message: 'Request not found.' });
+      return;
+    }
+
+    const file = (req as Request & { file?: Express.Multer.File }).file;
+    if (!file) {
+      res.status(400).json({ success: false, message: 'Signed PDF file is required.' });
+      return;
+    }
+
+    if (file.mimetype !== 'application/pdf') {
+      res.status(400).json({ success: false, message: 'Invalid file type. Only PDF is allowed.' });
+      return;
+    }
+
+    const key = buildSignedPdfKey(request.requestNumber, file.originalname);
+
+    const uploadResult = await uploadToR2({
+      key,
+      body: file.buffer,
+      contentType: file.mimetype,
+      contentLength: file.size,
+    });
+
+    const previousKey = request.signedPdf?.key;
+
+    request.signedPdf = {
+      name: file.originalname,
+      key: uploadResult.key,
+      url: uploadResult.url,
+      contentType: file.mimetype,
+      size: file.size,
+      uploadedAt: new Date(),
+    } as any;
+
+    if ((req as any).user?.id) {
+      request.updatedBy = (req as any).user.id;
+    }
+
+    await request.save();
+
+    if (previousKey) {
+      try {
+        await deleteFromR2(previousKey);
+      } catch (error) {
+        // ignore delete error
+      }
+    }
+
+    const populatedRequest = await RequestModel.findById(request._id)
+      .populate('vesselType')
+      .populate('areaOfOperation')
+      .populate('surveyTypes')
+      .populate('createdBy', 'username email')
+      .populate('updatedBy', 'username email');
+
+    res.status(200).json({
+      success: true,
+      message: 'Signed PDF uploaded successfully.',
+      data: populatedRequest,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Error uploading signed PDF.', error: error.message });
+  }
+};
+
+export const deleteSignedPdf = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      res.status(400).json({ success: false, message: 'Invalid request ID format.' });
+      return;
+    }
+
+    const request = await RequestModel.findById(req.params.id);
+    if (!request) {
+      res.status(404).json({ success: false, message: 'Request not found.' });
+      return;
+    }
+
+    if (!request.signedPdf || !request.signedPdf.key) {
+      res.status(400).json({ success: false, message: 'No signed PDF attached to this request.' });
+      return;
+    }
+
+    const key = request.signedPdf.key;
+
+    request.signedPdf = undefined;
+
+    if ((req as any).user?.id) {
+      request.updatedBy = (req as any).user.id;
+    }
+
+    await request.save();
+
+    try {
+      await deleteFromR2(key);
+    } catch (error) {
+      // ignore delete error
+    }
+
+    const populatedRequest = await RequestModel.findById(request._id)
+      .populate('vesselType')
+      .populate('areaOfOperation')
+      .populate('surveyTypes')
+      .populate('createdBy', 'username email')
+      .populate('updatedBy', 'username email');
+
+    res.status(200).json({
+      success: true,
+      message: 'Signed PDF deleted successfully.',
+      data: populatedRequest,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Error deleting signed PDF.', error: error.message });
+  }
+};
+
 

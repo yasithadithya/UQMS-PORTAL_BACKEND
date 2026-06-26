@@ -195,17 +195,7 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
 
     currentY += 20;
 
-    // 2. Request Number Box
-    doc.rect(startX, currentY, boxLabelW, 20).stroke();
-    doc.rect(startX + boxLabelW, currentY, boxValW, 20).stroke();
-    doc.font('Helvetica-Bold').fontSize(8.5)
-      .text('Req. No.', startX + 4, currentY + 5.5, { width: boxLabelW - 8, lineBreak: false });
-    doc.font('Helvetica').fontSize(8.5)
-      .text(request.requestNumber || '-', startX + boxLabelW + 4, currentY + 5.5, { width: boxValW - 8, lineBreak: false });
-
-    currentY += 20;
-
-    // 3. Date Box
+    // 2. Date Box
     doc.rect(startX, currentY, boxLabelW, 20).stroke();
     doc.rect(startX + boxLabelW, currentY, boxValW, 20).stroke();
     doc.font('Helvetica-Bold').fontSize(8.5)
@@ -218,7 +208,7 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
     doc.font('Helvetica').fontSize(9.5).text('Universal Quality Management System.', innerLeft, dateY + 18);
 
     // Set doc.y safely below the boxes before continuing
-    doc.y = dateY + 65;
+    doc.y = dateY + 45;
     doc.moveDown(0.6);
 
     // Intro paragraph
