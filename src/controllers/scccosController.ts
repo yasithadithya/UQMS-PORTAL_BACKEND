@@ -8,6 +8,7 @@ import FirstEntrySurveyBookingModel from '../models/FirstEntrySurveyBooking';
 import DocumentNumberModel from '../models/DocumentNumber';
 import { getNextDocumentNumber } from '../services/documentNumberService';
 import { createScccosPdfBuffer } from '../services/scccosPdfService';
+import { paginate } from '../utils/pagination';
 
 /**
  * Create a new SCCCOS Certificate
@@ -146,22 +147,19 @@ export const createSCCCOS = async (req: Request, res: Response): Promise<void> =
 /**
  * Get all SCCCOS Certificates
  */
-export const getAllSCCCOS = async (_req: Request, res: Response): Promise<void> => {
+export const getAllSCCCOS = async (req: Request, res: Response): Promise<void> => {
   try {
-    const certificates = await SCCCOSModel.find()
-      .populate('vesselId')
-      .populate('surveyReportId')
-      .populate('surveyBookingId')
-      .populate('issuedBy', 'username email')
-      .populate('createdBy', 'username email')
-      .populate('updatedBy', 'username email')
-      .sort({ createdAt: -1 });
+    const populateOptions = [
+      'vesselId',
+      'surveyReportId',
+      'surveyBookingId',
+      { path: 'issuedBy', select: 'username email' },
+      { path: 'createdBy', select: 'username email' },
+      { path: 'updatedBy', select: 'username email' }
+    ];
 
-    res.status(200).json({
-      success: true,
-      count: certificates.length,
-      data: certificates,
-    });
+    const result = await paginate(SCCCOSModel, {}, req, populateOptions, { createdAt: -1 });
+    res.status(200).json(result);
   } catch (error: any) {
     res.status(500).json({
       success: false,

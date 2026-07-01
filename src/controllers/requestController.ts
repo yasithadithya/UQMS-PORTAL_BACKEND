@@ -16,6 +16,7 @@ import DocumentNumber from '../models/DocumentNumber';
 import { deleteFromR2, uploadToR2 } from '../services/r2Storage';
 import { createRequestSurveyPdfBuffer } from '../services/requestPdfService';
 import { getIstDateParts } from '../utils/date';
+import { paginate } from '../utils/pagination';
 
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === 'string' && value.trim().length > 0;
@@ -338,15 +339,16 @@ export const getAllRequests = async (req: Request, res: Response): Promise<void>
       ];
     }
 
-    const requests = await RequestModel.find(query)
-      .populate('vesselType')
-      .populate('areaOfOperation')
-      .populate('surveyTypes')
-      .populate('createdBy', 'username email')
-      .populate('updatedBy', 'username email')
-      .sort({ createdAt: -1 });
+    const populateOptions = [
+      'vesselType',
+      'areaOfOperation',
+      'surveyTypes',
+      { path: 'createdBy', select: 'username email' },
+      { path: 'updatedBy', select: 'username email' }
+    ];
 
-    res.status(200).json({ success: true, count: requests.length, data: requests });
+    const result = await paginate(RequestModel, query, req, populateOptions, { createdAt: -1 });
+    res.status(200).json(result);
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Error fetching requests.', error: error.message });
   }
