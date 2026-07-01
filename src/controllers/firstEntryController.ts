@@ -6,6 +6,7 @@ import RequestModel from '../models/Request';
 import VesselModel from '../models/Vessel';
 import { getNextDocumentNumber } from '../services/documentNumberService';
 import nodemailer from 'nodemailer';
+import { paginate } from '../utils/pagination';
 
 // ==========================================
 // FIRST ENTRY CONTROLLERS
@@ -65,17 +66,18 @@ export const createFirstEntry = async (req: Request, res: Response): Promise<voi
   }
 };
 
-export const getAllFirstEntries = async (_req: Request, res: Response): Promise<void> => {
+export const getAllFirstEntries = async (req: Request, res: Response): Promise<void> => {
   try {
-    const entries = await FirstEntryModel.find()
-      .populate('request')
-      .populate('vessel')
-      .populate('scheduleII')
-      .populate('createdBy', 'username email')
-      .populate('updatedBy', 'username email')
-      .sort({ createdAt: -1 });
+    const populateOptions = [
+      'request',
+      'vessel',
+      'scheduleII',
+      { path: 'createdBy', select: 'username email' },
+      { path: 'updatedBy', select: 'username email' }
+    ];
 
-    res.status(200).json({ success: true, count: entries.length, data: entries });
+    const result = await paginate(FirstEntryModel, {}, req, populateOptions, { createdAt: -1 });
+    res.status(200).json(result);
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Error fetching first entries.', error: error.message });
   }

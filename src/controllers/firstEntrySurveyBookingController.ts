@@ -5,6 +5,7 @@ import VesselModel, { IVessel } from '../models/Vessel';
 import VesselTypeModel from '../models/VesselType';
 import DocumentNumberModel from '../models/DocumentNumber';
 import { getNextDocumentNumber } from '../services/documentNumberService';
+import { paginate } from '../utils/pagination';
 
 // Helper to convert booking data fields to Vessel fields
 const getVesselFieldsFromBooking = async (bookingData: any) => {
@@ -238,21 +239,18 @@ export const createFirstEntrySurveyBooking = async (req: Request, res: Response)
   }
 };
 
-export const getAllFirstEntrySurveyBookings = async (_req: Request, res: Response): Promise<void> => {
+export const getAllFirstEntrySurveyBookings = async (req: Request, res: Response): Promise<void> => {
   try {
-    const bookings = await FirstEntrySurveyBookingModel.find()
-      .populate('vesselId')
-      .populate('visitDetails.surveyorAssignments.surveyorId', 'username email')
-      .populate('requestIds')
-      .populate('createdBy', 'username email')
-      .populate('updatedBy', 'username email')
-      .sort({ createdAt: -1 });
+    const populateOptions = [
+      'vesselId',
+      { path: 'visitDetails.surveyorAssignments.surveyorId', select: 'username email' },
+      'requestIds',
+      { path: 'createdBy', select: 'username email' },
+      { path: 'updatedBy', select: 'username email' }
+    ];
 
-    res.status(200).json({
-      success: true,
-      count: bookings.length,
-      data: bookings,
-    });
+    const result = await paginate(FirstEntrySurveyBookingModel, {}, req, populateOptions, { createdAt: -1 });
+    res.status(200).json(result);
   } catch (error: any) {
     res.status(500).json({
       success: false,

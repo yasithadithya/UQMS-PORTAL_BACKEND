@@ -4,6 +4,7 @@ import ChecklistQuestion from '../models/ChecklistQuestion';
 import SurveyType from '../models/SurveyType';
 import AreaOfOperation from '../models/AreaOfOperation';
 import VesselType from '../models/VesselType';
+import { paginate } from '../utils/pagination';
 
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === 'string' && value.trim().length > 0;
@@ -226,19 +227,16 @@ export const getAllChecklistQuestions = async (req: Request, res: Response): Pro
       }
     }
 
-    const questions = await ChecklistQuestion.find(query)
-      .populate('surveyCategories')
-      .populate('areaOfOperations')
-      .populate('boatTypes')
-      .populate('createdBy', 'username email')
-      .populate('updatedBy', 'username email')
-      .sort({ createdAt: -1 });
+    const populateOptions = [
+      'surveyCategories',
+      'areaOfOperations',
+      'boatTypes',
+      { path: 'createdBy', select: 'username email' },
+      { path: 'updatedBy', select: 'username email' }
+    ];
 
-    res.status(200).json({
-      success: true,
-      count: questions.length,
-      data: questions,
-    });
+    const result = await paginate(ChecklistQuestion, query, req, populateOptions, { createdAt: -1 });
+    res.status(200).json(result);
   } catch (error: any) {
     res.status(500).json({
       success: false,

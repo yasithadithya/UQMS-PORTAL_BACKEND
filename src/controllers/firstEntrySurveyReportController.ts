@@ -4,6 +4,7 @@ import FirstEntrySurveyReportModel, { IFirstEntrySurveyReport } from '../models/
 import FirstEntrySurveyBookingModel from '../models/FirstEntrySurveyBooking';
 import RequestModel from '../models/Request';
 import { generateFullReport } from './firstEntryFullReportController';
+import { paginate } from '../utils/pagination';
 
 // Helper function to extract and pre-populate report details from a booking
 const getPrePopulatedData = async (bookingId: string): Promise<any> => {
@@ -178,20 +179,17 @@ export const createFirstEntrySurveyReport = async (req: Request, res: Response):
 /**
  * Get all First Entry Survey Reports
  */
-export const getAllFirstEntrySurveyReports = async (_req: Request, res: Response): Promise<void> => {
+export const getAllFirstEntrySurveyReports = async (req: Request, res: Response): Promise<void> => {
   try {
-    const reports = await FirstEntrySurveyReportModel.find()
-      .populate('bookingId')
-      .populate('vesselId')
-      .populate('createdBy', 'username email')
-      .populate('updatedBy', 'username email')
-      .sort({ createdAt: -1 });
+    const populateOptions = [
+      'bookingId',
+      'vesselId',
+      { path: 'createdBy', select: 'username email' },
+      { path: 'updatedBy', select: 'username email' }
+    ];
 
-    res.status(200).json({
-      success: true,
-      count: reports.length,
-      data: reports,
-    });
+    const result = await paginate(FirstEntrySurveyReportModel, {}, req, populateOptions, { createdAt: -1 });
+    res.status(200).json(result);
   } catch (error: any) {
     res.status(500).json({
       success: false,
