@@ -942,20 +942,42 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('MACHINERY:', innerLeft, currentY);
     currentY += 16;
 
-    const mainEngCount = report?.machinery?.mainEngineCount ?? (vessel?.noOfEngines || 2);
-    const mainEngModel = report?.machinery?.mainEngineModel || (vessel?.mainEngineModel || 'Caterpillar');
-    const mainEngPower = report?.machinery?.mainEnginePower || (vessel?.totalPower ? `${vessel.totalPower}kW (${Math.round(vessel.totalPower * 1.341)} HP)` : '714kW (970 HP)');
+    const enginesList = report?.machinery?.engines && report.machinery.engines.length > 0
+      ? report.machinery.engines
+      : vessel?.engines && vessel.engines.length > 0
+        ? vessel.engines
+        : null;
+
+    let mainEngineText = '';
     const mainEngFuel = report?.machinery?.mainEngineFuelType || 'Diesel';
     const mainEngAlarms = report?.machinery?.mainEngineAlarms || 'satisfaction';
 
-    const mainEngineText = `Main Engine (${mainEngCount} Nos)\n\n` +
-      `Type/ Model: ${mainEngModel}\n` +
-      `Output: ${mainEngPower}\n` +
-      `Fuel Type: ${mainEngFuel}\n` +
-      `Main engines safety alarms/ shutdowns and operation tested to ${mainEngAlarms}.`;
+    if (enginesList) {
+      enginesList.forEach((eng: any, idx: number) => {
+        const engPower = eng.totalPower ? `${eng.totalPower}kW (${Math.round(eng.totalPower * 1.341)} HP)` : '-';
+        const rpmText = eng.rpm ? ` @ ${eng.rpm} RPM` : '';
+        const speedText = eng.speed ? ` / ${eng.speed} knots` : '';
+        mainEngineText += `Engine ${idx + 1} (${eng.quantity || 1} Nos)\n\n` +
+          `Type/ Model: ${eng.model || '-'}\n` +
+          `Output: ${engPower}${rpmText}${speedText}\n` +
+          `Fuel Type: ${mainEngFuel}\n` +
+          `Main engines safety alarms/ shutdowns and operation tested to ${mainEngAlarms}.\n\n`;
+      });
+      mainEngineText = mainEngineText.trim();
+    } else {
+      const mainEngCount = report?.machinery?.mainEngineCount ?? (vessel?.noOfEngines || 2);
+      const mainEngModel = report?.machinery?.mainEngineModel || (vessel?.mainEngineModel || 'Caterpillar');
+      const mainEngPower = report?.machinery?.mainEnginePower || (vessel?.totalPower ? `${vessel.totalPower}kW (${Math.round(vessel.totalPower * 1.341)} HP)` : '714kW (970 HP)');
+
+      mainEngineText = `Main Engine (${mainEngCount} Nos)\n\n` +
+        `Type/ Model: ${mainEngModel}\n` +
+        `Output: ${mainEngPower}\n` +
+        `Fuel Type: ${mainEngFuel}\n` +
+        `Main engines safety alarms/ shutdowns and operation tested to ${mainEngAlarms}.`;
+    }
 
     doc.font('Helvetica').fontSize(9.5).fillColor('#374151').lineGap(3.5).text(mainEngineText, innerLeft, currentY, { width: pageWidth });
-    currentY += 110;
+    currentY = doc.y + 20; // dynamically update Y based on text height
 
     // Auxiliary Engine
     const auxCount = report?.machinery?.auxEngineCount ?? 0;
