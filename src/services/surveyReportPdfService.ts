@@ -225,7 +225,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
 
     // Other particulars
     const middleFields1 = [
-      { label: 'Date of Build', val: formatDate(vessel?.dateOfBuild || booking?.buildDate) },
+      { label: 'Date of Build', val: vessel?.dateOfBuild || booking?.buildDate || '-' },
       { label: 'Yard Number', val: vessel?.yardNo || booking?.yardNo },
       { label: 'Hull Material', val: vessel?.material },
       { label: 'Vessel Group', val: vessel?.vesselType?.group || '-' }
