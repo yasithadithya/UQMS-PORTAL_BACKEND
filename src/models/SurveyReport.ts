@@ -77,6 +77,13 @@ export interface ISurveyReport extends Document {
     auxEngineOutput: string;
     auxEngineAlarms: string; // satisfaction / satisfactory
     powerGeneration: string;
+    engines?: {
+      model?: string;
+      quantity?: number;
+      totalPower?: number;
+      speed?: number;
+      rpm?: number;
+    }[];
   };
   
   signature: {
@@ -175,6 +182,13 @@ const surveyReportSchema: Schema = new Schema(
       auxEngineOutput: { type: String, default: '17KW', trim: true },
       auxEngineAlarms: { type: String, default: 'satisfaction', trim: true },
       powerGeneration: { type: String, default: '', trim: true },
+      engines: [{
+        model: { type: String, trim: true },
+        quantity: { type: Number },
+        totalPower: { type: Number },
+        speed: { type: Number },
+        rpm: { type: Number }
+      }]
     },
     signature: {
       dateOfIssue: { type: Date, default: null },
