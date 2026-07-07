@@ -46,6 +46,13 @@ export interface IVessel extends Document {
     propeller?: string;
     speed?: number;
     rpm?: number;
+    engines?: {
+        model?: string;
+        quantity?: number;
+        totalPower?: number;
+        speed?: number;
+        rpm?: number;
+    }[];
     electricalInstallation?: string;
     boilers?: string;
     sisterShips?: mongoose.Types.ObjectId[];
@@ -110,6 +117,13 @@ const vesselSchema: Schema = new Schema(
         propeller: { type: String, trim: true },
         speed: { type: Number },
         rpm: { type: Number },
+        engines: [{
+            model: { type: String, trim: true },
+            quantity: { type: Number },
+            totalPower: { type: Number },
+            speed: { type: Number },
+            rpm: { type: Number }
+        }],
         electricalInstallation: { type: String, trim: true },
         boilers: { type: String, trim: true },
         sisterShips: [{ type: Schema.Types.ObjectId, ref: 'Vessel' }],
