@@ -165,7 +165,7 @@ export const createScccosPdfBuffer = async (
       { label: 'MMSI Number', value: toText(vessel.mmsiNumber) },
       { label: 'Call Sign', value: toText(vessel.callSign) },
       { label: 'Port of Registry', value: toText(vessel.portOfRegistry) },
-      { label: 'Date of Build', value: vessel.dateOfBuild ? new Date(vessel.dateOfBuild).getFullYear().toString() : toText(booking.buildDate ? new Date(booking.buildDate).getFullYear() : '-') }
+      { label: 'Date of Build', value: vessel.dateOfBuild ? (vessel.dateOfBuild.match(/\\d{4}/)?.[0] || '-') : toText(booking.buildDate ? (booking.buildDate.match(/\\d{4}/)?.[0] || '-') : '-') }
     ];
 
     vesselFields.forEach((field) => {

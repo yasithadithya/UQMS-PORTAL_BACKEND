@@ -43,7 +43,7 @@ export interface IFirstEntrySurveyBooking extends Document {
     surveyMode: string;
     society?: string;
     managedBy?: string;
-    buildDate?: Date;                  // Maps to Vessel's dateOfBuild
+    buildDate?: string;                  // Maps to Vessel's dateOfBuild
     yardNo?: string;
     officialNo?: string;
     gt?: number;                       // Maps to Vessel's grossTonnage
@@ -110,7 +110,7 @@ const firstEntrySurveyBookingSchema: Schema = new Schema(
         surveyMode: { type: String, trim: true, default: 'Singly' },
         society: { type: String, trim: true },
         managedBy: { type: String, trim: true },
-        buildDate: { type: Date },
+        buildDate: { type: String },
         yardNo: { type: String, trim: true },
         officialNo: { type: String, trim: true },
         gt: { type: Number },

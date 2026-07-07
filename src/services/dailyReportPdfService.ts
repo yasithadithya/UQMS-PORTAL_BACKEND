@@ -163,7 +163,7 @@ export const createDailyReportPdfBuffer = async (
 
     const shipName = toText(booking.shipName || report.shipName || vessel.vesselName);
     const uqmsNumber = toText(report.uqmsNo || booking.uqmsNo || vessel.uqmsNumber);
-    const dateOfBuild = formatDate(booking.buildDate || vessel.dateOfBuild);
+    const dateOfBuild = booking.buildDate || vessel.dateOfBuild || '-';
     const vesselType = toText(booking.shipType || vessel.vesselType);
     const reportNumber = toText(booking.reportNo || surveyReport.reportNo);
     const portOfRegistry = toText(booking.portOfRegistry || vessel.portOfRegistry);
