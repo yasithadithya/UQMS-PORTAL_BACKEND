@@ -29,7 +29,7 @@ export interface IVessel extends Document {
     builder?: string;
     placeOfBuilt?: string;
     yardNo?: string;
-    dateOfBuild?: Date;
+    dateOfBuild?: string;
     keelDate?: Date;
     buildingContractDate?: Date;
     majorConversionDate?: Date;
@@ -100,7 +100,7 @@ const vesselSchema: Schema = new Schema(
         builder: { type: String, trim: true },
         placeOfBuilt: { type: String, trim: true },
         yardNo: { type: String, trim: true },
-        dateOfBuild: { type: Date },
+        dateOfBuild: { type: String },
         keelDate: { type: Date },
         buildingContractDate: { type: Date },
         majorConversionDate: { type: Date },
