@@ -44,6 +44,33 @@ export const calculateIncomeTax = (annualGross: number): number => {
   return tax / 12; // monthly tax
 };
 
+export const computePayrollSummary = async (month?: number, year?: number) => {
+  const filter: any = {};
+  if (month) filter.month = month;
+  if (year) filter.year = year;
+
+  const runs = await PayrollRun.find(filter);
+
+  const summary = {
+    totalGrossSalary: 0,
+    totalNetSalary: 0,
+    totalEpfEmployer: 0,
+    totalEtf: 0,
+    totalDeductions: 0,
+    totalEmployees: runs.length
+  };
+
+  runs.forEach(r => {
+    summary.totalGrossSalary += r.grossSalary;
+    summary.totalNetSalary += r.netSalary;
+    summary.totalEpfEmployer += r.epfEmployer;
+    summary.totalEtf += r.etf;
+    summary.totalDeductions += r.totalDeductions;
+  });
+
+  return summary;
+};
+
 export const generatePayroll = async (employeeId: string, month: number, year: number) => {
   const salaryStructure = await SalaryStructure.findOne({ employee: employeeId, isActive: true });
   if (!salaryStructure) {
