@@ -182,6 +182,8 @@ const requestSchema: Schema = new Schema(
   }
 );
 
+requestSchema.path('createdAt').immutable(false);
+
 const Request = mongoose.model<IRequest>('Request', requestSchema);
 
 export default Request;

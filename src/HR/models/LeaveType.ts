@@ -2,7 +2,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 import hrDbConnection from '../config/hrDb';
 
 export interface ILeaveType extends Document {
-  name: 'Annual' | 'Sick' | 'Casual' | 'Maternity' | 'Paternity' | 'Unpaid';
+  name: string;
   defaultDaysPerYear: number;
   isCarryForwardAllowed: boolean;
   maxCarryForwardDays?: number;
@@ -11,11 +11,11 @@ export interface ILeaveType extends Document {
 
 const leaveTypeSchema = new Schema<ILeaveType>(
   {
-    name: { 
-      type: String, 
-      enum: ['Annual', 'Sick', 'Casual', 'Maternity', 'Paternity', 'Unpaid'],
+    name: {
+      type: String,
       required: true,
-      unique: true
+      unique: true,
+      trim: true
     },
     defaultDaysPerYear: { type: Number, required: true },
     isCarryForwardAllowed: { type: Boolean, default: false },

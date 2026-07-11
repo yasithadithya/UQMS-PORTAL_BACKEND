@@ -30,6 +30,12 @@ const normalizeStatus = (value: string): 'active' | 'print' | 'reject' | null =>
   return allowedStatuses.has(normalized) ? (normalized as 'active' | 'print' | 'reject') : null;
 };
 
+const parseRequestCreatedAt = (value: unknown): Date | null => {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
 const allowedMimeTypes = new Set([
   'application/pdf',
   'image/jpeg',
@@ -152,6 +158,7 @@ export const createRequest = async (req: Request, res: Response): Promise<void> 
       invoicingAddress,
       companyEmail,
       sector,
+      createdAt,
       vesselType,
       areaOfOperation,
       surveyTypes,
@@ -200,6 +207,12 @@ export const createRequest = async (req: Request, res: Response): Promise<void> 
     }
     if (!isNonEmptyString(sector)) {
       res.status(400).json({ success: false, message: 'Sector is required.' });
+      return;
+    }
+
+    const parsedCreatedAt = createdAt !== undefined ? parseRequestCreatedAt(createdAt) : null;
+    if (createdAt !== undefined && !parsedCreatedAt) {
+      res.status(400).json({ success: false, message: 'Created date must be a valid date string.' });
       return;
     }
 
@@ -296,6 +309,7 @@ export const createRequest = async (req: Request, res: Response): Promise<void> 
       invoicingAddress: toTrimmedString(invoicingAddress),
       companyEmail: toTrimmedString(companyEmail),
       sector: normalizedSector,
+      createdAt: parsedCreatedAt || undefined,
       vesselType,
       areaOfOperation,
       surveyTypes: uniqueSurveyTypeIds,
@@ -394,6 +408,7 @@ export const updateRequest = async (req: Request, res: Response): Promise<void> 
       invoicingAddress,
       companyEmail,
       sector,
+      createdAt,
       vesselType,
       areaOfOperation,
       surveyTypes,
@@ -447,6 +462,12 @@ export const updateRequest = async (req: Request, res: Response): Promise<void> 
     }
     if (companyEmail !== undefined && !isNonEmptyString(companyEmail)) {
       res.status(400).json({ success: false, message: 'Company email must be a non-empty string.' });
+      return;
+    }
+
+    const parsedCreatedAt = createdAt !== undefined ? parseRequestCreatedAt(createdAt) : null;
+    if (createdAt !== undefined && !parsedCreatedAt) {
+      res.status(400).json({ success: false, message: 'Created date must be a valid date string.' });
       return;
     }
 
@@ -576,6 +597,9 @@ export const updateRequest = async (req: Request, res: Response): Promise<void> 
     }
     if (normalizedStatus !== undefined) {
       request.status = normalizedStatus;
+    }
+    if (parsedCreatedAt) {
+      request.set('createdAt', parsedCreatedAt);
     }
 
     if ((req as any).user?.id) {

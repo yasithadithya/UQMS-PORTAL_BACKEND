@@ -20,6 +20,19 @@ export const addHoliday = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
+export const updateHoliday = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const holiday = await PublicHoliday.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    if (!holiday) {
+      res.status(404).json({ success: false, error: 'Holiday not found', details: [] });
+      return;
+    }
+    res.status(200).json({ success: true, data: holiday, message: 'Holiday updated successfully' });
+  } catch (error: any) {
+    res.status(400).json({ success: false, error: error.message, details: [] });
+  }
+};
+
 export const removeHoliday = async (req: Request, res: Response): Promise<void> => {
   try {
     const holiday = await PublicHoliday.findByIdAndDelete(req.params.id);
