@@ -3,13 +3,89 @@ import LeaveType from '../models/LeaveType';
 import LeaveBalance from '../models/LeaveBalance';
 import LeaveRequest from '../models/LeaveRequest';
 import Employee from '../models/Employee';
-import { calculateLeaveDays, approveLeave, rejectOrCancelLeave } from '../services/leaveService';
+import { submitLeave, approveLeave, rejectOrCancelLeave } from '../services/leaveService';
 import { AuthRequest } from '../../middleware/auth';
 
 export const getLeaveTypes = async (req: Request, res: Response): Promise<void> => {
   try {
     const types = await LeaveType.find();
     res.status(200).json({ success: true, data: types, message: 'Leave types fetched successfully' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message, details: [] });
+  }
+};
+
+export const createLeaveType = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const type = new LeaveType(req.body);
+    await type.save();
+    res.status(201).json({ success: true, data: type, message: 'Leave type created successfully' });
+  } catch (error: any) {
+    const code = error.code === 11000 ? 409 : 400;
+    res.status(code).json({ success: false, error: error.code === 11000 ? 'Leave type already exists' : error.message, details: [] });
+  }
+};
+
+export const updateLeaveType = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const type = await LeaveType.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    if (!type) {
+      res.status(404).json({ success: false, error: 'Leave type not found', details: [] });
+      return;
+    }
+    res.status(200).json({ success: true, data: type, message: 'Leave type updated successfully' });
+  } catch (error: any) {
+    const code = error.code === 11000 ? 409 : 400;
+    res.status(code).json({ success: false, error: error.code === 11000 ? 'Leave type already exists' : error.message, details: [] });
+  }
+};
+
+export const deleteLeaveType = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const [requestCount, balanceCount] = await Promise.all([
+      LeaveRequest.countDocuments({ leaveType: req.params.id }),
+      LeaveBalance.countDocuments({ leaveType: req.params.id }),
+    ]);
+    if (requestCount > 0 || balanceCount > 0) {
+      res.status(400).json({ success: false, error: 'Cannot delete: leave type is referenced by existing requests or balances', details: [] });
+      return;
+    }
+
+    const type = await LeaveType.findByIdAndDelete(req.params.id);
+    if (!type) {
+      res.status(404).json({ success: false, error: 'Leave type not found', details: [] });
+      return;
+    }
+    res.status(200).json({ success: true, data: type, message: 'Leave type deleted successfully' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message, details: [] });
+  }
+};
+
+export const getAllBalances = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const filter: any = {};
+    filter.year = req.query.year ? parseInt(req.query.year as string) : new Date().getFullYear();
+    if (req.query.employeeId) filter.employee = req.query.employeeId;
+
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 25;
+    const skip = (page - 1) * limit;
+
+    const balances = await LeaveBalance.find(filter)
+      .populate('employee', 'firstName lastName employeeId')
+      .populate('leaveType', 'name isPaidLeave')
+      .sort({ employee: 1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await LeaveBalance.countDocuments(filter);
+
+    res.status(200).json({
+      success: true,
+      data: { balances, total, page, pages: Math.ceil(total / limit) },
+      message: 'Leave balances fetched successfully'
+    });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -29,33 +105,7 @@ export const getLeaveBalance = async (req: Request, res: Response): Promise<void
 export const submitLeaveRequest = async (req: Request, res: Response): Promise<void> => {
   try {
     const { employee, leaveType, startDate, endDate, reason } = req.body;
-    
-    const sDate = new Date(startDate);
-    const eDate = new Date(endDate);
-    
-    const totalDays = await calculateLeaveDays(sDate, eDate);
-    if (totalDays <= 0) {
-      res.status(400).json({ success: false, error: 'Invalid date range or no working days selected', details: [] });
-      return;
-    }
-
-    const year = sDate.getFullYear();
-    const balance = await LeaveBalance.findOne({ employee, leaveType, year });
-
-    if (!balance || balance.remainingDays < totalDays) {
-      res.status(400).json({ success: false, error: 'Insufficient leave balance', details: [] });
-      return;
-    }
-
-    const request = new LeaveRequest({
-      employee, leaveType, startDate: sDate, endDate: eDate, totalDays, reason, status: 'Pending'
-    });
-
-    await request.save();
-
-    balance.pendingDays += totalDays;
-    await balance.save();
-
+    const request = await submitLeave(employee, leaveType, new Date(startDate), new Date(endDate), reason);
     res.status(201).json({ success: true, data: request, message: 'Leave request submitted successfully' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
@@ -104,7 +154,8 @@ export const approveRequest = async (req: AuthRequest, res: Response): Promise<v
 export const rejectRequest = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id;
-    const request = await rejectOrCancelLeave(req.params.id as string, 'Rejected', userId as string, req.body.rejectionReason as string);
+    const reason = (req.body.rejectionReason ?? req.body.comments) as string;
+    const request = await rejectOrCancelLeave(req.params.id as string, 'Rejected', userId as string, reason);
     res.status(200).json({ success: true, data: request, message: 'Leave rejected successfully' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });

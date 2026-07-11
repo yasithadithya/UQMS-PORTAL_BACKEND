@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import Employee from '../models/Employee';
 import EmploymentHistory from '../models/EmploymentHistory';
+import { uploadToR2 } from '../../services/r2Storage';
+import { buildHrObjectKey, imageMimeTypes } from '../services/hrFileService';
 
 export const getEmployees = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -93,11 +95,41 @@ export const createEmployee = async (req: Request, res: Response): Promise<void>
 
 export const updateEmployee = async (req: Request, res: Response): Promise<void> => {
   try {
-    const employee = await Employee.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
-    if (!employee || employee.isDeleted) {
+    const before = await Employee.findById(req.params.id);
+    if (!before || before.isDeleted) {
       res.status(404).json({ success: false, error: 'Employee not found', details: [] });
       return;
     }
+
+    const employee = await Employee.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+
+    // Best-effort: kick off an offboarding checklist when an employee leaves
+    const becameInactive =
+      employee &&
+      ['Resigned', 'Terminated'].includes(employee.employmentStatus || '') &&
+      !['Resigned', 'Terminated'].includes(before.employmentStatus || '');
+    if (becameInactive) {
+      try {
+        const { default: EmployeeChecklist } = await import('../models/EmployeeChecklist');
+        const { default: ChecklistTemplate } = await import('../models/ChecklistTemplate');
+        const { createChecklistFromTemplate } = await import('./checklistController');
+
+        const openOffboarding = await EmployeeChecklist.findOne({
+          employee: employee._id,
+          type: 'Offboarding',
+          status: 'InProgress',
+        });
+        if (!openOffboarding) {
+          const template = await ChecklistTemplate.findOne({ type: 'Offboarding', isActive: true });
+          if (template) {
+            await createChecklistFromTemplate(String(template._id), String(employee._id), new Date());
+          }
+        }
+      } catch (e) {
+        console.error('Failed to auto-create offboarding checklist:', e);
+      }
+    }
+
     res.status(200).json({ success: true, data: employee, message: 'Employee updated successfully' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
@@ -173,9 +205,22 @@ export const uploadPhoto = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
+    if (!imageMimeTypes.has(file.mimetype)) {
+      res.status(400).json({ success: false, error: 'Invalid file type. Only JPEG, PNG, WEBP, and GIF images are allowed.', details: [] });
+      return;
+    }
+
+    const key = buildHrObjectKey(file.originalname, file.mimetype, `hr/profiles/${req.params.id}`);
+    const uploadResult = await uploadToR2({
+      key,
+      body: file.buffer,
+      contentType: file.mimetype,
+      contentLength: file.size,
+    });
+
     const employee = await Employee.findByIdAndUpdate(
       req.params.id,
-      { profilePhotoUrl: file.path },
+      { profilePhotoUrl: uploadResult.url || uploadResult.key },
       { new: true }
     );
 

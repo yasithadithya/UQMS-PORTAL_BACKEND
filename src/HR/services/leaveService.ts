@@ -33,6 +33,37 @@ export const calculateLeaveDays = async (startDate: Date, endDate: Date): Promis
   return totalDays;
 };
 
+export const submitLeave = async (
+  employee: string,
+  leaveType: string,
+  startDate: Date,
+  endDate: Date,
+  reason?: string
+) => {
+  const totalDays = await calculateLeaveDays(startDate, endDate);
+  if (totalDays <= 0) {
+    throw new Error('Invalid date range or no working days selected');
+  }
+
+  const year = startDate.getFullYear();
+  const balance = await LeaveBalance.findOne({ employee, leaveType, year });
+
+  if (!balance || balance.remainingDays < totalDays) {
+    throw new Error('Insufficient leave balance');
+  }
+
+  const request = new LeaveRequest({
+    employee, leaveType, startDate, endDate, totalDays, reason, status: 'Pending'
+  });
+
+  await request.save();
+
+  balance.pendingDays += totalDays;
+  await balance.save();
+
+  return request;
+};
+
 export const approveLeave = async (leaveRequestId: string, approvedBy: string) => {
   const request = await LeaveRequest.findById(leaveRequestId);
   if (!request || request.status !== 'Pending') {

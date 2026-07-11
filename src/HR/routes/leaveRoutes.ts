@@ -1,7 +1,11 @@
 import express from 'express';
 import {
   getLeaveTypes,
+  createLeaveType,
+  updateLeaveType,
+  deleteLeaveType,
   getLeaveBalance,
+  getAllBalances,
   submitLeaveRequest,
   getLeaveRequests,
   approveRequest,
@@ -13,6 +17,11 @@ import {
 const router = express.Router();
 
 router.get('/types', getLeaveTypes);
+router.post('/types', createLeaveType);
+router.put('/types/:id', updateLeaveType);
+router.delete('/types/:id', deleteLeaveType);
+
+router.get('/balances', getAllBalances);
 router.post('/balance/initialize', initializeBalances);
 router.get('/balance/:employeeId', getLeaveBalance);
 

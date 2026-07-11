@@ -34,6 +34,8 @@ export interface IEmployee extends Document {
     relationship?: string;
     phone?: string;
   };
+  // _id of the User in the primary app database (separate connection — no populate)
+  userId?: string;
   isDeleted: boolean;
 }
 
@@ -70,6 +72,7 @@ const employeeSchema = new Schema<IEmployee>(
       relationship: { type: String },
       phone: { type: String },
     },
+    userId: { type: String, index: true },
     isDeleted: { type: Boolean, default: false },
   },
   { 

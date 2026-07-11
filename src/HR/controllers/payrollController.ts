@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import SalaryStructure from '../models/SalaryStructure';
 import PayrollRun from '../models/PayrollRun';
-import { generatePayroll } from '../services/payrollService';
+import { generatePayroll, computePayrollSummary } from '../services/payrollService';
 import Employee from '../models/Employee';
 import { AuthRequest } from '../../middleware/auth';
 import mongoose from 'mongoose';
@@ -177,28 +177,10 @@ export const generatePayslip = async (req: Request, res: Response): Promise<void
 export const getPayrollSummary = async (req: Request, res: Response): Promise<void> => {
   try {
     const { month, year } = req.query;
-    const filter: any = {};
-    if (month) filter.month = parseInt(month as string);
-    if (year) filter.year = parseInt(year as string);
-
-    const runs = await PayrollRun.find(filter);
-
-    const summary = {
-      totalGrossSalary: 0,
-      totalNetSalary: 0,
-      totalEpfEmployer: 0,
-      totalEtf: 0,
-      totalDeductions: 0,
-      totalEmployees: runs.length
-    };
-
-    runs.forEach(r => {
-      summary.totalGrossSalary += r.grossSalary;
-      summary.totalNetSalary += r.netSalary;
-      summary.totalEpfEmployer += r.epfEmployer;
-      summary.totalEtf += r.etf;
-      summary.totalDeductions += r.totalDeductions;
-    });
+    const summary = await computePayrollSummary(
+      month ? parseInt(month as string) : undefined,
+      year ? parseInt(year as string) : undefined
+    );
 
     res.status(200).json({ success: true, data: summary, message: 'Payroll summary fetched' });
   } catch (error: any) {

@@ -12,7 +12,10 @@ import {
 } from '../controllers/employeeController';
 
 const router = express.Router();
-const upload = multer({ dest: 'uploads/profiles/' });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
 
 router.get('/', getEmployees);
 router.post('/', createEmployee);
