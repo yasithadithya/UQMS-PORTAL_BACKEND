@@ -361,7 +361,7 @@ export const getAllRequests = async (req: Request, res: Response): Promise<void>
       { path: 'updatedBy', select: 'username email' }
     ];
 
-    const result = await paginate(RequestModel, query, req, populateOptions, { createdAt: -1 });
+    const result = await paginate(RequestModel, query, req, populateOptions, { requestNumber: -1 });
     res.status(200).json(result);
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Error fetching requests.', error: error.message });
