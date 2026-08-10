@@ -567,21 +567,35 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('TANKS:', innerLeft, currentY);
     currentY += 16;
 
-    const tankPName = report?.tanks?.fuelOilPortName || 'P';
-    const tankPFrame = report?.tanks?.fuelOilPortFrame || 'Fr. 10 – 12';
-    const tankPCond = report?.tanks?.fuelOilPortCondition || 'satisfactory';
+    let tanksText = '';
+    
+    if (report?.tanks?.fuelOilTanks && report.tanks.fuelOilTanks.length > 0) {
+      report.tanks.fuelOilTanks.forEach((t: any) => {
+        tanksText += `Fuel Oil Tank (${t.name || ''}) – Between ${t.frame || ''}\nTank external examination carried out to ${t.condition || 'satisfactory'}. Remote Quick closing valve tested.\n\n`;
+      });
+    } else {
+      const tankPName = report?.tanks?.fuelOilPortName || 'P';
+      const tankPFrame = report?.tanks?.fuelOilPortFrame || 'Fr. 10 – 12';
+      const tankPCond = report?.tanks?.fuelOilPortCondition || 'satisfactory';
+      const tankSName = report?.tanks?.fuelOilStarboardName || 'S';
+      const tankSFrame = report?.tanks?.fuelOilStarboardFrame || 'Fr. 10 – 12';
+      const tankSCond = report?.tanks?.fuelOilStarboardCondition || 'satisfactory';
+      tanksText += `Fuel Oil Tank (${tankPName}) – Between ${tankPFrame}\nTank external examination carried out to ${tankPCond}. Remote Quick closing valve tested.\n\n` +
+                   `Fuel Oil Tank (${tankSName}) – Between ${tankSFrame}\nTank external examination carried out to ${tankSCond}. Remote Quick closing valve tested.\n\n`;
+    }
 
-    const tankSName = report?.tanks?.fuelOilStarboardName || 'S';
-    const tankSFrame = report?.tanks?.fuelOilStarboardFrame || 'Fr. 10 – 12';
-    const tankSCond = report?.tanks?.fuelOilStarboardCondition || 'satisfactory';
+    if (report?.tanks?.freshWaterTanks && report.tanks.freshWaterTanks.length > 0) {
+      report.tanks.freshWaterTanks.forEach((t: any) => {
+        tanksText += `Fresh Water Tanks (${t.name || ''}) - Between ${t.frame || ''}\nExternal examination carried out to ${t.condition || 'satisfactory'}.\n\n`;
+      });
+    } else {
+      const tankCName = report?.tanks?.freshWaterCenterName || 'C';
+      const tankCFrame = report?.tanks?.freshWaterCenterFrame || 'Fr. 12 – 13';
+      const tankCCond = report?.tanks?.freshWaterCenterCondition || 'satisfactory';
+      tanksText += `Fresh Water Tanks (${tankCName}) - Between ${tankCFrame}\nExternal examination carried out to ${tankCCond}.`;
+    }
 
-    const tankCName = report?.tanks?.freshWaterCenterName || 'C';
-    const tankCFrame = report?.tanks?.freshWaterCenterFrame || 'Fr. 12 – 13';
-    const tankCCond = report?.tanks?.freshWaterCenterCondition || 'satisfactory';
-
-    const tanksText = `Fuel Oil Tank (${tankPName}) – Between ${tankPFrame}\nTank external examination carried out to ${tankPCond}. Remote Quick closing valve tested.\n\n` +
-      `Fuel Oil Tank (${tankSName}) – Between ${tankSFrame}\nTank external examination carried out to ${tankSCond}. Remote Quick closing valve tested.\n\n` +
-      `Fresh Water Tanks (${tankCName}) - Between ${tankCFrame}\nExternal examination carried out to ${tankCCond}.`;
+    tanksText = tanksText.trim();
 
     doc.font('Helvetica').fontSize(9.5).fillColor('#374151').lineGap(3.5).text(tanksText, innerLeft, currentY, { width: pageWidth, align: 'justify' });
     currentY += doc.heightOfString(tanksText, { width: pageWidth }) + 15;
@@ -949,10 +963,19 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
         : null;
 
     let mainEngineText = '';
-    const mainEngFuel = report?.machinery?.mainEngineFuelType || 'Diesel';
-    const mainEngAlarms = report?.machinery?.mainEngineAlarms || 'satisfaction';
+    const mainEngFuelFallback = report?.machinery?.mainEngineFuelType || 'Diesel';
+    const mainEngAlarmsFallback = report?.machinery?.mainEngineAlarms || 'satisfaction';
 
-    if (enginesList) {
+    if (report?.machinery?.mainEngines && report.machinery.mainEngines.length > 0) {
+      report.machinery.mainEngines.forEach((eng: any, idx: number) => {
+        mainEngineText += `Main Engine ${idx + 1}\n\n` +
+          `Type/ Model: ${eng.model || '-'}\n` +
+          `Output: ${eng.power || '-'}\n` +
+          `Fuel Type: ${eng.fuelType || mainEngFuelFallback}\n` +
+          `Main engines safety alarms/ shutdowns and operation tested to ${eng.alarms || mainEngAlarmsFallback}.\n\n`;
+      });
+      mainEngineText = mainEngineText.trim();
+    } else if (enginesList) {
       enginesList.forEach((eng: any, idx: number) => {
         const engPower = eng.totalPower ? `${eng.totalPower}kW (${Math.round(eng.totalPower * 1.341)} HP)` : '-';
         const rpmText = eng.rpm ? ` @ ${eng.rpm} RPM` : '';
@@ -960,8 +983,8 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
         mainEngineText += `Engine ${idx + 1} (${eng.quantity || 1} Nos)\n\n` +
           `Type/ Model: ${eng.model || '-'}\n` +
           `Output: ${engPower}${rpmText}${speedText}\n` +
-          `Fuel Type: ${mainEngFuel}\n` +
-          `Main engines safety alarms/ shutdowns and operation tested to ${mainEngAlarms}.\n\n`;
+          `Fuel Type: ${mainEngFuelFallback}\n` +
+          `Main engines safety alarms/ shutdowns and operation tested to ${mainEngAlarmsFallback}.\n\n`;
       });
       mainEngineText = mainEngineText.trim();
     } else {
@@ -972,8 +995,8 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
       mainEngineText = `Main Engine (${mainEngCount} Nos)\n\n` +
         `Type/ Model: ${mainEngModel}\n` +
         `Output: ${mainEngPower}\n` +
-        `Fuel Type: ${mainEngFuel}\n` +
-        `Main engines safety alarms/ shutdowns and operation tested to ${mainEngAlarms}.`;
+        `Fuel Type: ${mainEngFuelFallback}\n` +
+        `Main engines safety alarms/ shutdowns and operation tested to ${mainEngAlarmsFallback}.`;
     }
 
     doc.font('Helvetica').fontSize(9.5).fillColor('#374151').lineGap(3.5).text(mainEngineText, innerLeft, currentY, { width: pageWidth });

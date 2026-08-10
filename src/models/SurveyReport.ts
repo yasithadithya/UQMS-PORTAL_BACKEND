@@ -144,15 +144,16 @@ const surveyReportSchema: Schema = new Schema(
     },
     accessOpeningsCondition: { type: String, default: 'satisfactory', trim: true },
     tanks: {
-      fuelOilPortName: { type: String, default: 'P', trim: true },
-      fuelOilPortFrame: { type: String, default: '', trim: true },
-      fuelOilPortCondition: { type: String, default: 'satisfactory', trim: true },
-      fuelOilStarboardName: { type: String, default: 'S', trim: true },
-      fuelOilStarboardFrame: { type: String, default: '', trim: true },
-      fuelOilStarboardCondition: { type: String, default: 'satisfactory', trim: true },
-      freshWaterCenterName: { type: String, default: 'C', trim: true },
-      freshWaterCenterFrame: { type: String, default: '', trim: true },
-      freshWaterCenterCondition: { type: String, default: 'satisfactory', trim: true },
+      fuelOilTanks: [{
+        name: { type: String, trim: true },
+        frame: { type: String, trim: true },
+        condition: { type: String, default: 'satisfactory', trim: true }
+      }],
+      freshWaterTanks: [{
+        name: { type: String, trim: true },
+        frame: { type: String, trim: true },
+        condition: { type: String, default: 'satisfactory', trim: true }
+      }],
     },
     spaces: {
       machinerySpace: { type: String, default: 'Satisfactory', trim: true },
@@ -171,11 +172,12 @@ const surveyReportSchema: Schema = new Schema(
     pipingCondition: { type: String, default: 'satisfactory', trim: true },
     electricalExamCondition: { type: String, default: 'as far as practicable', trim: true },
     machinery: {
-      mainEngineCount: { type: Number, default: 2 },
-      mainEngineModel: { type: String, default: 'Caterpillar', trim: true },
-      mainEnginePower: { type: String, default: '714kW (970 HP)', trim: true },
-      mainEngineFuelType: { type: String, default: 'Diesel', trim: true },
-      mainEngineAlarms: { type: String, default: 'satisfaction', trim: true },
+      mainEngines: [{
+        model: { type: String, trim: true },
+        power: { type: String, trim: true },
+        fuelType: { type: String, default: 'Diesel', trim: true },
+        alarms: { type: String, default: 'satisfaction', trim: true }
+      }],
       
       auxEngineCount: { type: Number, default: 0 },
       auxEngineModel: { type: String, default: 'Caterpillar', trim: true },
