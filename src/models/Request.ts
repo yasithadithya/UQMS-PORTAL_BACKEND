@@ -21,6 +21,7 @@ export interface IRequest extends Document {
   documents: IRequestDocument[];
   signedPdf?: IRequestDocument;
   status: 'active' | 'print' | 'reject' | 'success';
+  source: 'staff' | 'web';
   createdBy: mongoose.Types.ObjectId;
   updatedBy: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -166,6 +167,12 @@ const requestSchema: Schema = new Schema(
       required: [true, 'Status is required'],
       enum: ['active', 'print', 'reject', 'success'],
       default: 'active',
+      trim: true,
+    },
+    source: {
+      type: String,
+      enum: ['staff', 'web'],
+      default: 'staff',
       trim: true,
     },
     createdBy: {
