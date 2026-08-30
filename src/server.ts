@@ -24,6 +24,8 @@ import recEquipQuesRoutes from './routes/recEquipQuesRoutes';
 import vesselEquipmentRecordRoutes from './routes/vesselEquipmentRecordRoutes';
 import surveyReportRoutes from './routes/surveyReportRoutes';
 import documentTemplateRoutes from './routes/documentTemplateRoutes';
+import dockingSurveyCertRoutes from './routes/dockingSurveyCertRoutes';
+import publicRoutes from './routes/publicRoutes';
 import hrRoutes from './HR/routes';
 import { seedModulesAndAdminPermissions } from './config/seedModules';
 import { formatDate } from './utils/date';
@@ -69,7 +71,11 @@ app.use('/api/rec-equip-ques', recEquipQuesRoutes);
 app.use('/api/vessel-equipment-records', vesselEquipmentRecordRoutes);
 app.use('/api/survey-reports', surveyReportRoutes);
 app.use('/api/document-templates', documentTemplateRoutes);
+app.use('/api/docking-survey', dockingSurveyCertRoutes);
 app.use('/api/hr', hrRoutes);
+
+// Public intake (API-key authenticated, called by the public website)
+app.use('/api/public', publicRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

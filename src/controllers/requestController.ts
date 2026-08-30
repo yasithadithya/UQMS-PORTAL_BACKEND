@@ -11,8 +11,7 @@ import VesselType from '../models/VesselType';
 import AreaOfOperation from '../models/AreaOfOperation';
 import SurveyType from '../models/SurveyType';
 import { getR2Client } from '../config/r2';
-import { getNextDocumentNumber } from '../services/documentNumberService';
-import DocumentNumber from '../models/DocumentNumber';
+import { allocateRequestNumbers } from '../services/requestNumberService';
 import { deleteFromR2, uploadToR2 } from '../services/r2Storage';
 import { createRequestSurveyPdfBuffer } from '../services/requestPdfService';
 import { getIstDateParts } from '../utils/date';
@@ -277,19 +276,7 @@ export const createRequest = async (req: Request, res: Response): Promise<void> 
       normalizedStatus = parsedStatus;
     }
 
-    const requestNumber = await getNextDocumentNumber('request');
-
-    let rfsDocNoConfig = await DocumentNumber.findOne({ name: 'rfsDocNo' });
-    if (!rfsDocNoConfig) {
-      rfsDocNoConfig = new DocumentNumber({
-        name: 'rfsDocNo',
-        prefix: 'RFS-',
-        digits: 4,
-        lastNumber: -1,
-      });
-      await rfsDocNoConfig.save();
-    }
-    const rfsDocNo = await getNextDocumentNumber('rfsDocNo');
+    const { requestNumber, rfsDocNo } = await allocateRequestNumbers();
 
     const normalizedImoNumber = typeof imoNumber === 'string' ? toTrimmedString(imoNumber) : '';
     const normalizedMmsiNumber = typeof mmsiNumber === 'string' ? toTrimmedString(mmsiNumber) : '';
