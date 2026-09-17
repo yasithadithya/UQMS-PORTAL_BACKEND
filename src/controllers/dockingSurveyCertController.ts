@@ -68,6 +68,14 @@ export const createDockingSurveyCert = async (req: Request, res: Response): Prom
       return;
     }
 
+    if (!surveyReport.reportNo) {
+      res.status(400).json({
+        success: false,
+        message: 'Cannot generate certificate. The Survey Report does not have a report number assigned.',
+      });
+      return;
+    }
+
     const surveyBooking = await FirstEntrySurveyBookingModel.findById(surveyBookingId);
     if (!surveyBooking) {
       res.status(404).json({ success: false, message: 'Survey Booking not found.' });
@@ -87,7 +95,9 @@ export const createDockingSurveyCert = async (req: Request, res: Response): Prom
     }
 
     const dsNumber = await getNextDocumentNumber('ds');
-    const certificateNumber = `${vessel.uqmsNumber} - ${dsNumber}`;
+
+    // Certificate Number Format: [Report No] - [DS Number]
+    const certificateNumber = `${surveyReport.reportNo} - ${dsNumber}`;
 
     const newCert = new DockingSurveyCertModel({
       certificateNumber,
@@ -243,7 +253,7 @@ export const deleteDockingSurveyCert = async (req: Request, res: Response): Prom
 
 export const getDockingSurveyPreviewPdf = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { vesselId, surveyBookingId } = req.body;
+    const { vesselId, surveyBookingId, surveyReportId } = req.body;
 
     if (!vesselId || !mongoose.isValidObjectId(vesselId)) {
       res.status(400).json({ success: false, message: 'Invalid or missing Vessel ID.' });
@@ -266,8 +276,12 @@ export const getDockingSurveyPreviewPdf = async (req: Request, res: Response): P
       return;
     }
 
-    const uqmsNumber = vessel.uqmsNumber || 'UQMS-PENDING';
-    const mockCertificateNumber = `${uqmsNumber} - DS-PREVIEW`;
+    const surveyReport = surveyReportId && mongoose.isValidObjectId(surveyReportId)
+      ? await FirstEntrySurveyReportModel.findById(surveyReportId)
+      : null;
+
+    const reportNo = surveyReport?.reportNo || 'REPORT-PENDING';
+    const mockCertificateNumber = `${reportNo} - DS-PREVIEW`;
 
     const previewData = {
       ...req.body,
