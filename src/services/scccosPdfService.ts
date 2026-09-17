@@ -1,5 +1,6 @@
 import PDFDocument from 'pdfkit';
 import path from 'path';
+import { formatDate } from '../utils/date';
 
 const PAGE_MARGIN = 40;
 const PAGE_BOTTOM_SAFE = 60;
@@ -23,17 +24,6 @@ const toText = (value: unknown, fallback = '-'): string => {
     );
   }
   return fallback;
-};
-
-const formatDate = (value?: Date | string): string => {
-  if (!value) return '-';
-  const dateObj = typeof value === 'string' ? new Date(value) : value;
-  if (isNaN(dateObj.getTime())) return '-';
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  }).format(dateObj);
 };
 
 export const createScccosPdfBuffer = async (
@@ -165,7 +155,7 @@ export const createScccosPdfBuffer = async (
       { label: 'MMSI Number', value: toText(vessel.mmsiNumber) },
       { label: 'Call Sign', value: toText(vessel.callSign) },
       { label: 'Port of Registry', value: toText(vessel.portOfRegistry) },
-      { label: 'Date of Build', value: vessel.dateOfBuild ? (vessel.dateOfBuild.match(/\\d{4}/)?.[0] || '-') : toText(booking.buildDate ? (booking.buildDate.match(/\\d{4}/)?.[0] || '-') : '-') }
+      { label: 'Date of Build', value: vessel.dateOfBuild ? (vessel.dateOfBuild.match(/\d{4}/)?.[0] || '-') : toText(booking.buildDate ? (booking.buildDate.match(/\d{4}/)?.[0] || '-') : '-') }
     ];
 
     vesselFields.forEach((field) => {

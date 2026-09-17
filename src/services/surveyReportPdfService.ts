@@ -1,19 +1,9 @@
 import PDFDocument from 'pdfkit';
 import path from 'path';
 import fs from 'fs';
+import { formatDate } from '../utils/date';
 
 const PAGE_MARGIN = 40;
-
-const formatDate = (value?: Date | string | null): string => {
-  if (!value) return '-';
-  const dateObj = typeof value === 'string' ? new Date(value) : value;
-  if (isNaN(dateObj.getTime())) return '-';
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(dateObj);
-};
 
 // Helper to parse comma/pipe separated remarks
 const parseRemarks = (remarks: string, expectedParts = 3): string[] => {
@@ -492,7 +482,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
 
     const sbAvailable = report?.stabilityBooklet?.available ? 'available onboard' : 'not available onboard';
     const sbApprovedBy = report?.stabilityBooklet?.approvedBy || 'BUREAU VERITAS';
-    const sbApprovalDate = report?.stabilityBooklet?.approvalDate ? formatDate(report.stabilityBooklet.approvalDate) : '03rd January 2012';
+    const sbApprovalDate = report?.stabilityBooklet?.approvalDate ? formatDate(report.stabilityBooklet.approvalDate) : '2012/01/03';
     const stabilityText = `Stability booklet ${sbAvailable}. Stability book has been approved by ${sbApprovedBy} on ${sbApprovalDate}.`;
 
     doc.font('Helvetica').fontSize(9.5).fillColor('#374151').lineGap(3.5).text(stabilityText, innerLeft, currentY, { width: pageWidth, align: 'justify' });
@@ -503,7 +493,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     currentY += 16;
 
     const dockHarbour = report?.dockingSurvey?.harbour || 'Dikkowita Fisheries Harbour';
-    const dockDate = report?.dockingSurvey?.date ? formatDate(report.dockingSurvey.date) : '08th February 2026';
+    const dockDate = report?.dockingSurvey?.date ? formatDate(report.dockingSurvey.date) : '2026/02/08';
     const dockingText = `The most recent bottom survey was carried out during the vessel’s dry docking at the ${dockHarbour} on ${dockDate}, in the presence of and duly witnessed by a UQMS appointed Surveyor.`;
 
     doc.font('Helvetica').fontSize(9.5).fillColor('#374151').lineGap(3.5).text(dockingText, innerLeft, currentY, { width: pageWidth, align: 'justify' });
@@ -515,7 +505,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
 
     const tmCarriedBy = report?.thicknessMeasurement?.carriedBy || 'Lanka High Marine (Pvt) Ltd.';
     const tmHarbour = report?.thicknessMeasurement?.harbour || 'Dikkowita Fisheries Harbour';
-    const tmDate = report?.thicknessMeasurement?.date ? formatDate(report.thicknessMeasurement.date) : '08th February 2026';
+    const tmDate = report?.thicknessMeasurement?.date ? formatDate(report.thicknessMeasurement.date) : '2026/02/08';
     const tmReportNo = report?.thicknessMeasurement?.reportNo || 'LHT-SB-TM-25-03-1874';
 
     const thicknessText = `Thickness measurements were carried out by ${tmCarriedBy} at the ${tmHarbour} on ${tmDate} under the verification of a UQMS Surveyor. The relevant Thickness Measurement Report (Report No. ${tmReportNo}) was reviewed at the time of survey.`;
@@ -1038,7 +1028,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     currentY += doc.heightOfString(electricalText, { width: pageWidth }) + 50;
 
     // Signature Block
-    const issueDateStr = report?.signature?.dateOfIssue ? formatDate(report.signature.dateOfIssue) : '03 April 2026';
+    const issueDateStr = report?.signature?.dateOfIssue ? formatDate(report.signature.dateOfIssue) : '2026/04/03';
     const surveyorName = report?.signature?.surveyorName || 'S.A.P.M. SAMARASINGHE';
     const surveyorTitle = report?.signature?.surveyorTitle || 'Marine Surveyor';
     const certifyingBody = report?.signature?.certifyingBody || 'Universal Quality Management Systems (Pvt) Ltd.';
