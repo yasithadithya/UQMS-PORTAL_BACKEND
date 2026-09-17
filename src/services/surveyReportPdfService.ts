@@ -1088,6 +1088,18 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
           { width: pageWidth, align: 'right', lineBreak: false }
         );
 
+      // Controlled document details — single horizontal line on every page
+      doc
+        .font('Helvetica')
+        .fontSize(7.5)
+        .fillColor('#000000')
+        .text(
+          'Document No: UQMS-FM-018  |  Revision: 00  |  Effective Date: [25/01/2026]  |  Approved By: Technical Committee',
+          PAGE_MARGIN,
+          footerY + 11,
+          { width: pageWidth, align: 'left', lineBreak: false }
+        );
+
       if (i === 0) {
         // Draw contact info on page 1 above the standard footer text
         doc

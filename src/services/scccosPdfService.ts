@@ -232,7 +232,8 @@ export const createScccosPdfBuffer = async (
       }
     }
 
-    const areaOfOperationText = toText(vessel.areaOfOperation);
+    const areaCategory = toText((vessel.areaOfOperation as any)?.AreaCategory ?? vessel.areaOfOperation);
+    const areaOfOperationText = areaCategory !== '-' ? `Category ${areaCategory}` : '-';
     const nominatedPoint = scccos.nominatedDeparturePoint || 'Following respective Ports: Colombo, Galle, Hambantota, Trincomalee';
 
     const surveyFields = [
@@ -306,9 +307,11 @@ export const createScccosPdfBuffer = async (
     doc.font('Helvetica').fillColor('#4b5563').text('....................................................................', innerLeft, currentY);
     currentY += 15;
 
-    const surveyorName = scccos.issuedBy && typeof scccos.issuedBy === 'object'
-      ? (scccos.issuedBy.username || 'Marine Surveyor')
-      : 'S.A.P.M. SAMARASINGHE';
+    // Surveyor selected on the certificate form; fall back to the issuing user.
+    const surveyorName = toText(scccos.surveyorName, '') ||
+      (scccos.issuedBy && typeof scccos.issuedBy === 'object'
+        ? (scccos.issuedBy.username || 'Marine Surveyor')
+        : 'S.A.P.M. SAMARASINGHE');
 
     doc.font('Helvetica-Bold').fontSize(10).fillColor('#111827').text(surveyorName.toUpperCase(), innerLeft, currentY);
     currentY += 14;
@@ -327,8 +330,25 @@ export const createScccosPdfBuffer = async (
           .font('Helvetica-Bold')
           .fontSize(8)
           .fillColor('#111827')
-          .text('PHONE: +94 76 68 68 718     WEB: www.uqms.net     E-Mail: info@uqms.net', PAGE_MARGIN, doc.page.height - PAGE_MARGIN - 15);
+          .text(
+            'PHONE: +94 76 68 68 718     WEB: www.uqms.net     E-Mail: info@uqms.net',
+            PAGE_MARGIN,
+            doc.page.height - PAGE_MARGIN - 26,
+            { width: pageWidth, align: 'left', lineBreak: false }
+          );
       }
+
+      // Controlled document details — single horizontal line on every page
+      doc
+        .font('Helvetica')
+        .fontSize(8)
+        .fillColor('#000000')
+        .text(
+          'Document No: UQMS-FM-019  |  Revision: 00  |  Effective Date: [25/01/2026]  |  Approved By: Technical Committee',
+          PAGE_MARGIN,
+          doc.page.height - PAGE_MARGIN - 12,
+          { width: pageWidth, align: 'left', lineBreak: false }
+        );
 
       doc
         .font('Helvetica')
@@ -337,7 +357,7 @@ export const createScccosPdfBuffer = async (
         .text(
           `Page ${i + 1} of ${totalPages}`,
           PAGE_MARGIN,
-          doc.page.height - PAGE_MARGIN - 15,
+          doc.page.height - PAGE_MARGIN - 12,
           { width: pageWidth, align: 'right', lineBreak: false }
         );
     }
