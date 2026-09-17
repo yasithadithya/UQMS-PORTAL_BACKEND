@@ -1,5 +1,6 @@
 import PDFDocument from 'pdfkit';
 import path from 'path';
+import { formatDate } from '../utils/date';
 
 const PAGE_MARGIN = 40;
 const PAGE_BOTTOM_SAFE = 60;
@@ -22,18 +23,6 @@ const toText = (value: unknown, fallback = '-'): string => {
     );
   }
   return fallback;
-};
-
-const formatDate = (value?: Date | string): string => {
-  if (!value) return '-';
-  const dateObj = typeof value === 'string' ? new Date(value) : value;
-  if (isNaN(dateObj.getTime())) return '-';
-  // Use en-GB locale to guarantee dd/mm/yyyy formatting standard
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(dateObj);
 };
 
 const drawTableRow = (
