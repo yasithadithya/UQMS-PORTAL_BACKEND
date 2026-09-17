@@ -1,5 +1,6 @@
 import PDFDocument from 'pdfkit';
 import path from 'path';
+import { formatDate } from '../utils/date';
 
 const PAGE_MARGIN = 40;
 
@@ -22,17 +23,6 @@ const toText = (value: unknown, fallback = '-'): string => {
     );
   }
   return fallback;
-};
-
-const formatDate = (value?: Date | string): string => {
-  if (!value) return '-';
-  const dateObj = typeof value === 'string' ? new Date(value) : value;
-  if (isNaN(dateObj.getTime())) return '-';
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  }).format(dateObj);
 };
 
 export const createDockingSurveyPdfBuffer = async (

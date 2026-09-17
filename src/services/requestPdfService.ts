@@ -1,5 +1,7 @@
 import PDFDocument from 'pdfkit';
 import path from 'path';
+import { formatDate } from '../utils/date';
+
 type RequestLike = {
   requestNumber: string;
   rfsDocNo?: string;
@@ -49,16 +51,6 @@ const toText = (value: unknown, fallback = '-'): string => {
     );
   }
   return fallback;
-};
-
-const formatDate = (value?: Date): string => {
-  if (!value) return '-';
-  // Use en-GB locale to guarantee dd/mm/yyyy formatting standard
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(value);
 };
 
 /**
