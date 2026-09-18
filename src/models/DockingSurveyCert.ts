@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { IStoredPdf, storedPdfSchema } from './StoredPdf';
 
 export interface IPaintDetail {
   coatNumber: string;
@@ -50,6 +51,7 @@ export interface IDockingSurveyCert extends Document {
   dateOfIssue: Date;
   
   issuedBy: mongoose.Types.ObjectId;
+  pdf?: IStoredPdf;
   createdBy?: mongoose.Types.ObjectId;
   updatedBy?: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -129,6 +131,9 @@ const dockingSurveyCertSchema: Schema = new Schema(
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'Issued by reference is required']
+    },
+    pdf: {
+      type: storedPdfSchema
     },
     createdBy: {
       type: Schema.Types.ObjectId,

@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { IStoredPdf, storedPdfSchema } from './StoredPdf';
 
 export interface ISurveyReport extends Document {
   vesselId: mongoose.Types.ObjectId;
@@ -93,6 +94,7 @@ export interface ISurveyReport extends Document {
     certifyingBody: string;
   };
   status: 'Draft' | 'Approved';
+  pdf?: IStoredPdf;
   createdBy?: mongoose.Types.ObjectId;
   updatedBy?: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -203,6 +205,9 @@ const surveyReportSchema: Schema = new Schema(
       enum: ['Draft', 'Approved'],
       default: 'Draft',
       required: [true, 'Status is required'],
+    },
+    pdf: {
+      type: storedPdfSchema,
     },
     createdBy: {
       type: Schema.Types.ObjectId,
