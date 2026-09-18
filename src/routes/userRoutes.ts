@@ -7,6 +7,7 @@ import {
   deleteUser,
 } from '../controllers/userController';
 import authMiddleware from '../middleware/auth';
+import adminAuthMiddleware from '../middleware/adminAuth';
 
 const router = Router();
 
@@ -69,7 +70,7 @@ router.use(authMiddleware);
  *       401:
  *         description: Unauthorized
  */
-router.post('/', createUser);
+router.post('/', adminAuthMiddleware, createUser);
 
 /**
  * @swagger
@@ -220,6 +221,6 @@ router.put('/:id', updateUser);
  *       401:
  *         description: Unauthorized
  */
-router.delete('/:id', deleteUser);
+router.delete('/:id', adminAuthMiddleware, deleteUser);
 
 export default router;
