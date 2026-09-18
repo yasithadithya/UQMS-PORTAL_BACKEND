@@ -13,6 +13,7 @@ export interface ISCCCOS extends Document {
   surveyFindings: ISurveyFindingItem[];
   typeOfSurvey?: string;
   nominatedDeparturePoint?: string;
+  surveyorName?: string;
   dateOfIssue: Date;
   issuedBy: mongoose.Types.ObjectId;
   createdBy?: mongoose.Types.ObjectId;
@@ -70,6 +71,10 @@ const scccosSchema: Schema = new Schema(
     nominatedDeparturePoint: {
       type: String,
       default: 'Following respective Ports: Colombo, Galle, Hambantota, Trincomalee',
+      trim: true
+    },
+    surveyorName: {
+      type: String,
       trim: true
     },
     dateOfIssue: {

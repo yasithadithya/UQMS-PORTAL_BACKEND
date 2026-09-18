@@ -17,6 +17,142 @@ const parseRemarks = (remarks: string, expectedParts = 3): string[] => {
   return parts.slice(0, expectedParts);
 };
 
+// Structured remarks written by the survey report editor
+const BRIDGE_PREFIX = 'BRIDGE:';
+const PYRO_PREFIX = 'PYRO:';
+
+interface IBridgeOutfitRow {
+  equipment: string;
+  mfg: string;
+  type: string;
+  serial: string;
+}
+
+interface IPyrotechnicRow {
+  item: string;
+  nos: string;
+  expiry: string;
+  remarks: string;
+}
+
+const cleanValue = (val: any): string => {
+  const text = String(val ?? '').trim();
+  return text === '-' ? '' : text;
+};
+
+// Renders "Label: value" pairs, dropping the blanks
+const joinDetails = (pairs: Array<[string, string]>): string => {
+  const text = pairs
+    .filter(([, value]) => value)
+    .map(([label, value]) => `${label}: ${value}`)
+    .join('; ');
+  return text || '-';
+};
+
+const parseBridgeOutfit = (remarks?: string): IBridgeOutfitRow[] | null => {
+  if (!remarks || !remarks.startsWith(BRIDGE_PREFIX)) {
+    return null;
+  }
+  try {
+    const rows = JSON.parse(remarks.substring(BRIDGE_PREFIX.length));
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return null;
+    }
+    return rows.map((r: any) => ({
+      equipment: cleanValue(r?.equipment),
+      mfg: cleanValue(r?.mfg),
+      type: cleanValue(r?.type),
+      serial: cleanValue(r?.serial),
+    }));
+  } catch (e) {
+    return null;
+  }
+};
+
+const parsePyrotechnics = (remarks?: string): IPyrotechnicRow[] | null => {
+  if (!remarks || !remarks.startsWith(PYRO_PREFIX)) {
+    return null;
+  }
+  try {
+    const rows = JSON.parse(remarks.substring(PYRO_PREFIX.length));
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return null;
+    }
+    return rows.map((r: any) => ({
+      item: cleanValue(r?.item),
+      nos: cleanValue(r?.nos),
+      expiry: cleanValue(r?.expiry),
+      remarks: cleanValue(r?.remarks),
+    }));
+  } catch (e) {
+    return null;
+  }
+};
+
+// Matches a Part B equipment description against a row of the bridge outfit table
+const findBridgeRow = (description: string, rows: IBridgeOutfitRow[]): IBridgeOutfitRow | null => {
+  const desc = description.toLowerCase();
+  const match = rows.find(row => {
+    const eq = row.equipment.toLowerCase();
+    if (!eq) return false;
+    if (eq.includes('compass')) return desc.includes('compass');
+    if (eq.includes('radar')) return desc.includes('radar');
+    if (eq.includes('vhf')) return desc.includes('vhf');
+    if (eq.includes('ais')) return desc.includes('ais');
+    return desc.includes(eq);
+  });
+  return match || null;
+};
+
+// Matches a Part B equipment description against a row of the pyrotechnics table
+const findPyroRow = (description: string, rows: IPyrotechnicRow[]): IPyrotechnicRow | null => {
+  const desc = description.toLowerCase();
+  const match = rows.find(row => {
+    const item = row.item.toLowerCase();
+    if (!item) return false;
+    if (item.includes('parachute')) return desc.includes('parachute');
+    if (item.includes('smoke')) return desc.includes('smoke');
+    if (item.includes('hand flare')) return desc.includes('hand flare');
+    return desc.includes(item);
+  });
+  return match || null;
+};
+
+const partsToBridgeRow = (parts: string[]): Omit<IBridgeOutfitRow, 'equipment'> => ({
+  mfg: parts[0] || '',
+  type: parts[1] || '',
+  serial: parts[2] || '',
+});
+
+const formatBridgeRow = (row: IBridgeOutfitRow): string =>
+  joinDetails([['Mfg', row.mfg], ['Type', row.type], ['S/N', row.serial]]);
+
+const formatPyroRow = (row: IPyrotechnicRow): string =>
+  joinDetails([['Nos', row.nos], ['Expiry', row.expiry], ['Remarks', row.remarks]]);
+
+// Fallback when no single row of the table lines up with the description
+const summarizeBridge = (rows: IBridgeOutfitRow[]): string => {
+  const text = rows
+    .map(row => {
+      const details = [row.mfg, row.type, row.serial].filter(Boolean).join(' / ');
+      return details ? `${row.equipment || 'Equipment'}: ${details}` : row.equipment;
+    })
+    .filter(Boolean)
+    .join('; ');
+  return text || '-';
+};
+
+const summarizePyro = (rows: IPyrotechnicRow[]): string => {
+  const text = rows
+    .map(row => {
+      const details = [row.nos, row.expiry].filter(Boolean).join(', exp. ');
+      return details ? `${row.item || 'Item'}: ${details}` : row.item;
+    })
+    .filter(Boolean)
+    .join('; ');
+  return text || '-';
+};
+
 interface ISurveyReportPdfData {
   report: any;
   vessel: any;
@@ -375,6 +511,19 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
       });
     };
 
+    // The editor stores the bridge outfit / pyrotechnics tables as JSON on a single
+    // record; the sibling records only carry a "See ..." pointer. Resolve both here so
+    // every row can show its own particulars instead of the raw payload.
+    const bridgeOutfitRows = sortedRecords
+      .map(rec => parseBridgeOutfit(rec.remarks))
+      .find(rows => rows !== null) || null;
+    const pyrotechnicRows = sortedRecords
+      .map(rec => parsePyrotechnics(rec.remarks))
+      .find(rows => rows !== null) || null;
+
+    const isBridgePointer = (remarks: string) => /^see\s+magnetic\s+compass$/i.test(remarks);
+    const isPyroPointer = (remarks: string) => /^see\s+parachute\s+flares$/i.test(remarks);
+
     for (let i = 0; i < sortedRecords.length; i++) {
       const rec = sortedRecords[i];
       const q = rec.questionId;
@@ -382,8 +531,27 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
       const descText = q?.description || '';
       const statusText = rec.status || 'Not Provided';
 
-      let remarksText = rec.remarks || '-';
-      if (remarksText.startsWith('ROWS:')) {
+      const rawRemarks = (rec.remarks || '').trim();
+      let remarksText = rawRemarks || '-';
+      if (rawRemarks.startsWith(BRIDGE_PREFIX) || (bridgeOutfitRows && isBridgePointer(rawRemarks))) {
+        const row = bridgeOutfitRows ? findBridgeRow(descText, bridgeOutfitRows) : null;
+        if (row) {
+          remarksText = formatBridgeRow(row);
+        } else if (bridgeOutfitRows && rawRemarks.startsWith(BRIDGE_PREFIX)) {
+          remarksText = summarizeBridge(bridgeOutfitRows);
+        } else if (rawRemarks.startsWith(BRIDGE_PREFIX)) {
+          remarksText = '-';
+        }
+      } else if (rawRemarks.startsWith(PYRO_PREFIX) || (pyrotechnicRows && isPyroPointer(rawRemarks))) {
+        const row = pyrotechnicRows ? findPyroRow(descText, pyrotechnicRows) : null;
+        if (row) {
+          remarksText = formatPyroRow(row);
+        } else if (pyrotechnicRows && rawRemarks.startsWith(PYRO_PREFIX)) {
+          remarksText = summarizePyro(pyrotechnicRows);
+        } else if (rawRemarks.startsWith(PYRO_PREFIX)) {
+          remarksText = '-';
+        }
+      } else if (remarksText.startsWith('ROWS:')) {
         try {
           const rows = remarksText.substring(5).split(';').map(rowStr => {
             const parts = rowStr.split(',');
@@ -653,10 +821,14 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     const vhfRec = findRecord('13.1', ['VHF Fixed']);
     const aisRec = findRecord('13.1', ['AIS']);
 
-    const compassParts = parseRemarks(compassRec?.remarks || 'Plastimo | OFFSHORE 135 | BV 0062');
-    const radarParts = parseRemarks(radarRec?.remarks || 'Furuno | MFD 12 | 4368-1294');
-    const vhfParts = parseRemarks(vhfRec?.remarks || 'Furuno | FM-8800S | 3519-Ala2');
-    const aisParts = parseRemarks(aisRec?.remarks || 'Sunhung | SH- 820 | 5H 8201 10917');
+    // Prefer the structured bridge outfit table saved by the editor; fall back to the
+    // legacy "mfg | type | serial" remarks for reports created before it existed.
+    const bridgeTableRows: IBridgeOutfitRow[] = bridgeOutfitRows || [
+      { equipment: 'Magnetic Compass', ...partsToBridgeRow(parseRemarks(compassRec?.remarks || 'Plastimo | OFFSHORE 135 | BV 0062')) },
+      { equipment: 'Radar', ...partsToBridgeRow(parseRemarks(radarRec?.remarks || 'Furuno | MFD 12 | 4368-1294')) },
+      { equipment: 'VHF', ...partsToBridgeRow(parseRemarks(vhfRec?.remarks || 'Furuno | FM-8800S | 3519-Ala2')) },
+      { equipment: 'AIS Transponder', ...partsToBridgeRow(parseRemarks(aisRec?.remarks || 'Sunhung | SH- 820 | 5H 8201 10917')) },
+    ];
 
     const colWidthsB = [135, 120, 110, 150]; // Total 515
     const drawBridgeHeader = (y: number) => {
@@ -670,28 +842,25 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
       drawTableCell(x, y, colWidthsB[3], 20, 'Serial Number', 'left', true);
     };
 
-    const drawBridgeRow = (y: number, eq: string, parts: string[]) => {
+    const drawBridgeRow = (y: number, row: IBridgeOutfitRow) => {
       let x = innerLeft;
-      drawTableCell(x, y, colWidthsB[0], 18, eq, 'left');
+      drawTableCell(x, y, colWidthsB[0], 18, row.equipment || '-', 'left');
       x += colWidthsB[0];
-      drawTableCell(x, y, colWidthsB[1], 18, parts[0], 'left');
+      drawTableCell(x, y, colWidthsB[1], 18, row.mfg || '-', 'left');
       x += colWidthsB[1];
-      drawTableCell(x, y, colWidthsB[2], 18, parts[1], 'left');
+      drawTableCell(x, y, colWidthsB[2], 18, row.type || '-', 'left');
       x += colWidthsB[2];
-      drawTableCell(x, y, colWidthsB[3], 18, parts[2], 'left');
+      drawTableCell(x, y, colWidthsB[3], 18, row.serial || '-', 'left');
     };
 
     drawBridgeHeader(currentY);
     currentY += 20;
 
-    drawBridgeRow(currentY, 'Magnetic Compass', compassParts);
-    currentY += 18;
-    drawBridgeRow(currentY, 'Radar', radarParts);
-    currentY += 18;
-    drawBridgeRow(currentY, 'VHF', vhfParts);
-    currentY += 18;
-    drawBridgeRow(currentY, 'AIS Transponder', aisParts);
-    currentY += 30;
+    for (const row of bridgeTableRows) {
+      drawBridgeRow(currentY, row);
+      currentY += 18;
+    }
+    currentY += 12;
 
     // Safety Equipment Intro
     doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('SAFETY EQUIPMENT:', innerLeft, currentY);
@@ -878,6 +1047,8 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     };
 
     const getQty = (remarks: string, defaultQty: string) => {
+      // "See Parachute Flares" and friends are pointers, not quantities
+      if (/^see\s/i.test(remarks.trim())) return defaultQty;
       const match = remarks.match(/^([^\.\s]+)/);
       if (!match) return defaultQty;
       const textMap: Record<string, string> = {
@@ -887,13 +1058,13 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
       return textMap[cleaned] || cleaned;
     };
 
-    const flareExp = getExpiry(flareRec?.remarks || '');
-    const redFlareExp = getExpiry(redFlareRec?.remarks || '');
-    const smokeExp = getExpiry(smokeRec?.remarks || '');
-
-    const flareQty = getQty(flareRec?.remarks || '', '2');
-    const redFlareQty = getQty(redFlareRec?.remarks || '', '4');
-    const smokeQty = getQty(smokeRec?.remarks || '', '2');
+    // Prefer the structured pyrotechnics table saved by the editor; fall back to the
+    // legacy per-record "<qty> ... Expiry: <date>" remarks.
+    const pyroTableRows: IPyrotechnicRow[] = pyrotechnicRows || [
+      { item: 'Hand Flares', nos: getQty(redFlareRec?.remarks || '', '4'), expiry: getExpiry(redFlareRec?.remarks || ''), remarks: '' },
+      { item: 'Rocket Parachute', nos: getQty(flareRec?.remarks || '', '2'), expiry: getExpiry(flareRec?.remarks || ''), remarks: '' },
+      { item: 'Smoke Signal', nos: getQty(smokeRec?.remarks || '', '2'), expiry: getExpiry(smokeRec?.remarks || ''), remarks: '' },
+    ];
 
     // Pyrotechnics Table
     const colWidthsP = [215, 100, 200]; // Total 515
@@ -918,11 +1089,10 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     drawPyroHeader(currentY);
     currentY += 20;
 
-    drawPyroRow(currentY, 'Hand Flares', redFlareQty, redFlareExp);
-    currentY += 18;
-    drawPyroRow(currentY, 'Rocket Parachute', flareQty, flareExp);
-    currentY += 18;
-    drawPyroRow(currentY, 'Smoke Signal', smokeQty, smokeExp);
+    for (const row of pyroTableRows) {
+      drawPyroRow(currentY, row.item || '-', row.nos || '-', row.expiry || '-');
+      currentY += 18;
+    }
 
     // ────────────────────────────────────────────────────────
     // PAGE 7: MACHINERY, PIPING, ELECTRICAL & SIGNATURES
@@ -1086,6 +1256,18 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
           PAGE_MARGIN,
           footerY,
           { width: pageWidth, align: 'right', lineBreak: false }
+        );
+
+      // Controlled document details — single horizontal line on every page
+      doc
+        .font('Helvetica')
+        .fontSize(7.5)
+        .fillColor('#000000')
+        .text(
+          'Document No: UQMS-FM-018  |  Revision: 00  |  Effective Date: [25/01/2026]  |  Approved By: Technical Committee',
+          PAGE_MARGIN,
+          footerY + 11,
+          { width: pageWidth, align: 'left', lineBreak: false }
         );
 
       if (i === 0) {

@@ -218,7 +218,8 @@ export const createSurveyReport = async (req: Request, res: Response): Promise<v
           await srConfig.save();
         }
         const srNumber = await getNextDocumentNumber('SR');
-        reportData.certificateNumber = `${firstEntryReport.reportNo}-${srNumber}`;
+        // Certificate Number Format: [Report No] - [SR Number]
+        reportData.certificateNumber = `${firstEntryReport.reportNo} - ${srNumber}`;
       }
     }
 
@@ -333,7 +334,7 @@ export const updateSurveyReport = async (req: Request, res: Response): Promise<v
     // Auto-generate certificate number if approved
     if (updateData.status === 'Approved' && !updateData.certificateNumber) {
       const report = await SurveyReportModel.findById(id);
-      if (report && report.firstEntrySurveyReportId) {
+      if (report && !report.certificateNumber && report.firstEntrySurveyReportId) {
         const firstEntryReport = await FirstEntrySurveyReportModel.findById(report.firstEntrySurveyReportId);
         if (firstEntryReport && firstEntryReport.reportNo) {
           let srConfig = await DocumentNumberModel.findOne({ name: 'SR' });
@@ -347,7 +348,8 @@ export const updateSurveyReport = async (req: Request, res: Response): Promise<v
             await srConfig.save();
           }
           const srNumber = await getNextDocumentNumber('SR');
-          updateData.certificateNumber = `${firstEntryReport.reportNo}/${srNumber}`;
+          // Certificate Number Format: [Report No] - [SR Number]
+          updateData.certificateNumber = `${firstEntryReport.reportNo} - ${srNumber}`;
         }
       }
     }

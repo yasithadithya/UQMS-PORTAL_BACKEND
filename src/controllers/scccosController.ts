@@ -15,7 +15,7 @@ import { paginate } from '../utils/pagination';
  */
 export const createSCCCOS = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { vesselId, surveyReportId, surveyBookingId, surveyFindings, dateOfIssue, typeOfSurvey, nominatedDeparturePoint } = req.body;
+    const { vesselId, surveyReportId, surveyBookingId, surveyFindings, dateOfIssue, typeOfSurvey, nominatedDeparturePoint, surveyorName } = req.body;
     const userId = (req as any).user?.id;
 
     // Validate references
@@ -64,6 +64,14 @@ export const createSCCCOS = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
+    if (!surveyReport.reportNo) {
+      res.status(400).json({
+        success: false,
+        message: 'Cannot generate certificate. The Survey Report does not have a report number assigned.',
+      });
+      return;
+    }
+
     const surveyBooking = await FirstEntrySurveyBookingModel.findById(surveyBookingId);
     if (!surveyBooking) {
       res.status(404).json({ success: false, message: 'Survey Booking not found.' });
@@ -84,8 +92,8 @@ export const createSCCCOS = async (req: Request, res: Response): Promise<void> =
 
     const cosNumber = await getNextDocumentNumber('cos');
 
-    // Certificate Number Format: [UQMS Number] - [COS Number]
-    const certificateNumber = `${vessel.uqmsNumber} - ${cosNumber}`;
+    // Certificate Number Format: [Report No] - [COS Number]
+    const certificateNumber = `${surveyReport.reportNo} - ${cosNumber}`;
 
     // Default findings if none provided
     const defaultFindings = [
@@ -109,6 +117,7 @@ export const createSCCCOS = async (req: Request, res: Response): Promise<void> =
       surveyFindings: findings,
       typeOfSurvey,
       nominatedDeparturePoint,
+      surveyorName,
       dateOfIssue: dateOfIssue || new Date(),
       issuedBy: userId,
       createdBy: userId,
@@ -298,7 +307,7 @@ export const deleteSCCCOS = async (req: Request, res: Response): Promise<void> =
  */
 export const getSCCCOSPreviewPdf = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { vesselId, surveyReportId, surveyBookingId, surveyFindings, nominatedDeparturePoint, typeOfSurvey, dateOfIssue } = req.body;
+    const { vesselId, surveyReportId, surveyBookingId, surveyFindings, nominatedDeparturePoint, typeOfSurvey, dateOfIssue, surveyorName } = req.body;
 
     // Validate references
     if (!vesselId || !mongoose.isValidObjectId(vesselId)) {
@@ -322,8 +331,12 @@ export const getSCCCOSPreviewPdf = async (req: Request, res: Response): Promise<
       return;
     }
 
-    const uqmsNumber = vessel.uqmsNumber || 'UQMS-PENDING';
-    const mockCertificateNumber = `${uqmsNumber} - COS-PREVIEW`;
+    const surveyReport = surveyReportId && mongoose.isValidObjectId(surveyReportId)
+      ? await FirstEntrySurveyReportModel.findById(surveyReportId)
+      : null;
+
+    const reportNo = surveyReport?.reportNo || 'REPORT-PENDING';
+    const mockCertificateNumber = `${reportNo} - COS-PREVIEW`;
 
     // Construct preview object
     const previewData = {
@@ -333,6 +346,7 @@ export const getSCCCOSPreviewPdf = async (req: Request, res: Response): Promise<
       surveyFindings: surveyFindings || [],
       nominatedDeparturePoint: nominatedDeparturePoint || 'Following respective Ports: Colombo, Galle, Hambantota, Trincomalee',
       typeOfSurvey: typeOfSurvey || 'SSC Initial Survey',
+      surveyorName,
       dateOfIssue: dateOfIssue || new Date(),
       issuedBy: (req as any).user,
     };
