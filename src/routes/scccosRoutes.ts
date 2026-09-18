@@ -8,10 +8,33 @@ import {
   getSCCCOSPreviewPdf,
   getSCCCOSFinalPdf,
   getSCCCOSBySurveyReportId,
+  getPublicSCCCOSPdf,
 } from '../controllers/scccosController';
 import authMiddleware from '../middleware/auth';
 
 const router = Router();
+
+/**
+ * @swagger
+ * /api/scccos/public-pdf/{id}:
+ *   get:
+ *     summary: Public SCCCOS Certificate PDF (QR code target)
+ *     description: Unauthenticated. Redirects to a short-lived presigned URL for the stored certificate PDF.
+ *     tags: [SCCCOS Certificates]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Certificate ID
+ *     responses:
+ *       302:
+ *         description: Redirect to the stored PDF
+ *       404:
+ *         description: Certificate not found
+ */
+router.get('/public-pdf/:id', getPublicSCCCOSPdf);
 
 // Protect all routes under SCCCOS Certificates
 router.use(authMiddleware);

@@ -10,6 +10,76 @@ import DocumentNumberModel from '../models/DocumentNumber';
 import SCCCOSModel from '../models/SCCCOS';
 import { getNextDocumentNumber } from '../services/documentNumberService';
 import { createSurveyReportPdfBuffer } from '../services/surveyReportPdfService';
+import {
+  RenderedPdf,
+  buildPublicApiUrl,
+  deleteStoredPdf,
+  getStoredPdfUrl,
+  readStoredPdf,
+  storePdf,
+  storePdfAfterSave,
+} from '../services/storedPdfService';
+
+/**
+ * Render the Survey Report PDF and store it in R2.
+ */
+const renderAndStoreSurveyReportPdf = async (req: Request, id: string): Promise<RenderedPdf | null> => {
+  // Populate vessel and nested equipment checklist questions, also vesselType and areaOfOperation
+  const report = await SurveyReportModel.findById(id)
+    .populate({
+      path: 'vesselId',
+      populate: [
+        { path: 'vesselType' },
+        { path: 'areaOfOperation' },
+      ],
+    })
+    .populate({
+      path: 'firstEntrySurveyReportId',
+      populate: {
+        path: 'bookingId',
+        model: 'FirstEntrySurveyBooking',
+      },
+    })
+    .populate({
+      path: 'vesselEquipmentRecordId',
+      populate: {
+        path: 'equipmentRecords.questionId',
+        model: 'RecEquipQues',
+      },
+    });
+
+  if (!report) {
+    return null;
+  }
+
+  const vessel = report.vesselId;
+  const equipmentRecord = report.vesselEquipmentRecordId as any;
+  const equipmentRecords = equipmentRecord ? equipmentRecord.equipmentRecords : [];
+
+  // Find SCCCOS to get nominatedDeparturePoint if generated
+  const scccos = await SCCCOSModel.findOne({ surveyReportId: report.firstEntrySurveyReportId });
+  const nominatedDeparturePoint = scccos?.nominatedDeparturePoint || '';
+
+  // QR Code points to the public PDF route
+  const qrBuffer = await QRCode.toBuffer(buildPublicApiUrl(req, `/api/survey-reports/public-pdf/${id}`));
+
+  const buffer = await createSurveyReportPdfBuffer({
+    report,
+    vessel,
+    equipmentRecords,
+    nominatedDeparturePoint,
+    qrBuffer,
+  });
+  const pdf = await storePdf(
+    SurveyReportModel,
+    id,
+    `survey-reports/survey-report-${id}.pdf`,
+    `survey_report_${id}.pdf`,
+    buffer
+  );
+
+  return { buffer, pdf };
+};
 
 // Helper function to convert full name to initials format (e.g. "S.A.P.M. SAMARASINGHE")
 export const convertFullNameToInitials = (fullName: string): string => {
@@ -187,6 +257,7 @@ export const createSurveyReport = async (req: Request, res: Response): Promise<v
   try {
     const userId = (req as any).user?.id;
     const reportData = { ...req.body };
+    delete reportData.pdf;
 
     if (userId) {
       reportData.createdBy = userId;
@@ -226,10 +297,13 @@ export const createSurveyReport = async (req: Request, res: Response): Promise<v
     const newReport = new SurveyReportModel(reportData);
     await newReport.save();
 
+    const reportId = String(newReport._id);
+    await storePdfAfterSave('Survey Report', () => renderAndStoreSurveyReportPdf(req, reportId));
+
     res.status(201).json({
       success: true,
       message: 'Survey Report created successfully.',
-      data: newReport,
+      data: await SurveyReportModel.findById(reportId),
     });
   } catch (error: any) {
     res.status(500).json({
@@ -308,7 +382,7 @@ export const getSurveyReportById = async (req: Request, res: Response): Promise<
  */
 export const updateSurveyReport = async (req: Request, res: Response): Promise<void> => {
   try {
-    const id = req.params.id;
+    const id = req.params.id as string;
     const userId = (req as any).user?.id;
 
     if (!mongoose.isValidObjectId(id)) {
@@ -317,6 +391,7 @@ export const updateSurveyReport = async (req: Request, res: Response): Promise<v
     }
 
     const updateData = { ...req.body };
+    delete updateData.pdf;
     if (userId) {
       updateData.updatedBy = userId;
 
@@ -354,16 +429,19 @@ export const updateSurveyReport = async (req: Request, res: Response): Promise<v
       }
     }
 
-    const updatedReport = await SurveyReportModel.findByIdAndUpdate(
+    const savedReport = await SurveyReportModel.findByIdAndUpdate(
       id,
       { $set: updateData },
       { new: true, runValidators: true }
     );
 
-    if (!updatedReport) {
+    if (!savedReport) {
       res.status(404).json({ success: false, message: 'Survey Report not found.' });
       return;
     }
+
+    await storePdfAfterSave('Survey Report', () => renderAndStoreSurveyReportPdf(req, id));
+    const updatedReport = await SurveyReportModel.findById(id);
 
     res.status(200).json({
       success: true,
@@ -396,6 +474,8 @@ export const deleteSurveyReport = async (req: Request, res: Response): Promise<v
       return;
     }
 
+    await deleteStoredPdf(report.pdf);
+
     res.status(200).json({
       success: true,
       message: 'Survey Report deleted successfully.',
@@ -410,69 +490,30 @@ export const deleteSurveyReport = async (req: Request, res: Response): Promise<v
 };
 
 /**
- * Generate PDF on the fly and stream it back
+ * Stream the stored Survey Report PDF from R2, generating and storing it if missing
  */
 export const generateSurveyReportPdf = async (req: Request, res: Response): Promise<void> => {
   try {
-    const id = req.params.id;
+    const id = req.params.id as string;
     if (!mongoose.isValidObjectId(id)) {
       res.status(400).json({ success: false, message: 'Invalid Survey Report ID format.' });
       return;
     }
 
-    // Populate vessel and nested equipment checklist questions, also vesselType and areaOfOperation
-    const report = await SurveyReportModel.findById(id)
-      .populate({
-        path: 'vesselId',
-        populate: [
-          { path: 'vesselType' },
-          { path: 'areaOfOperation' },
-        ],
-      })
-      .populate({
-        path: 'firstEntrySurveyReportId',
-        populate: {
-          path: 'bookingId',
-          model: 'FirstEntrySurveyBooking',
-        },
-      })
-      .populate({
-        path: 'vesselEquipmentRecordId',
-        populate: {
-          path: 'equipmentRecords.questionId',
-          model: 'RecEquipQues',
-        },
-      });
-
+    const report = await SurveyReportModel.findById(id).select('pdf');
     if (!report) {
       res.status(404).json({ success: false, message: 'Survey Report not found.' });
       return;
     }
 
-    const vessel = report.vesselId;
-    const equipmentRecord = report.vesselEquipmentRecordId as any;
-    const equipmentRecords = equipmentRecord ? equipmentRecord.equipmentRecords : [];
-
-    // Find SCCCOS to get nominatedDeparturePoint if generated
-    const scccos = await SCCCOSModel.findOne({ surveyReportId: report.firstEntrySurveyReportId });
-    const nominatedDeparturePoint = scccos?.nominatedDeparturePoint || '';
-
-    // Generate QR Code buffer pointing to the public PDF download route
-    const protocol = req.protocol;
-    const host = req.get('host');
-    const publicUrl = `${protocol}://${host}/api/survey-reports/pdf/${report._id}`;
-    const qrBuffer = await QRCode.toBuffer(publicUrl);
-
-    const pdfBuffer = await createSurveyReportPdfBuffer({
-      report,
-      vessel,
-      equipmentRecords,
-      nominatedDeparturePoint,
-      qrBuffer,
-    });
+    const pdfBuffer = await readStoredPdf(report.pdf, () => renderAndStoreSurveyReportPdf(req, id));
+    if (!pdfBuffer) {
+      res.status(404).json({ success: false, message: 'Survey Report not found.' });
+      return;
+    }
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=survey_report_${report._id}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=survey_report_${id}.pdf`);
     res.send(pdfBuffer);
   } catch (error: any) {
     res.status(500).json({
@@ -480,5 +521,35 @@ export const generateSurveyReportPdf = async (req: Request, res: Response): Prom
       message: 'Error generating PDF.',
       error: error.message,
     });
+  }
+};
+
+/**
+ * Public route opened by the report's QR code. Redirects to a short-lived presigned R2 URL.
+ */
+export const getPublicSurveyReportPdf = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    if (!mongoose.isValidObjectId(id)) {
+      res.status(400).send('Invalid Survey Report ID format.');
+      return;
+    }
+
+    const report = await SurveyReportModel.findById(id).select('pdf');
+    if (!report) {
+      res.status(404).send('Survey Report not found.');
+      return;
+    }
+
+    const presignedUrl = await getStoredPdfUrl(report.pdf, () => renderAndStoreSurveyReportPdf(req, id));
+    if (!presignedUrl) {
+      res.status(404).send('Survey Report not found.');
+      return;
+    }
+
+    res.redirect(presignedUrl);
+  } catch (error: any) {
+    console.error('Error retrieving public Survey Report PDF:', error);
+    res.status(500).send('Error retrieving Survey Report PDF.');
   }
 };

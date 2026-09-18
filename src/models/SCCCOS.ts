@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { IStoredPdf, storedPdfSchema } from './StoredPdf';
 
 export interface ISurveyFindingItem {
   category: string; // e.g. 'Hull', 'Machinery', 'Life Saving Appliances LSA', 'Fire Fighting Appliances FFA', 'Navigation Equipment', 'Radio Installations'
@@ -16,6 +17,7 @@ export interface ISCCCOS extends Document {
   surveyorName?: string;
   dateOfIssue: Date;
   issuedBy: mongoose.Types.ObjectId;
+  pdf?: IStoredPdf;
   createdBy?: mongoose.Types.ObjectId;
   updatedBy?: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -86,6 +88,9 @@ const scccosSchema: Schema = new Schema(
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'Issued by reference is required']
+    },
+    pdf: {
+      type: storedPdfSchema
     },
     createdBy: {
       type: Schema.Types.ObjectId,
