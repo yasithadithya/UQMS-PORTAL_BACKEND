@@ -8,7 +8,45 @@ import FirstEntrySurveyBookingModel from '../models/FirstEntrySurveyBooking';
 import DocumentNumberModel from '../models/DocumentNumber';
 import { getNextDocumentNumber } from '../services/documentNumberService';
 import { createDockingSurveyPdfBuffer } from '../services/dockingSurveyPdfService';
+import {
+  PREVIEW_QR_TEXT,
+  RenderedPdf,
+  buildPublicApiUrl,
+  deleteStoredPdf,
+  getStoredPdfUrl,
+  readStoredPdf,
+  storePdf,
+  storePdfAfterSave,
+} from '../services/storedPdfService';
 import { paginate } from '../utils/pagination';
+
+const buildDockingSurveyPublicPdfPath = (id: string): string => `/api/docking-survey/public-pdf/${id}`;
+
+/**
+ * Render the final Docking Survey Certificate PDF and store it in R2.
+ */
+const renderAndStoreDockingSurveyPdf = async (req: Request, id: string): Promise<RenderedPdf | null> => {
+  const certificate = await DockingSurveyCertModel.findById(id)
+    .populate('vesselId')
+    .populate('surveyBookingId')
+    .populate('issuedBy');
+
+  if (!certificate) {
+    return null;
+  }
+
+  const qrBuffer = await QRCode.toBuffer(buildPublicApiUrl(req, buildDockingSurveyPublicPdfPath(id)));
+  const buffer = await createDockingSurveyPdfBuffer(certificate, qrBuffer);
+  const pdf = await storePdf(
+    DockingSurveyCertModel,
+    id,
+    `docking-survey-certificates/docking-survey-${id}.pdf`,
+    `docking-survey-${certificate.certificateNumber}.pdf`,
+    buffer
+  );
+
+  return { buffer, pdf };
+};
 
 export const createDockingSurveyCert = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -120,6 +158,9 @@ export const createDockingSurveyCert = async (req: Request, res: Response): Prom
 
     await newCert.save();
 
+    const certificateId = String(newCert._id);
+    await storePdfAfterSave('Docking Survey Certificate', () => renderAndStoreDockingSurveyPdf(req, certificateId));
+
     const populatedCert = await DockingSurveyCertModel.findById(newCert._id)
       .populate('vesselId')
       .populate('surveyReportId')
@@ -178,7 +219,7 @@ export const getDockingSurveyCertById = async (req: Request, res: Response): Pro
 
 export const updateDockingSurveyCert = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const userId = (req as any).user?.id;
 
     if (!mongoose.isValidObjectId(id)) {
@@ -192,23 +233,28 @@ export const updateDockingSurveyCert = async (req: Request, res: Response): Prom
     }
 
     delete updateData.certificateNumber;
+    delete updateData.pdf;
 
-    const updatedCertificate = await DockingSurveyCertModel.findByIdAndUpdate(
+    const savedCertificate = await DockingSurveyCertModel.findByIdAndUpdate(
       id,
       { $set: updateData },
       { new: true, runValidators: true }
-    )
+    );
+
+    if (!savedCertificate) {
+      res.status(404).json({ success: false, message: 'Docking Survey Certificate not found.' });
+      return;
+    }
+
+    await storePdfAfterSave('Docking Survey Certificate', () => renderAndStoreDockingSurveyPdf(req, id));
+
+    const updatedCertificate = await DockingSurveyCertModel.findById(id)
       .populate('vesselId')
       .populate('surveyReportId')
       .populate('surveyBookingId')
       .populate('issuedBy', 'username email')
       .populate('createdBy', 'username email')
       .populate('updatedBy', 'username email');
-
-    if (!updatedCertificate) {
-      res.status(404).json({ success: false, message: 'Docking Survey Certificate not found.' });
-      return;
-    }
 
     res.status(200).json({
       success: true,
@@ -237,6 +283,8 @@ export const deleteDockingSurveyCert = async (req: Request, res: Response): Prom
       res.status(404).json({ success: false, message: 'Docking Survey Certificate not found.' });
       return;
     }
+
+    await deleteStoredPdf(certificate.pdf);
 
     res.status(200).json({
       success: true,
@@ -292,10 +340,14 @@ export const getDockingSurveyPreviewPdf = async (req: Request, res: Response): P
       issuedBy: (req as any).user,
     };
 
-    const protocol = req.protocol;
-    const host = req.get('host');
-    const publicUrl = `${protocol}://${host}/api/first-entry-survey-bookings/${booking._id}`;
-    const qrBuffer = await QRCode.toBuffer(publicUrl);
+    // QR Code points to the issued certificate when one exists; a new draft has nothing to link to yet
+    const existingCertificate = surveyReport
+      ? await DockingSurveyCertModel.findOne({ surveyReportId }).select('_id')
+      : null;
+    const qrContent = existingCertificate
+      ? buildPublicApiUrl(req, buildDockingSurveyPublicPdfPath(String(existingCertificate._id)))
+      : PREVIEW_QR_TEXT;
+    const qrBuffer = await QRCode.toBuffer(qrContent);
 
     const pdfBuffer = await createDockingSurveyPdfBuffer(previewData, qrBuffer);
 
@@ -313,28 +365,23 @@ export const getDockingSurveyPreviewPdf = async (req: Request, res: Response): P
 
 export const getDockingSurveyFinalPdf = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     if (!mongoose.isValidObjectId(id)) {
       res.status(400).json({ success: false, message: 'Invalid Certificate ID format.' });
       return;
     }
 
-    const certificate = await DockingSurveyCertModel.findById(id)
-      .populate('vesselId')
-      .populate('surveyBookingId')
-      .populate('issuedBy');
-
+    const certificate = await DockingSurveyCertModel.findById(id).select('certificateNumber pdf');
     if (!certificate) {
       res.status(404).json({ success: false, message: 'Docking Survey Certificate not found.' });
       return;
     }
 
-    const protocol = req.protocol;
-    const host = req.get('host');
-    const publicUrl = `${protocol}://${host}/api/docking-survey/pdf/${certificate._id}`;
-    const qrBuffer = await QRCode.toBuffer(publicUrl);
-
-    const pdfBuffer = await createDockingSurveyPdfBuffer(certificate, qrBuffer);
+    const pdfBuffer = await readStoredPdf(certificate.pdf, () => renderAndStoreDockingSurveyPdf(req, id));
+    if (!pdfBuffer) {
+      res.status(404).json({ success: false, message: 'Docking Survey Certificate not found.' });
+      return;
+    }
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="docking-survey-${certificate.certificateNumber}.pdf"`);
@@ -345,6 +392,36 @@ export const getDockingSurveyFinalPdf = async (req: Request, res: Response): Pro
       message: 'Error generating Docking Survey Final PDF.',
       error: error.message,
     });
+  }
+};
+
+/**
+ * Public route opened by the certificate's QR code. Redirects to a short-lived presigned R2 URL.
+ */
+export const getPublicDockingSurveyPdf = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    if (!mongoose.isValidObjectId(id)) {
+      res.status(400).send('Invalid certificate ID format.');
+      return;
+    }
+
+    const certificate = await DockingSurveyCertModel.findById(id).select('pdf');
+    if (!certificate) {
+      res.status(404).send('Docking Survey Certificate not found.');
+      return;
+    }
+
+    const presignedUrl = await getStoredPdfUrl(certificate.pdf, () => renderAndStoreDockingSurveyPdf(req, id));
+    if (!presignedUrl) {
+      res.status(404).send('Docking Survey Certificate not found.');
+      return;
+    }
+
+    res.redirect(presignedUrl);
+  } catch (error: any) {
+    console.error('Error retrieving public Docking Survey Certificate PDF:', error);
+    res.status(500).send('Error retrieving certificate PDF.');
   }
 };
 

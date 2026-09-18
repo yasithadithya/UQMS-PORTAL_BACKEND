@@ -6,11 +6,15 @@ import {
   deleteDockingSurveyCert,
   getDockingSurveyPreviewPdf,
   getDockingSurveyFinalPdf,
-  getDockingSurveyCertBySurveyReportId
+  getDockingSurveyCertBySurveyReportId,
+  getPublicDockingSurveyPdf
 } from '../controllers/dockingSurveyCertController';
 import authMiddleware from '../middleware/auth';
 
 const router = express.Router();
+
+// Public route opened by the certificate QR code (unauthenticated)
+router.get('/public-pdf/:id', getPublicDockingSurveyPdf);
 
 router.use(authMiddleware);
 

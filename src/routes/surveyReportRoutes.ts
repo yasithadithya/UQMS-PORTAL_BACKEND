@@ -7,10 +7,14 @@ import {
   deleteSurveyReport,
   getPrePopulatedReportData,
   generateSurveyReportPdf,
+  getPublicSurveyReportPdf,
 } from '../controllers/surveyReportController';
 import authMiddleware from '../middleware/auth';
 
 const router = Router();
+
+// Public route opened by the report QR code (unauthenticated)
+router.get('/public-pdf/:id', getPublicSurveyReportPdf);
 
 // Protect all survey report routes
 router.use(authMiddleware);

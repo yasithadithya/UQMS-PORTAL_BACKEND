@@ -8,10 +8,8 @@ import SurveyType from '../models/SurveyType';
 import User from '../models/User';
 import QRCode from 'qrcode';
 import { createDailyReportPdfBuffer } from '../services/dailyReportPdfService';
-import { uploadToR2, deleteFromR2 } from '../services/r2Storage';
-import { getR2Client, getR2Config } from '../config/r2';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { uploadToR2, deleteFromR2, getPresignedGetUrl } from '../services/r2Storage';
+import { buildPublicApiUrl } from '../services/storedPdfService';
 
 const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -577,9 +575,7 @@ export const generateDailyReportPdf = async (req: Request, res: Response): Promi
     }
 
     // Construct the public URL that the QR code will scan redirect to
-    const protocol = req.protocol;
-    const host = req.get('host');
-    const publicUrl = `${protocol}://${host}/api/first-entry-full-reports/public-pdf/${id}`;
+    const publicUrl = buildPublicApiUrl(req, `/api/first-entry-full-reports/public-pdf/${id}`);
 
     // Generate QR Code PNG Buffer
     const qrBuffer = await QRCode.toBuffer(publicUrl, { margin: 1, errorCorrectionLevel: 'M' });
@@ -679,10 +675,8 @@ export const getDailyReportPdfPreview = async (req: Request, res: Response): Pro
       return;
     }
 
-    // Construct a public URL using the request details
-    const protocol = req.protocol;
-    const host = req.get('host');
-    const publicUrl = `${protocol}://${host}/api/first-entry-full-reports/public-pdf/${id}`;
+    // Construct the public URL that the QR code will scan redirect to
+    const publicUrl = buildPublicApiUrl(req, `/api/first-entry-full-reports/public-pdf/${id}`);
 
     // Generate QR Code PNG Buffer
     const qrBuffer = await QRCode.toBuffer(publicUrl, { margin: 1, errorCorrectionLevel: 'M' });
@@ -724,17 +718,7 @@ export const getPublicDailyReportPdf = async (req: Request, res: Response): Prom
       return;
     }
 
-    const client = getR2Client();
-    const config = getR2Config();
-
-    const presignedUrl = await getSignedUrl(
-      client,
-      new GetObjectCommand({
-        Bucket: report.dailyReportPdfBucket || config.bucket,
-        Key: report.dailyReportPdfKey,
-      }),
-      { expiresIn: 60 * 15 } // 15 minutes
-    );
+    const presignedUrl = await getPresignedGetUrl(report.dailyReportPdfKey, report.dailyReportPdfBucket);
 
     res.redirect(presignedUrl);
   } catch (error: any) {
