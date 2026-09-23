@@ -25,6 +25,7 @@ import vesselEquipmentRecordRoutes from './routes/vesselEquipmentRecordRoutes';
 import surveyReportRoutes from './routes/surveyReportRoutes';
 import documentTemplateRoutes from './routes/documentTemplateRoutes';
 import dockingSurveyCertRoutes from './routes/dockingSurveyCertRoutes';
+import eSignatureRoutes from './routes/eSignatureRoutes';
 import publicRoutes from './routes/publicRoutes';
 import hrRoutes from './HR/routes';
 import { seedModulesAndAdminPermissions } from './config/seedModules';
@@ -72,6 +73,7 @@ app.use('/api/vessel-equipment-records', vesselEquipmentRecordRoutes);
 app.use('/api/survey-reports', surveyReportRoutes);
 app.use('/api/document-templates', documentTemplateRoutes);
 app.use('/api/docking-survey', dockingSurveyCertRoutes);
+app.use('/api/e-signatures', eSignatureRoutes);
 app.use('/api/hr', hrRoutes);
 
 // Public intake (API-key authenticated, called by the public website)

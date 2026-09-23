@@ -8,6 +8,7 @@ import {
   triggerFullReportGeneration,
   generateDailyReportPdf,
   getDailyReportPdfPreview,
+  getDailyReportPdf,
   getPublicDailyReportPdf,
   addGeneralRemark,
   editGeneralRemark,
@@ -28,6 +29,7 @@ router.use(authMiddleware);
 // Daily visit report PDF generation routes (authenticated)
 router.post('/:id/daily-report', generateDailyReportPdf);
 router.get('/:id/daily-report-preview', getDailyReportPdfPreview);
+router.get('/:id/daily-report-pdf', getDailyReportPdf);
 
 // Remarks and comments routes (authenticated)
 router.post('/:id/remarks', addGeneralRemark);

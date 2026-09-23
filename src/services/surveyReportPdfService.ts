@@ -2,6 +2,8 @@ import PDFDocument from 'pdfkit';
 import path from 'path';
 import fs from 'fs';
 import { formatDate } from '../utils/date';
+import { ISignatureField } from '../models/ESignature';
+import { GeneratedPdf, SIGNATURE_BLOCK_HEIGHT, drawSignatureBlock } from './eSignatureStamp';
 
 const PAGE_MARGIN = 40;
 
@@ -161,8 +163,8 @@ interface ISurveyReportPdfData {
   qrBuffer?: Buffer;
 }
 
-export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): Promise<Buffer> => {
-  return new Promise<Buffer>((resolve, reject) => {
+export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): Promise<GeneratedPdf> => {
+  return new Promise<GeneratedPdf>((resolve, reject) => {
     const doc = new PDFDocument({
       size: 'A4',
       margins: { top: PAGE_MARGIN, bottom: PAGE_MARGIN, left: PAGE_MARGIN, right: PAGE_MARGIN },
@@ -172,7 +174,8 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
 
     const chunks: Buffer[] = [];
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
-    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    let signatureField: ISignatureField | null = null;
+    doc.on('end', () => resolve({ buffer: Buffer.concat(chunks), signatureField }));
     doc.on('error', reject);
 
     const pageWidth = doc.page.width - PAGE_MARGIN * 2;
@@ -1199,9 +1202,12 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
 
     // Signature Block
     const issueDateStr = report?.signature?.dateOfIssue ? formatDate(report.signature.dateOfIssue) : '2026/04/03';
-    const surveyorName = report?.signature?.surveyorName || 'S.A.P.M. SAMARASINGHE';
-    const surveyorTitle = report?.signature?.surveyorTitle || 'Marine Surveyor';
-    const certifyingBody = report?.signature?.certifyingBody || 'Universal Quality Management Systems (Pvt) Ltd.';
+
+    // Keep the date line and the electronic signature field together above the footer.
+    if (currentY + 20 + SIGNATURE_BLOCK_HEIGHT > doc.page.height - PAGE_MARGIN - 45) {
+      doc.addPage();
+      currentY = drawPageHeader('RECORD OF EQUIPMENT & SURVEY REPORT');
+    }
 
     doc
       .font('Helvetica')
@@ -1209,20 +1215,8 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
       .fillColor('#111827')
       .text(`SIGNED: Date of issue: ${issueDateStr}`, innerLeft, currentY);
 
-    currentY += 35;
-    doc.text('....................................................................', innerLeft, currentY);
-
-    currentY += 16;
-    doc
-      .font('Helvetica-Bold')
-      .fontSize(10)
-      .fillColor('#111827')
-      .text(surveyorName.toUpperCase(), innerLeft, currentY);
-
-    currentY += 14;
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('#4b5563').text(surveyorTitle, innerLeft, currentY);
-    currentY += 14;
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('#4b5563').text(certifyingBody, innerLeft, currentY);
+    currentY += 20;
+    signatureField = drawSignatureBlock(doc, innerLeft, currentY, report?.eSignature);
 
     // ────────────────────────────────────────────────────────
     // APPLY FOOTERS TO ALL PAGES AT THE END

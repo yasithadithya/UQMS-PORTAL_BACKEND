@@ -19,13 +19,14 @@ import {
   storePdfAfterSave,
 } from '../services/storedPdfService';
 import { paginate } from '../utils/pagination';
+import { rejectIfSigned } from '../services/eSignatureLock';
 
 const buildDockingSurveyPublicPdfPath = (id: string): string => `/api/docking-survey/public-pdf/${id}`;
 
 /**
  * Render the final Docking Survey Certificate PDF and store it in R2.
  */
-const renderAndStoreDockingSurveyPdf = async (req: Request, id: string): Promise<RenderedPdf | null> => {
+export const renderAndStoreDockingSurveyPdf = async (req: Request, id: string): Promise<RenderedPdf | null> => {
   const certificate = await DockingSurveyCertModel.findById(id)
     .populate('vesselId')
     .populate('surveyBookingId')
@@ -36,13 +37,14 @@ const renderAndStoreDockingSurveyPdf = async (req: Request, id: string): Promise
   }
 
   const qrBuffer = await QRCode.toBuffer(buildPublicApiUrl(req, buildDockingSurveyPublicPdfPath(id)));
-  const buffer = await createDockingSurveyPdfBuffer(certificate, qrBuffer);
+  const { buffer, signatureField } = await createDockingSurveyPdfBuffer(certificate, qrBuffer);
   const pdf = await storePdf(
     DockingSurveyCertModel,
     id,
     `docking-survey-certificates/docking-survey-${id}.pdf`,
     `docking-survey-${certificate.certificateNumber}.pdf`,
-    buffer
+    buffer,
+    signatureField
   );
 
   return { buffer, pdf };
@@ -227,6 +229,8 @@ export const updateDockingSurveyCert = async (req: Request, res: Response): Prom
       return;
     }
 
+    if (rejectIfSigned(res, await DockingSurveyCertModel.findById(id).select('eSignature'))) return;
+
     const updateData = { ...req.body };
     if (userId) {
       updateData.updatedBy = userId;
@@ -234,6 +238,7 @@ export const updateDockingSurveyCert = async (req: Request, res: Response): Prom
 
     delete updateData.certificateNumber;
     delete updateData.pdf;
+    delete updateData.eSignature;
 
     const savedCertificate = await DockingSurveyCertModel.findByIdAndUpdate(
       id,
@@ -277,6 +282,8 @@ export const deleteDockingSurveyCert = async (req: Request, res: Response): Prom
       res.status(400).json({ success: false, message: 'Invalid Certificate ID format.' });
       return;
     }
+
+    if (rejectIfSigned(res, await DockingSurveyCertModel.findById(id).select('eSignature'))) return;
 
     const certificate = await DockingSurveyCertModel.findByIdAndDelete(id);
     if (!certificate) {
@@ -349,7 +356,7 @@ export const getDockingSurveyPreviewPdf = async (req: Request, res: Response): P
       : PREVIEW_QR_TEXT;
     const qrBuffer = await QRCode.toBuffer(qrContent);
 
-    const pdfBuffer = await createDockingSurveyPdfBuffer(previewData, qrBuffer);
+    const { buffer: pdfBuffer } = await createDockingSurveyPdfBuffer(previewData, qrBuffer);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'inline; filename="docking-survey-preview.pdf"');

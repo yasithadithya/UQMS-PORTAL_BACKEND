@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { IStoredPdf, storedPdfSchema } from './StoredPdf';
+import { IESignature, eSignatureSchema } from './ESignature';
 
 export interface ISurveyReport extends Document {
   vesselId: mongoose.Types.ObjectId;
@@ -95,6 +96,7 @@ export interface ISurveyReport extends Document {
   };
   status: 'Draft' | 'Approved';
   pdf?: IStoredPdf;
+  eSignature?: IESignature;
   createdBy?: mongoose.Types.ObjectId;
   updatedBy?: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -208,6 +210,9 @@ const surveyReportSchema: Schema = new Schema(
     },
     pdf: {
       type: storedPdfSchema,
+    },
+    eSignature: {
+      type: eSignatureSchema
     },
     createdBy: {
       type: Schema.Types.ObjectId,

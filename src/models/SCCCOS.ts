@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { IStoredPdf, storedPdfSchema } from './StoredPdf';
+import { IESignature, eSignatureSchema } from './ESignature';
 
 export interface ISurveyFindingItem {
   category: string; // e.g. 'Hull', 'Machinery', 'Life Saving Appliances LSA', 'Fire Fighting Appliances FFA', 'Navigation Equipment', 'Radio Installations'
@@ -18,6 +19,7 @@ export interface ISCCCOS extends Document {
   dateOfIssue: Date;
   issuedBy: mongoose.Types.ObjectId;
   pdf?: IStoredPdf;
+  eSignature?: IESignature;
   createdBy?: mongoose.Types.ObjectId;
   updatedBy?: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -91,6 +93,9 @@ const scccosSchema: Schema = new Schema(
     },
     pdf: {
       type: storedPdfSchema
+    },
+    eSignature: {
+      type: eSignatureSchema
     },
     createdBy: {
       type: Schema.Types.ObjectId,
