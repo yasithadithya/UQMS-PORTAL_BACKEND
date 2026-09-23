@@ -2,23 +2,54 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import UserModel from '../models/User';
 import { AuthRequest } from '../middleware/auth';
-import { E_SIGNATURE_CIRCULAR_REF, E_SIGNATURE_COMPANY_NAME } from '../config/eSignature';
-import { SignableDocumentHandler, getSignableDocument, isAssignedSurveyor } from '../services/signableDocuments';
+import { E_SIGNATURE_BYPASS_ROLES, E_SIGNATURE_CIRCULAR_REF, E_SIGNATURE_COMPANY_NAME } from '../config/eSignature';
+import {
+  SignableDocumentHandler,
+  assignedSurveyorIds,
+  getSignableDocument,
+  isAssignedSurveyor,
+} from '../services/signableDocuments';
 import { isElectronicallySigned } from '../services/eSignatureLock';
 import { convertFullNameToInitials } from './surveyReportController';
 
 const MAX_LOCATION_LENGTH = 120;
+const NOT_ASSIGNED_MESSAGE = 'Only a surveyor assigned to this survey can sign this document.';
 
-const isAdmin = (req: AuthRequest): boolean => {
+const roleNameOf = (req: AuthRequest): string => {
   const role = req.user?.role as unknown;
   const roleName = role && typeof role === 'object' ? (role as { roleName?: string }).roleName : role;
-  return typeof roleName === 'string' && roleName.toLowerCase() === 'admin';
+  return typeof roleName === 'string' ? roleName.trim().toLowerCase() : '';
 };
 
-const signerNameFor = async (userId: string): Promise<string> => {
-  const user = await UserModel.findById(userId).select('nameWithInitials fullName username');
-  if (!user) return '';
-  return (user.nameWithInitials || convertFullNameToInitials(user.fullName || '') || user.username || '').trim();
+/** Admin and UQMS admin may sign any document on the assigned surveyor's behalf, and revoke signatures. */
+const hasSigningBypass = (req: AuthRequest): boolean => E_SIGNATURE_BYPASS_ROLES.includes(roleNameOf(req));
+
+type Signer = { id: string; name: string; isSelf: boolean };
+
+const displayName = (user: { nameWithInitials?: string; fullName?: string; username?: string }): string =>
+  (user.nameWithInitials || convertFullNameToInitials(user.fullName || '') || user.username || '').trim();
+
+/**
+ * Whose details the stamp can carry. An assigned surveyor signs as themselves; a bypass role
+ * signs as one of the assigned surveyors (most recent visit first), or as themselves when
+ * nobody is assigned yet. Empty when the user may not sign.
+ */
+const signerOptionsFor = async (req: AuthRequest, booking: any, userId: string): Promise<Signer[]> => {
+  let ids: string[];
+  if (hasSigningBypass(req)) {
+    const assigned = assignedSurveyorIds(booking);
+    ids = assigned.length > 0 ? [...assigned].sort((a, b) => Number(b === userId) - Number(a === userId)) : [userId];
+  } else if (isAssignedSurveyor(booking, userId)) {
+    ids = [userId];
+  } else {
+    return [];
+  }
+
+  const users = await UserModel.find({ _id: { $in: ids } }).select('nameWithInitials fullName username');
+  const byId = new Map(users.map((user) => [String(user._id), user]));
+  return ids
+    .map((id) => ({ id, name: byId.has(id) ? displayName(byId.get(id)!) : '', isSelf: id === userId }))
+    .filter((signer) => signer.name);
 };
 
 type ResolvedRequest = { handler: SignableDocumentHandler; id: string; userId: string };
@@ -48,13 +79,13 @@ const resolveRequest = (req: AuthRequest, res: Response): ResolvedRequest | null
 const buildStatus = async (req: AuthRequest, handler: SignableDocumentHandler, doc: any, userId: string) => {
   const signed = isElectronicallySigned(doc);
   const booking = await handler.loadBooking(doc);
-  const assigned = isAssignedSurveyor(booking, userId);
+  const signerOptions = signed ? [] : await signerOptionsFor(req, booking, userId);
   const notSignableReason = handler.notSignableReason(doc);
 
   let reason: string | null = null;
   if (signed) reason = 'This document has already been signed.';
   else if (notSignableReason) reason = notSignableReason;
-  else if (!assigned) reason = 'Only a surveyor assigned to this survey can sign this document.';
+  else if (signerOptions.length === 0) reason = NOT_ASSIGNED_MESSAGE;
 
   return {
     documentLabel: handler.label,
@@ -62,15 +93,16 @@ const buildStatus = async (req: AuthRequest, handler: SignableDocumentHandler, d
     eSignature: signed ? doc.eSignature : null,
     signatureField: handler.signatureField(doc) || null,
     canSign: reason === null,
-    canRevoke: signed && isAdmin(req),
+    canRevoke: signed && hasSigningBypass(req),
     reason,
     preview: signed
       ? null
       : {
-          signerName: await signerNameFor(userId),
+          signerName: signerOptions[0]?.name || '',
+          signerOptions,
           companyName: E_SIGNATURE_COMPANY_NAME,
           circularRef: E_SIGNATURE_CIRCULAR_REF,
-          location: await handler.defaultLocation(doc, booking, userId),
+          location: await handler.defaultLocation(doc, booking, signerOptions[0]?.id || userId),
         },
   };
 };
@@ -105,7 +137,8 @@ export const getSignatureStatus = async (req: Request, res: Response): Promise<v
 };
 
 /**
- * Electronically sign a document as the logged-in assigned surveyor, then re-render its PDF with the stamp.
+ * Electronically sign a document, then re-render its PDF with the stamp.
+ * Assigned surveyors sign as themselves; bypass roles sign with an assigned surveyor's details.
  */
 export const signDocument = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -130,19 +163,25 @@ export const signDocument = async (req: Request, res: Response): Promise<void> =
     }
 
     const booking = await handler.loadBooking(doc);
-    if (!isAssignedSurveyor(booking, userId)) {
-      res.status(403).json({ success: false, message: 'Only a surveyor assigned to this survey can sign this document.' });
+    const signerOptions = await signerOptionsFor(req as AuthRequest, booking, userId);
+    if (signerOptions.length === 0) {
+      const isAllowed = hasSigningBypass(req as AuthRequest) || isAssignedSurveyor(booking, userId);
+      res.status(isAllowed ? 400 : 403).json({
+        success: false,
+        message: isAllowed ? 'The surveyor has no name to sign with. Update the user profile first.' : NOT_ASSIGNED_MESSAGE,
+      });
       return;
     }
 
-    const signerName = await signerNameFor(userId);
-    if (!signerName) {
-      res.status(400).json({ success: false, message: 'Your profile has no name to sign with. Update your profile first.' });
+    const requestedSignerId = typeof req.body?.signerId === 'string' ? req.body.signerId : '';
+    const signer = requestedSignerId ? signerOptions.find((option) => option.id === requestedSignerId) : signerOptions[0];
+    if (!signer) {
+      res.status(403).json({ success: false, message: 'You cannot sign this document on behalf of the selected surveyor.' });
       return;
     }
 
     const requestedLocation = typeof req.body?.location === 'string' ? req.body.location.trim() : '';
-    const location = requestedLocation || (await handler.defaultLocation(doc, booking, userId));
+    const location = requestedLocation || (await handler.defaultLocation(doc, booking, signer.id));
     if (!location) {
       res.status(400).json({ success: false, message: 'Signing location is required.' });
       return;
@@ -153,8 +192,9 @@ export const signDocument = async (req: Request, res: Response): Promise<void> =
     }
 
     const eSignature = {
-      signedBy: userId,
-      signedByName: signerName,
+      signedBy: signer.id,
+      signedByName: signer.name,
+      ...(signer.isSelf ? {} : { appliedBy: userId }),
       companyName: E_SIGNATURE_COMPANY_NAME,
       location,
       circularRef: E_SIGNATURE_CIRCULAR_REF,
@@ -191,13 +231,18 @@ export const signDocument = async (req: Request, res: Response): Promise<void> =
 };
 
 /**
- * Revoke a document's electronic signature (admin only), unlocking it and re-rendering an unsigned PDF.
+ * Revoke a document's electronic signature (admin / UQMS admin only), unlocking it and re-rendering an unsigned PDF.
  */
 export const revokeSignature = async (req: Request, res: Response): Promise<void> => {
   try {
     const resolved = resolveRequest(req as AuthRequest, res);
     if (!resolved) return;
     const { handler, id, userId } = resolved;
+
+    if (!hasSigningBypass(req as AuthRequest)) {
+      res.status(403).json({ success: false, message: 'Forbidden. Admin access required.' });
+      return;
+    }
 
     const doc = await handler.model.findById(id);
     if (!doc) {

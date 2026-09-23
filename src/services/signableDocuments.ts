@@ -63,6 +63,15 @@ export const isAssignedSurveyor = (booking: BookingLike | null, userId: string):
     )
   );
 
+/** Assigned surveyors in order of their most recent visit, without duplicates. */
+export const assignedSurveyorIds = (booking: BookingLike | null): string[] => {
+  const visits = [...(booking?.visitDetails || [])].sort(
+    (a, b) => new Date(b.visitDate || 0).getTime() - new Date(a.visitDate || 0).getTime()
+  );
+  const ids = visits.flatMap((visit) => (visit.surveyorAssignments || []).map((assignment) => idOf(assignment.surveyorId)));
+  return [...new Set(ids.filter(Boolean))];
+};
+
 /** Location of the signer's most recent visit, falling back to the booking's port of survey. */
 const bookingLocation = (booking: BookingLike | null, userId: string): string => {
   const visits = (booking?.visitDetails || [])
