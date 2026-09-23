@@ -19,11 +19,12 @@ import {
   storePdf,
   storePdfAfterSave,
 } from '../services/storedPdfService';
+import { rejectIfSigned } from '../services/eSignatureLock';
 
 /**
  * Render the Survey Report PDF and store it in R2.
  */
-const renderAndStoreSurveyReportPdf = async (req: Request, id: string): Promise<RenderedPdf | null> => {
+export const renderAndStoreSurveyReportPdf = async (req: Request, id: string): Promise<RenderedPdf | null> => {
   // Populate vessel and nested equipment checklist questions, also vesselType and areaOfOperation
   const report = await SurveyReportModel.findById(id)
     .populate({
@@ -63,7 +64,7 @@ const renderAndStoreSurveyReportPdf = async (req: Request, id: string): Promise<
   // QR Code points to the public PDF route
   const qrBuffer = await QRCode.toBuffer(buildPublicApiUrl(req, `/api/survey-reports/public-pdf/${id}`));
 
-  const buffer = await createSurveyReportPdfBuffer({
+  const { buffer, signatureField } = await createSurveyReportPdfBuffer({
     report,
     vessel,
     equipmentRecords,
@@ -75,7 +76,8 @@ const renderAndStoreSurveyReportPdf = async (req: Request, id: string): Promise<
     id,
     `survey-reports/survey-report-${id}.pdf`,
     `survey_report_${id}.pdf`,
-    buffer
+    buffer,
+    signatureField
   );
 
   return { buffer, pdf };
@@ -390,8 +392,12 @@ export const updateSurveyReport = async (req: Request, res: Response): Promise<v
       return;
     }
 
+    const existingReport = await SurveyReportModel.findById(id).select('eSignature');
+    if (rejectIfSigned(res, existingReport)) return;
+
     const updateData = { ...req.body };
     delete updateData.pdf;
+    delete updateData.eSignature;
     if (userId) {
       updateData.updatedBy = userId;
 
@@ -467,6 +473,8 @@ export const deleteSurveyReport = async (req: Request, res: Response): Promise<v
       res.status(400).json({ success: false, message: 'Invalid Survey Report ID format.' });
       return;
     }
+
+    if (rejectIfSigned(res, await SurveyReportModel.findById(id).select('eSignature'))) return;
 
     const report = await SurveyReportModel.findByIdAndDelete(id);
     if (!report) {

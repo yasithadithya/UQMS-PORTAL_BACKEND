@@ -1,6 +1,7 @@
 import { Request } from 'express';
 import { Model } from 'mongoose';
 import { IStoredPdf } from '../models/StoredPdf';
+import { ISignatureField } from '../models/ESignature';
 import { deleteFromR2, downloadFromR2, getPresignedGetUrl, uploadToR2 } from './r2Storage';
 
 export type RenderedPdf = {
@@ -27,13 +28,15 @@ export const buildPublicApiUrl = (req: Request, path: string): string => {
 /**
  * Uploads a generated PDF to R2 and records its metadata in the document's `pdf` field.
  * Uses a stable key per document, so regenerating replaces the previous version.
+ * `signatureField` records where the electronic signature field was drawn.
  */
 export const storePdf = async (
   model: Model<any>,
   id: string,
   key: string,
   filename: string,
-  buffer: Buffer
+  buffer: Buffer,
+  signatureField?: ISignatureField | null
 ): Promise<IStoredPdf> => {
   const uploadResult = await uploadToR2({
     key,
@@ -49,6 +52,7 @@ export const storePdf = async (
     size: buffer.length,
     etag: uploadResult.etag,
     generatedAt: new Date(),
+    ...(signatureField ? { signatureField } : {}),
   };
 
   await model.updateOne({ _id: id }, { $set: { pdf } }, { timestamps: false });

@@ -1,6 +1,8 @@
 import PDFDocument from 'pdfkit';
 import path from 'path';
 import { formatDate } from '../utils/date';
+import { ISignatureField } from '../models/ESignature';
+import { GeneratedPdf, SIGNATURE_BLOCK_HEIGHT, drawSignatureBlock } from './eSignatureStamp';
 
 const PAGE_MARGIN = 40;
 const PAGE_BOTTOM_SAFE = 60;
@@ -53,8 +55,8 @@ const drawTableRow = (
 export const createDailyReportPdfBuffer = async (
   report: any,
   qrBuffer: Buffer
-): Promise<Buffer> => {
-  return new Promise<Buffer>((resolve, reject) => {
+): Promise<GeneratedPdf> => {
+  return new Promise<GeneratedPdf>((resolve, reject) => {
     const doc = new PDFDocument({
       size: 'A4',
       margins: { top: PAGE_MARGIN, bottom: PAGE_MARGIN, left: PAGE_MARGIN, right: PAGE_MARGIN },
@@ -64,7 +66,8 @@ export const createDailyReportPdfBuffer = async (
 
     const chunks: Buffer[] = [];
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
-    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    let signatureField: ISignatureField | null = null;
+    doc.on('end', () => resolve({ buffer: Buffer.concat(chunks), signatureField }));
     doc.on('error', reject);
 
     const pageWidth = doc.page.width - PAGE_MARGIN * 2;
@@ -469,6 +472,22 @@ export const createDailyReportPdfBuffer = async (
     }
 
     doc.lineWidth(1).strokeColor('#000000'); // Reset stroke settings
+
+    // 6. Electronic signature block
+    if (currentY + 45 + SIGNATURE_BLOCK_HEIGHT > pageContentBottom) {
+      doc.addPage();
+      currentY = drawHeaderAndQR(doc.bufferedPageRange().count - 1);
+    }
+
+    currentY += 20;
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(9.5)
+      .fillColor('#111827')
+      .text('SIGNED:', innerLeft, currentY);
+
+    currentY += 25;
+    signatureField = drawSignatureBlock(doc, innerLeft, currentY, report.eSignature);
 
     // Add Page Numbers to Footers dynamically
     const totalPages = doc.bufferedPageRange().count;

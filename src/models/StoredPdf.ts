@@ -1,4 +1,5 @@
 import { Schema } from 'mongoose';
+import { ISignatureField, signatureFieldSchema } from './ESignature';
 
 /**
  * Metadata for a generated PDF persisted in R2. Embedded on documents whose
@@ -11,6 +12,8 @@ export interface IStoredPdf {
   size?: number;
   etag?: string;
   generatedAt: Date;
+  /** Position of the electronic signature field in this PDF, when it has one. */
+  signatureField?: ISignatureField;
 }
 
 export const storedPdfSchema = new Schema<IStoredPdf>(
@@ -21,6 +24,7 @@ export const storedPdfSchema = new Schema<IStoredPdf>(
     size: { type: Number, min: 0 },
     etag: { type: String, trim: true },
     generatedAt: { type: Date, default: Date.now },
+    signatureField: { type: signatureFieldSchema },
   },
   { _id: false }
 );

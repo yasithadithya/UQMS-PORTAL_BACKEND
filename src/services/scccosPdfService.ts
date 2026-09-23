@@ -1,6 +1,8 @@
 import PDFDocument from 'pdfkit';
 import path from 'path';
 import { formatDate } from '../utils/date';
+import { ISignatureField } from '../models/ESignature';
+import { GeneratedPdf, SIGNATURE_BLOCK_HEIGHT, drawSignatureBlock } from './eSignatureStamp';
 
 const PAGE_MARGIN = 40;
 const PAGE_BOTTOM_SAFE = 60;
@@ -29,8 +31,8 @@ const toText = (value: unknown, fallback = '-'): string => {
 export const createScccosPdfBuffer = async (
   scccos: any,
   qrBuffer: Buffer
-): Promise<Buffer> => {
-  return new Promise<Buffer>((resolve, reject) => {
+): Promise<GeneratedPdf> => {
+  return new Promise<GeneratedPdf>((resolve, reject) => {
     const doc = new PDFDocument({
       size: 'A4',
       margins: { top: PAGE_MARGIN, bottom: PAGE_MARGIN, left: PAGE_MARGIN, right: PAGE_MARGIN },
@@ -40,7 +42,8 @@ export const createScccosPdfBuffer = async (
 
     const chunks: Buffer[] = [];
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
-    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    let signatureField: ISignatureField | null = null;
+    doc.on('end', () => resolve({ buffer: Buffer.concat(chunks), signatureField }));
     doc.on('error', reject);
 
     const pageWidth = doc.page.width - PAGE_MARGIN * 2;
@@ -294,6 +297,12 @@ export const createScccosPdfBuffer = async (
 
     currentY += 45;
 
+    // Keep the SIGNED line and the electronic signature field together above the footer.
+    if (currentY + 25 + SIGNATURE_BLOCK_HEIGHT > doc.page.height - PAGE_MARGIN - 45) {
+      doc.addPage();
+      currentY = PAGE_MARGIN + 10;
+    }
+
     // SIGNED details
     doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#111827').text('SIGNED:', innerLeft, currentY);
 
@@ -301,23 +310,8 @@ export const createScccosPdfBuffer = async (
     const issueDateStr = `Date of issue: ${formatDate(scccos.dateOfIssue)}`;
     doc.font('Helvetica-Bold').text(issueDateStr, doc.page.width - PAGE_MARGIN - 180, currentY, { align: 'right', width: 180 });
 
-    currentY += 50;
-
-    // Signature Line
-    doc.font('Helvetica').fillColor('#4b5563').text('....................................................................', innerLeft, currentY);
-    currentY += 15;
-
-    // Surveyor selected on the certificate form; fall back to the issuing user.
-    const surveyorName = toText(scccos.surveyorName, '') ||
-      (scccos.issuedBy && typeof scccos.issuedBy === 'object'
-        ? (scccos.issuedBy.username || 'Marine Surveyor')
-        : 'S.A.P.M. SAMARASINGHE');
-
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#111827').text(surveyorName.toUpperCase(), innerLeft, currentY);
-    currentY += 14;
-    doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#4b5563').text('Marine Surveyor', innerLeft, currentY);
-    currentY += 14;
-    doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#4b5563').text('Universal Quality Management Systems (Pvt) Ltd.', innerLeft, currentY);
+    currentY += 25;
+    signatureField = drawSignatureBlock(doc, innerLeft, currentY, scccos.eSignature);
 
     // Apply Footers to all pages
     const totalPages = doc.bufferedPageRange().count;
