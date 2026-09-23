@@ -8,8 +8,9 @@ import SurveyType from '../models/SurveyType';
 import User from '../models/User';
 import QRCode from 'qrcode';
 import { createDailyReportPdfBuffer } from '../services/dailyReportPdfService';
-import { uploadToR2, deleteFromR2, getPresignedGetUrl } from '../services/r2Storage';
+import { uploadToR2, deleteFromR2, downloadFromR2, getPresignedGetUrl } from '../services/r2Storage';
 import { buildPublicApiUrl } from '../services/storedPdfService';
+import { rejectIfSigned } from '../services/eSignatureLock';
 
 const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -305,6 +306,9 @@ export const updateFirstEntryFullReport = async (req: Request, res: Response): P
     if (userId) {
       updates.updatedBy = userId;
     }
+    // The signature is only set through the e-signature endpoints
+    delete updates.eSignature;
+    delete updates.dailyReportSignatureField;
 
     // Map existing checklist items by checklistQuestionId for quick comparison
     const existingMap = new Map<string, any>();
@@ -434,6 +438,8 @@ export const deleteFirstEntryFullReport = async (req: Request, res: Response): P
       return;
     }
 
+    if (rejectIfSigned(res, await FirstEntryFullReport.findById(id).select('eSignature'))) return;
+
     const report = await FirstEntryFullReport.findByIdAndDelete(id);
     if (!report) {
       res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
@@ -545,6 +551,55 @@ const validatePdfGenerationRemarks = (report: any): void => {
 };
 
 /**
+ * Renders the Daily Visit Report PDF for a populated full report, uploads it to R2 and
+ * records its metadata on the report. The caller saves the report.
+ */
+export const renderAndStoreDailyReportPdf = async (req: Request, report: any): Promise<Buffer> => {
+  const id = String(report._id);
+
+  // Construct the public URL that the QR code will scan redirect to
+  const publicUrl = buildPublicApiUrl(req, `/api/first-entry-full-reports/public-pdf/${id}`);
+
+  // Generate QR Code PNG Buffer
+  const qrBuffer = await QRCode.toBuffer(publicUrl, { margin: 1, errorCorrectionLevel: 'M' });
+
+  // Generate PDF Buffer
+  const { buffer: pdfBuffer, signatureField } = await createDailyReportPdfBuffer(report, qrBuffer);
+
+  const filename = `daily-visit-report-${id}.pdf`;
+  const key = `daily-visit-reports/daily-visit-report-${id}.pdf`;
+
+  // Upload PDF to R2
+  const uploadResult = await uploadToR2({
+    key,
+    body: pdfBuffer,
+    contentType: 'application/pdf',
+    contentLength: pdfBuffer.length,
+  });
+
+  // Delete old PDF key from R2 if it exists and is different
+  if (report.dailyReportPdfKey && report.dailyReportPdfKey !== uploadResult.key) {
+    try {
+      await deleteFromR2(report.dailyReportPdfKey);
+    } catch (err) {
+      console.error('Failed to delete old daily visit report PDF from R2:', err);
+    }
+  }
+
+  // Update FirstEntryFullReport PDF metadata
+  report.dailyReportPdfKey = uploadResult.key;
+  report.dailyReportPdfUrl = uploadResult.url;
+  report.dailyReportPdfBucket = uploadResult.bucket;
+  report.dailyReportPdfFilename = filename;
+  report.dailyReportPdfSize = pdfBuffer.length;
+  report.dailyReportPdfEtag = uploadResult.etag;
+  report.dailyReportPdfGeneratedAt = new Date();
+  report.dailyReportSignatureField = signatureField || undefined;
+
+  return pdfBuffer;
+};
+
+/**
  * Generate Daily Visit Report PDF, upload to R2, and update FirstEntryFullReport document.
  */
 export const generateDailyReportPdf = async (req: Request, res: Response): Promise<void> => {
@@ -566,6 +621,9 @@ export const generateDailyReportPdf = async (req: Request, res: Response): Promi
       return;
     }
 
+    // A signed daily report keeps the PDF that was signed
+    if (rejectIfSigned(res, report)) return;
+
     // Validate remarks constraints
     try {
       validatePdfGenerationRemarks(report);
@@ -574,43 +632,7 @@ export const generateDailyReportPdf = async (req: Request, res: Response): Promi
       return;
     }
 
-    // Construct the public URL that the QR code will scan redirect to
-    const publicUrl = buildPublicApiUrl(req, `/api/first-entry-full-reports/public-pdf/${id}`);
-
-    // Generate QR Code PNG Buffer
-    const qrBuffer = await QRCode.toBuffer(publicUrl, { margin: 1, errorCorrectionLevel: 'M' });
-
-    // Generate PDF Buffer
-    const pdfBuffer = await createDailyReportPdfBuffer(report, qrBuffer);
-
-    const filename = `daily-visit-report-${id}.pdf`;
-    const key = `daily-visit-reports/daily-visit-report-${id}.pdf`;
-
-    // Upload PDF to R2
-    const uploadResult = await uploadToR2({
-      key,
-      body: pdfBuffer,
-      contentType: 'application/pdf',
-      contentLength: pdfBuffer.length,
-    });
-
-    // Delete old PDF key from R2 if it exists and is different
-    if (report.dailyReportPdfKey && report.dailyReportPdfKey !== uploadResult.key) {
-      try {
-        await deleteFromR2(report.dailyReportPdfKey);
-      } catch (err) {
-        console.error('Failed to delete old daily visit report PDF from R2:', err);
-      }
-    }
-
-    // Update FirstEntryFullReport PDF metadata
-    report.dailyReportPdfKey = uploadResult.key;
-    report.dailyReportPdfUrl = uploadResult.url;
-    report.dailyReportPdfBucket = uploadResult.bucket;
-    report.dailyReportPdfFilename = filename;
-    report.dailyReportPdfSize = pdfBuffer.length;
-    report.dailyReportPdfEtag = uploadResult.etag;
-    report.dailyReportPdfGeneratedAt = new Date();
+    await renderAndStoreDailyReportPdf(req, report);
 
     if ((req as any).user?.id) {
       report.updatedBy = (req as any).user.id;
@@ -682,7 +704,7 @@ export const getDailyReportPdfPreview = async (req: Request, res: Response): Pro
     const qrBuffer = await QRCode.toBuffer(publicUrl, { margin: 1, errorCorrectionLevel: 'M' });
 
     // Generate PDF Buffer
-    const pdfBuffer = await createDailyReportPdfBuffer(report, qrBuffer);
+    const { buffer: pdfBuffer } = await createDailyReportPdfBuffer(report, qrBuffer);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'inline; filename="daily-report-preview.pdf"');
@@ -691,6 +713,41 @@ export const getDailyReportPdfPreview = async (req: Request, res: Response): Pro
     res.status(500).json({
       success: false,
       message: 'Error generating PDF preview.',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Stream the generated (stored) Daily Visit Report PDF to an authenticated user.
+ */
+export const getDailyReportPdf = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      res.status(400).json({ success: false, message: 'Invalid full report ID format.' });
+      return;
+    }
+
+    const report = await FirstEntryFullReport.findById(id).select('dailyReportPdfKey dailyReportPdfBucket dailyReportPdfFilename');
+    if (!report) {
+      res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      return;
+    }
+    if (!report.dailyReportPdfKey) {
+      res.status(404).json({ success: false, message: 'Daily visit report PDF has not been generated yet.' });
+      return;
+    }
+
+    const pdfBuffer = await downloadFromR2(report.dailyReportPdfKey, report.dailyReportPdfBucket);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${report.dailyReportPdfFilename || 'daily-visit-report.pdf'}"`);
+    res.send(pdfBuffer);
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: 'Error retrieving Daily Visit Report PDF.',
       error: error.message,
     });
   }

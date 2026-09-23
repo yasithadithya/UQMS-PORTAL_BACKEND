@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { IESignature, ISignatureField, eSignatureSchema, signatureFieldSchema } from './ESignature';
 
 // Sub-interface for comments on a general remark
 export interface IRemarkComment {
@@ -62,6 +63,8 @@ export interface IFirstEntryFullReport extends Document {
   dailyReportPdfSize?: number;
   dailyReportPdfEtag?: string;
   dailyReportPdfGeneratedAt?: Date;
+  dailyReportSignatureField?: ISignatureField;
+  eSignature?: IESignature;
   createdBy?: mongoose.Types.ObjectId;
   updatedBy?: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -218,6 +221,12 @@ const firstEntryFullReportSchema: Schema = new Schema(
     },
     dailyReportPdfGeneratedAt: {
       type: Date
+    },
+    dailyReportSignatureField: {
+      type: signatureFieldSchema
+    },
+    eSignature: {
+      type: eSignatureSchema
     },
     createdBy: {
       type: Schema.Types.ObjectId,
