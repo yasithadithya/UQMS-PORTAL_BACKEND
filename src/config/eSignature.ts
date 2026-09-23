@@ -10,11 +10,11 @@ export const E_SIGNATURE_SURVEYOR_CAPTION = 'Surveyor to Universal Quality Manag
 /** Reference the electronic signature is issued under, printed as "Signed Electronically in accordance with …". */
 export const E_SIGNATURE_CIRCULAR_REF = 'UQMS-QM-007, Clause 1.1.2(d),Rev 1';
 
-/** Seal image drawn on the left of the stamp; the company logo, resolved for both ts-node and the build output. */
+/** Seal image drawn on the left of the stamp (sign_logo.png), resolved for both ts-node and the build output. */
 export const resolveSealPath = (): string | null => {
   const candidates = [
-    path.join(__dirname, '../public/logo.png'),
-    path.join(__dirname, '../../src/public/logo.png'),
+    path.join(__dirname, '../public/sign_logo.png'),
+    path.join(__dirname, '../../src/public/sign_logo.png'),
   ];
   return candidates.find((candidate) => fs.existsSync(candidate)) || null;
 };
