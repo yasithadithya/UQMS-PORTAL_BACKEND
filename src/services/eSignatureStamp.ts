@@ -5,7 +5,7 @@ import { getIstDateParts } from '../utils/date';
 /**
  * Electronic signature stamp for pdfkit documents.
  *
- * Layout (points), matching the IMO FAL.5/Circ.39 style stamp:
+ * Layout (points), matching the IMO-style electronic signature stamp:
  *
  *   [seal]  For <company>
  *           Electronically Signed By: <name>

@@ -7,6 +7,8 @@ import mongoose, { Schema } from 'mongoose';
 export interface IESignature {
   signedBy: mongoose.Types.ObjectId;
   signedByName: string;
+  /** Set when the signature was applied by an administrator on the signer's behalf. */
+  appliedBy?: mongoose.Types.ObjectId;
   companyName: string;
   location: string;
   circularRef: string;
@@ -31,6 +33,7 @@ export const eSignatureSchema = new Schema<IESignature>(
   {
     signedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     signedByName: { type: String, required: true, trim: true },
+    appliedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     companyName: { type: String, required: true, trim: true },
     location: { type: String, default: '', trim: true },
     circularRef: { type: String, required: true, trim: true },
