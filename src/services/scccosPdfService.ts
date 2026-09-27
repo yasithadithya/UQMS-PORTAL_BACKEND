@@ -1,6 +1,13 @@
 import PDFDocument from 'pdfkit';
-import path from 'path';
 import { formatDate } from '../utils/date';
+import { DOCUMENT_TEMPLATE_NAMES, getDocumentTemplate } from './documentTemplateService';
+import {
+  FOOTER_RESERVED_HEIGHT,
+  HEADING_COLOR,
+  drawAdditionalRemarks,
+  drawLetterhead,
+  measureAdditionalRemarks,
+} from './pdfLayout';
 import { ISignatureField } from '../models/ESignature';
 import { GeneratedPdf, SIGNATURE_BLOCK_HEIGHT, drawSignatureBlock } from './eSignatureStamp';
 
@@ -32,6 +39,8 @@ export const createScccosPdfBuffer = async (
   scccos: any,
   qrBuffer: Buffer
 ): Promise<GeneratedPdf> => {
+  const template = await getDocumentTemplate(DOCUMENT_TEMPLATE_NAMES.scccos);
+
   return new Promise<GeneratedPdf>((resolve, reject) => {
     const doc = new PDFDocument({
       size: 'A4',
@@ -49,80 +58,17 @@ export const createScccosPdfBuffer = async (
     const pageWidth = doc.page.width - PAGE_MARGIN * 2;
     const innerLeft = PAGE_MARGIN;
 
-    // Resolve logo path
-    let logoPath = path.join(__dirname, '../public/logo.png');
-    if (!require('fs').existsSync(logoPath)) {
-      logoPath = path.join(__dirname, '../../src/public/logo.png');
-    }
-
-    const drawHeader = (pageIndex: number) => {
-      // 1. Logo
-      try {
-        if (require('fs').existsSync(logoPath)) {
-          doc.image(logoPath, PAGE_MARGIN, PAGE_MARGIN - 5, { width: 50 });
-        }
-      } catch (err) {
-        console.warn('Could not load logo image:', err);
-      }
-
-      // 2. Company Name
-      doc.y = PAGE_MARGIN + 5;
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(13)
-        .fillColor('#1f4e79')
-        .text('UNIVERSAL QUALITY MANAGEMENT SYSTEMS (PVT) LTD', PAGE_MARGIN + 60, PAGE_MARGIN + 5, {
-          width: doc.page.width - PAGE_MARGIN * 2 - 130,
-          align: 'center',
-        });
-
-      doc.moveDown(0.3);
-      doc
-        .font('Helvetica')
-        .fontSize(9)
-        .fillColor('#4b5563')
-        .text('No; 08, Chandralekha Mawatha, Colombo 08, Sri Lanka.', {
-          width: doc.page.width - PAGE_MARGIN * 2 - 130,
-          align: 'center',
-        });
-
-      // 3. QR Code
-      try {
-        doc.image(qrBuffer, doc.page.width - PAGE_MARGIN - 60, PAGE_MARGIN - 5, {
-          width: 60,
-          height: 60,
-        });
-      } catch (err) {
-        console.warn('Could not draw QR code image:', err);
-      }
-
-      // 4. Horizontal Rule
-      const ruleY = PAGE_MARGIN + 60;
-      doc
-        .moveTo(innerLeft, ruleY)
-        .lineTo(innerLeft + pageWidth, ruleY)
-        .strokeColor('#5c93c4')
-        .lineWidth(1)
-        .stroke()
-        .strokeColor('#000000')
-        .lineWidth(1);
-
-      return ruleY + 15;
-    };
-
     // ────────────────────────────────────────────────────────
     // DRAW PAGE 1
     // ────────────────────────────────────────────────────────
-    let currentY = drawHeader(0);
+    let currentY = drawLetterhead(doc, { title: 'SMALL CRAFT CODE CERTIFICATE OF SURVEY', template, margin: PAGE_MARGIN });
 
-    // Title
-    doc
-      .font('Helvetica-Bold')
-      .fontSize(14)
-      .fillColor('#111827')
-      .text('SMALL CRAFT CODE CERTIFICATE OF SURVEY', innerLeft, currentY, { align: 'center' });
-
-    currentY += 25;
+    // Verification QR code beside the certificate details
+    try {
+      doc.image(qrBuffer, doc.page.width - PAGE_MARGIN - 60, currentY - 4, { width: 60, height: 60 });
+    } catch (err) {
+      console.warn('Could not draw QR code image:', err);
+    }
 
     // Metadata block
     const vessel = scccos.vesselId || {};
@@ -148,7 +94,7 @@ export const createScccosPdfBuffer = async (
     currentY += 25;
 
     // SECTION: VESSEL PARTICULARS
-    doc.font('Helvetica-Bold').fontSize(11).fillColor('#1f4e79').text('VESSEL PARTICULARS', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(HEADING_COLOR).text('VESSEL PARTICULARS', innerLeft, currentY);
     currentY += 18;
 
     const vesselFields = [
@@ -170,7 +116,7 @@ export const createScccosPdfBuffer = async (
     currentY += 15;
 
     // SECTION: OWNER/ MANAGER/ OPERATOR DETAILS
-    doc.font('Helvetica-Bold').fontSize(11).fillColor('#1f4e79').text('OWNER/ MANAGER/ OPERATOR DETAILS', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(HEADING_COLOR).text('OWNER/ MANAGER/ OPERATOR DETAILS', innerLeft, currentY);
     currentY += 15;
 
     // Three side-by-side boxes: Left=Owner, Mid=Manager, Right=Operator
@@ -213,7 +159,7 @@ export const createScccosPdfBuffer = async (
     currentY += boxH + 20;
 
     // SECTION: SURVEY INFORMATION
-    doc.font('Helvetica-Bold').fontSize(11).fillColor('#1f4e79').text('SURVEY INFORMATION', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(HEADING_COLOR).text('SURVEY INFORMATION', innerLeft, currentY);
     currentY += 15;
 
     // Calculate first visit date and last visit date
@@ -252,7 +198,9 @@ export const createScccosPdfBuffer = async (
       doc.font('Helvetica').text(`: ${field.value}`, innerLeft + labelW, currentY, { width: pageWidth - labelW });
 
       const valHeight = doc.heightOfString(field.value, { width: pageWidth - labelW });
-      currentY += Math.max(17, valHeight + 2);
+      doc.font('Helvetica-Bold');
+      const labelHeight = doc.heightOfString(field.label, { width: labelW });
+      currentY += Math.max(17, valHeight + 2, labelHeight + 2);
     });
 
     // ────────────────────────────────────────────────────────
@@ -262,7 +210,7 @@ export const createScccosPdfBuffer = async (
     currentY = PAGE_MARGIN + 10;
 
     // SECTION: SURVEY FINDINGS
-    doc.font('Helvetica-Bold').fontSize(11).fillColor('#1f4e79').text('SURVEY FINDINGS', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(HEADING_COLOR).text('SURVEY FINDINGS', innerLeft, currentY);
     currentY += 18;
 
     const findings = scccos.surveyFindings || [];
@@ -286,7 +234,7 @@ export const createScccosPdfBuffer = async (
     currentY += 15;
 
     // SECTION: CERTIFICATION
-    doc.font('Helvetica-Bold').fontSize(11).fillColor('#1f4e79').text('CERTIFICATION', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(HEADING_COLOR).text('CERTIFICATION', innerLeft, currentY);
     currentY += 15;
 
     const certText = 'I hereby certify that the inspection was carried out in accordance with the guidelines provided under the Small Craft Code 2025, and the vessel was found to comply with the relevant safety and equipment standards at the time of examination.';
@@ -297,14 +245,17 @@ export const createScccosPdfBuffer = async (
 
     currentY += 45;
 
-    // Keep the SIGNED line and the electronic signature field together above the footer.
-    if (currentY + 25 + SIGNATURE_BLOCK_HEIGHT > doc.page.height - PAGE_MARGIN - 45) {
+    // Keep the additional remarks, the SIGNED line and the electronic signature field together above the footer.
+    const remarksHeight = measureAdditionalRemarks(doc, scccos.additionalRemarks, pageWidth);
+    if (currentY + remarksHeight + 25 + SIGNATURE_BLOCK_HEIGHT > doc.page.height - PAGE_MARGIN - FOOTER_RESERVED_HEIGHT) {
       doc.addPage();
       currentY = PAGE_MARGIN + 10;
     }
 
+    currentY = drawAdditionalRemarks(doc, scccos.additionalRemarks, innerLeft, currentY, pageWidth);
+
     // SIGNED details
-    doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#111827').text('SIGNED:', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(9.5).fillColor(HEADING_COLOR).text('SIGNED:', innerLeft, currentY);
 
     // Date of issue on the right side
     const issueDateStr = `Date of issue: ${formatDate(scccos.dateOfIssue)}`;
@@ -312,49 +263,6 @@ export const createScccosPdfBuffer = async (
 
     currentY += 25;
     signatureField = drawSignatureBlock(doc, innerLeft, currentY, scccos.eSignature);
-
-    // Apply Footers to all pages
-    const totalPages = doc.bufferedPageRange().count;
-    for (let i = 0; i < totalPages; i++) {
-      doc.switchToPage(i);
-
-      // Page 1 Footer Contact details
-      if (i === 0) {
-        doc
-          .font('Helvetica-Bold')
-          .fontSize(8)
-          .fillColor('#111827')
-          .text(
-            'PHONE: +94 76 68 68 718     WEB: www.uqms.net     E-Mail: info@uqms.net',
-            PAGE_MARGIN,
-            doc.page.height - PAGE_MARGIN - 26,
-            { width: pageWidth, align: 'left', lineBreak: false }
-          );
-      }
-
-      // Controlled document details — single horizontal line on every page
-      doc
-        .font('Helvetica')
-        .fontSize(8)
-        .fillColor('#000000')
-        .text(
-          'Document No: UQMS-FM-019  |  Revision: 00  |  Effective Date: [25/01/2026]  |  Approved By: Technical Committee',
-          PAGE_MARGIN,
-          doc.page.height - PAGE_MARGIN - 12,
-          { width: pageWidth, align: 'left', lineBreak: false }
-        );
-
-      doc
-        .font('Helvetica')
-        .fontSize(8)
-        .fillColor('#9ca3af')
-        .text(
-          `Page ${i + 1} of ${totalPages}`,
-          PAGE_MARGIN,
-          doc.page.height - PAGE_MARGIN - 12,
-          { width: pageWidth, align: 'right', lineBreak: false }
-        );
-    }
 
     doc.end();
   });

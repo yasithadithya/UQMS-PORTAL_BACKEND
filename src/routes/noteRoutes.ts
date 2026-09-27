@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getNotesByVesselId, upsertVesselNotes } from '../controllers/noteController';
 import authMiddleware from '../middleware/auth';
+import { requirePermission } from '../middleware/permission';
 
 const router = Router();
 
@@ -31,7 +32,7 @@ router.use(authMiddleware);
  *       401:
  *         description: Unauthorized
  */
-router.get('/vessel/:vesselId', getNotesByVesselId);
+router.get('/vessel/:vesselId', requirePermission('marine.reports', 'read'), getNotesByVesselId);
 
 /**
  * @swagger
@@ -93,6 +94,6 @@ router.get('/vessel/:vesselId', getNotesByVesselId);
  *       404:
  *         description: Vessel not found
  */
-router.put('/vessel/:vesselId', upsertVesselNotes);
+router.put('/vessel/:vesselId', requirePermission('marine.reports', 'update'), upsertVesselNotes);
 
 export default router;

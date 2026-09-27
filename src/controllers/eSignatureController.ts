@@ -2,7 +2,9 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import UserModel from '../models/User';
 import { AuthRequest } from '../middleware/auth';
-import { E_SIGNATURE_BYPASS_ROLES, E_SIGNATURE_CIRCULAR_REF, E_SIGNATURE_COMPANY_NAME } from '../config/eSignature';
+import { E_SIGNATURE_CIRCULAR_REF, E_SIGNATURE_COMPANY_NAME } from '../config/eSignature';
+import { userCan } from '../utils/permissions';
+import { rejectUnlessCan } from '../middleware/permission';
 import {
   SignableDocumentHandler,
   assignedSurveyorIds,
@@ -15,14 +17,11 @@ import { convertFullNameToInitials } from './surveyReportController';
 const MAX_LOCATION_LENGTH = 120;
 const NOT_ASSIGNED_MESSAGE = 'Only a surveyor assigned to this survey can sign this document.';
 
-const roleNameOf = (req: AuthRequest): string => {
-  const role = req.user?.role as unknown;
-  const roleName = role && typeof role === 'object' ? (role as { roleName?: string }).roleName : role;
-  return typeof roleName === 'string' ? roleName.trim().toLowerCase() : '';
-};
+/** The permission module that governs each signable document type. */
+const moduleKeyFor = (docType: string): string => (docType === 'daily-report' ? 'marine.reports' : 'marine.certificates');
 
-/** Admin and UQMS admin may sign any document on the assigned surveyor's behalf, and revoke signatures. */
-const hasSigningBypass = (req: AuthRequest): boolean => E_SIGNATURE_BYPASS_ROLES.includes(roleNameOf(req));
+/** Users with `sign-on-behalf` on the document's module may sign as any assigned surveyor. */
+const hasSigningBypass = (req: AuthRequest, moduleKey: string): Promise<boolean> => userCan(req, moduleKey, 'sign-on-behalf');
 
 type Signer = { id: string; name: string; isSelf: boolean };
 
@@ -30,13 +29,13 @@ const displayName = (user: { nameWithInitials?: string; fullName?: string; usern
   (user.nameWithInitials || convertFullNameToInitials(user.fullName || '') || user.username || '').trim();
 
 /**
- * Whose details the stamp can carry. An assigned surveyor signs as themselves; a bypass role
+ * Whose details the stamp can carry. An assigned surveyor signs as themselves; a user with `sign-on-behalf`
  * signs as one of the assigned surveyors (most recent visit first), or as themselves when
  * nobody is assigned yet. Empty when the user may not sign.
  */
-const signerOptionsFor = async (req: AuthRequest, booking: any, userId: string): Promise<Signer[]> => {
+const signerOptionsFor = async (req: AuthRequest, booking: any, userId: string, moduleKey: string): Promise<Signer[]> => {
   let ids: string[];
-  if (hasSigningBypass(req)) {
+  if (await hasSigningBypass(req, moduleKey)) {
     const assigned = assignedSurveyorIds(booking);
     ids = assigned.length > 0 ? [...assigned].sort((a, b) => Number(b === userId) - Number(a === userId)) : [userId];
   } else if (isAssignedSurveyor(booking, userId)) {
@@ -52,7 +51,7 @@ const signerOptionsFor = async (req: AuthRequest, booking: any, userId: string):
     .filter((signer) => signer.name);
 };
 
-type ResolvedRequest = { handler: SignableDocumentHandler; id: string; userId: string };
+type ResolvedRequest = { handler: SignableDocumentHandler; id: string; userId: string; moduleKey: string };
 
 /** Validates the doc type, id and user; sends the error response and returns null when invalid. */
 const resolveRequest = (req: AuthRequest, res: Response): ResolvedRequest | null => {
@@ -72,14 +71,14 @@ const resolveRequest = (req: AuthRequest, res: Response): ResolvedRequest | null
     res.status(401).json({ success: false, message: 'Unauthorized' });
     return null;
   }
-  return { handler, id, userId };
+  return { handler, id, userId, moduleKey: moduleKeyFor(String(req.params.docType)) };
 };
 
 /** Builds the signature status the viewer needs to render the signature field. */
-const buildStatus = async (req: AuthRequest, handler: SignableDocumentHandler, doc: any, userId: string) => {
+const buildStatus = async (req: AuthRequest, handler: SignableDocumentHandler, doc: any, userId: string, moduleKey: string) => {
   const signed = isElectronicallySigned(doc);
   const booking = await handler.loadBooking(doc);
-  const signerOptions = signed ? [] : await signerOptionsFor(req, booking, userId);
+  const signerOptions = signed ? [] : await signerOptionsFor(req, booking, userId, moduleKey);
   const notSignableReason = handler.notSignableReason(doc);
 
   let reason: string | null = null;
@@ -93,7 +92,7 @@ const buildStatus = async (req: AuthRequest, handler: SignableDocumentHandler, d
     eSignature: signed ? doc.eSignature : null,
     signatureField: handler.signatureField(doc) || null,
     canSign: reason === null,
-    canRevoke: signed && hasSigningBypass(req),
+    canRevoke: signed && (await userCan(req, moduleKey, 'revoke-signature')),
     reason,
     preview: signed
       ? null
@@ -115,7 +114,8 @@ export const getSignatureStatus = async (req: Request, res: Response): Promise<v
   try {
     const resolved = resolveRequest(req as AuthRequest, res);
     if (!resolved) return;
-    const { handler, id, userId } = resolved;
+    const { handler, id, userId, moduleKey } = resolved;
+    if (await rejectUnlessCan(req as AuthRequest, res, moduleKey, 'read')) return;
 
     let doc = await handler.model.findById(id);
     if (!doc) {
@@ -130,7 +130,7 @@ export const getSignatureStatus = async (req: Request, res: Response): Promise<v
       doc = await handler.model.findById(id);
     }
 
-    res.status(200).json({ success: true, data: await buildStatus(req as AuthRequest, handler, doc, userId) });
+    res.status(200).json({ success: true, data: await buildStatus(req as AuthRequest, handler, doc, userId, moduleKey) });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Error retrieving signature status.', error: error.message });
   }
@@ -138,13 +138,14 @@ export const getSignatureStatus = async (req: Request, res: Response): Promise<v
 
 /**
  * Electronically sign a document, then re-render its PDF with the stamp.
- * Assigned surveyors sign as themselves; bypass roles sign with an assigned surveyor's details.
+ * Assigned surveyors sign as themselves; users with `sign-on-behalf` sign with an assigned surveyor's details.
  */
 export const signDocument = async (req: Request, res: Response): Promise<void> => {
   try {
     const resolved = resolveRequest(req as AuthRequest, res);
     if (!resolved) return;
-    const { handler, id, userId } = resolved;
+    const { handler, id, userId, moduleKey } = resolved;
+    if (await rejectUnlessCan(req as AuthRequest, res, moduleKey, 'read')) return;
 
     const doc = await handler.model.findById(id);
     if (!doc) {
@@ -163,9 +164,9 @@ export const signDocument = async (req: Request, res: Response): Promise<void> =
     }
 
     const booking = await handler.loadBooking(doc);
-    const signerOptions = await signerOptionsFor(req as AuthRequest, booking, userId);
+    const signerOptions = await signerOptionsFor(req as AuthRequest, booking, userId, moduleKey);
     if (signerOptions.length === 0) {
-      const isAllowed = hasSigningBypass(req as AuthRequest) || isAssignedSurveyor(booking, userId);
+      const isAllowed = (await hasSigningBypass(req as AuthRequest, moduleKey)) || isAssignedSurveyor(booking, userId);
       res.status(isAllowed ? 400 : 403).json({
         success: false,
         message: isAllowed ? 'The surveyor has no name to sign with. Update the user profile first.' : NOT_ASSIGNED_MESSAGE,
@@ -223,7 +224,7 @@ export const signDocument = async (req: Request, res: Response): Promise<void> =
     res.status(200).json({
       success: true,
       message: `${handler.label} signed electronically.`,
-      data: await buildStatus(req as AuthRequest, handler, signedDoc, userId),
+      data: await buildStatus(req as AuthRequest, handler, signedDoc, userId, moduleKey),
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Error signing document.', error: error.message });
@@ -231,18 +232,14 @@ export const signDocument = async (req: Request, res: Response): Promise<void> =
 };
 
 /**
- * Revoke a document's electronic signature (admin / UQMS admin only), unlocking it and re-rendering an unsigned PDF.
+ * Revoke a document's electronic signature (requires `revoke-signature` on the document's module), unlocking it and re-rendering an unsigned PDF.
  */
 export const revokeSignature = async (req: Request, res: Response): Promise<void> => {
   try {
     const resolved = resolveRequest(req as AuthRequest, res);
     if (!resolved) return;
-    const { handler, id, userId } = resolved;
-
-    if (!hasSigningBypass(req as AuthRequest)) {
-      res.status(403).json({ success: false, message: 'Forbidden. Admin access required.' });
-      return;
-    }
+    const { handler, id, userId, moduleKey } = resolved;
+    if (await rejectUnlessCan(req as AuthRequest, res, moduleKey, 'revoke-signature')) return;
 
     const doc = await handler.model.findById(id);
     if (!doc) {
@@ -261,7 +258,7 @@ export const revokeSignature = async (req: Request, res: Response): Promise<void
     res.status(200).json({
       success: true,
       message: 'Electronic signature revoked.',
-      data: await buildStatus(req as AuthRequest, handler, unsignedDoc, userId),
+      data: await buildStatus(req as AuthRequest, handler, unsignedDoc, userId, moduleKey),
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Error revoking signature.', error: error.message });

@@ -8,6 +8,8 @@ import {
   searchVessels,
 } from '../controllers/vesselController';
 import authMiddleware from '../middleware/auth';
+import { requirePermission, requireAny } from '../middleware/permission';
+import { MARINE_KEYS } from '../config/permissionRegistry';
 
 const router = Router();
 
@@ -48,7 +50,7 @@ router.use(authMiddleware);
  *       401:
  *         description: Unauthorized
  */
-router.post('/', createVessel);
+router.post('/', requirePermission('marine.entries', 'create'), createVessel);
 
 /**
  * @swagger
@@ -65,7 +67,7 @@ router.post('/', createVessel);
  *       401:
  *         description: Unauthorized
  */
-router.get('/', getAllVessels);
+router.get('/', requireAny(MARINE_KEYS, ['read']), getAllVessels);
 
 /**
  * @swagger
@@ -93,7 +95,7 @@ router.get('/', getAllVessels);
  *       500:
  *         description: Internal server error
  */
-router.get('/search', searchVessels);
+router.get('/search', requireAny(MARINE_KEYS, ['read']), searchVessels);
 
 /**
  * @swagger
@@ -119,7 +121,7 @@ router.get('/search', searchVessels);
  *       401:
  *         description: Unauthorized
  */
-router.get('/:id', getVesselById);
+router.get('/:id', requireAny(MARINE_KEYS, ['read']), getVesselById);
 
 /**
  * @swagger
@@ -156,7 +158,7 @@ router.get('/:id', getVesselById);
  *       401:
  *         description: Unauthorized
  */
-router.put('/:id', updateVessel);
+router.put('/:id', requirePermission('marine.entries', 'update'), updateVessel);
 
 /**
  * @swagger
@@ -182,6 +184,6 @@ router.put('/:id', updateVessel);
  *       401:
  *         description: Unauthorized
  */
-router.delete('/:id', deleteVessel);
+router.delete('/:id', requirePermission('marine.entries', 'delete'), deleteVessel);
 
 export default router;

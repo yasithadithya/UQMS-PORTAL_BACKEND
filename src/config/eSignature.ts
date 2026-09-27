@@ -18,11 +18,3 @@ export const resolveSealPath = (): string | null => {
   ];
   return candidates.find((candidate) => fs.existsSync(candidate)) || null;
 };
-
-/**
- * Roles that may apply the signature on any document while the system is being
- * rolled out. The stamp still carries the assigned surveyor's details; the
- * signature records who actually applied it (`appliedBy`).
- * Temporary: remove a role here to restore "assigned surveyor only" signing for it.
- */
-export const E_SIGNATURE_BYPASS_ROLES = ['admin', 'uqms-admin'];

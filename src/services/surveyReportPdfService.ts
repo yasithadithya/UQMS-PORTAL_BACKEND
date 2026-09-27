@@ -1,7 +1,14 @@
 import PDFDocument from 'pdfkit';
-import path from 'path';
-import fs from 'fs';
 import { formatDate } from '../utils/date';
+import { DOCUMENT_TEMPLATE_NAMES, getDocumentTemplate } from './documentTemplateService';
+import {
+  FOOTER_RESERVED_HEIGHT,
+  HEADING_COLOR,
+  drawAdditionalRemarks,
+  drawControlledFooter,
+  drawLetterhead,
+  measureAdditionalRemarks,
+} from './pdfLayout';
 import { ISignatureField } from '../models/ESignature';
 import { GeneratedPdf, SIGNATURE_BLOCK_HEIGHT, drawSignatureBlock } from './eSignatureStamp';
 
@@ -164,6 +171,8 @@ interface ISurveyReportPdfData {
 }
 
 export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): Promise<GeneratedPdf> => {
+  const template = await getDocumentTemplate(DOCUMENT_TEMPLATE_NAMES.surveyReport);
+
   return new Promise<GeneratedPdf>((resolve, reject) => {
     const doc = new PDFDocument({
       size: 'A4',
@@ -181,12 +190,6 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     const pageWidth = doc.page.width - PAGE_MARGIN * 2;
     const innerLeft = PAGE_MARGIN;
 
-    // Resolve logo path
-    let logoPath = path.join(__dirname, '../public/logo.png');
-    if (!fs.existsSync(logoPath)) {
-      logoPath = path.join(__dirname, '../../src/public/logo.png');
-    }
-
     const { report, vessel, equipmentRecords, nominatedDeparturePoint, qrBuffer } = data;
     const firstEntryReport = report?.firstEntrySurveyReportId;
     const booking = firstEntryReport?.bookingId;
@@ -200,52 +203,15 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
       });
     };
 
-    // Draw page header
+    // The letterhead is drawn on the first page only; later pages start at the top margin.
+    let letterheadDrawn = false;
     const drawPageHeader = (titleText: string) => {
-      try {
-        if (fs.existsSync(logoPath)) {
-          doc.image(logoPath, PAGE_MARGIN, PAGE_MARGIN - 5, { width: 45 });
-        }
-      } catch (err) {
-        console.warn('Could not load logo image:', err);
+      if (letterheadDrawn) {
+        doc.y = PAGE_MARGIN;
+        return doc.y;
       }
-
-      doc.y = PAGE_MARGIN;
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(11)
-        .fillColor('#1f4e79')
-        .text('UNIVERSAL QUALITY MANAGEMENT SYSTEMS (PVT) LTD', PAGE_MARGIN + 55, PAGE_MARGIN, {
-          width: doc.page.width - PAGE_MARGIN * 2 - 55,
-          align: 'center',
-        });
-
-      doc.moveDown(0.2);
-      doc
-        .font('Helvetica')
-        .fontSize(8)
-        .fillColor('#4b5563')
-        .text('No; 08, Chandralekha Mawatha, Colombo 08, Sri Lanka.', {
-          width: doc.page.width - PAGE_MARGIN * 2 - 55,
-          align: 'center',
-        });
-
-      const ruleY = PAGE_MARGIN + 45;
-      doc
-        .moveTo(innerLeft, ruleY)
-        .lineTo(innerLeft + pageWidth, ruleY)
-        .strokeColor('#5c93c4')
-        .lineWidth(0.8)
-        .stroke();
-
-      doc.y = ruleY + 12;
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(11)
-        .fillColor('#111827')
-        .text(titleText, innerLeft, doc.y, { align: 'center' });
-
-      doc.moveDown(1);
+      letterheadDrawn = true;
+      doc.y = drawLetterhead(doc, { title: titleText, template, margin: PAGE_MARGIN });
       return doc.y;
     };
 
@@ -288,7 +254,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     // ────────────────────────────────────────────────────────
     let currentY = drawPageHeader('RECORD OF EQUIPMENT & SURVEY REPORT');
 
-    doc.font('Helvetica-Bold').fontSize(12).fillColor('#1f4e79').text('PART A – VESSEL PARTICULARS & DETAILS', innerLeft, doc.y, { align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(HEADING_COLOR).text('PART A – VESSEL PARTICULARS & DETAILS', innerLeft, doc.y, { align: 'center' });
     doc.moveDown(0.8);
     currentY = doc.y;
 
@@ -308,7 +274,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
 
     let fieldY = currentY + 8;
     leftFields.forEach(f => {
-      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#1f4e79').text(f.label, innerLeft + 10, fieldY);
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor(HEADING_COLOR).text(f.label, innerLeft + 10, fieldY);
       doc.font('Helvetica').fontSize(8.5).fillColor('#111827').text(`: ${f.val || '-'}`, innerLeft + 120, fieldY, { width: 220, ellipsis: true });
       fieldY += 17;
     });
@@ -333,19 +299,19 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     doc.moveTo(innerLeft + 342, currentY).lineTo(innerLeft + 342, currentY + 90).strokeColor('#d1d5db').stroke();
 
     // Owner
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('#1f4e79').text('Owner Details', innerLeft + 10, currentY + 8);
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(HEADING_COLOR).text('Owner Details', innerLeft + 10, currentY + 8);
     const ownerName = vessel?.registeredOwnerName || '-';
     const ownerAddr = vessel?.registeredOwnerAddress || '-';
     doc.font('Helvetica').fontSize(8).fillColor('#111827').text(`${ownerName}\n${ownerAddr}`, innerLeft + 10, currentY + 22, { width: 151, height: 60, lineGap: 1.5, ellipsis: true });
 
     // Manager
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('#1f4e79').text('Manager Details', innerLeft + 181, currentY + 8);
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(HEADING_COLOR).text('Manager Details', innerLeft + 181, currentY + 8);
     const managerName = vessel?.managerName || booking?.managedBy || firstEntryReport?.managedBy || '-';
     const managerAddr = vessel?.managerAddress || '-';
     doc.font('Helvetica').fontSize(8).fillColor('#111827').text(`${managerName}\n${managerAddr}`, innerLeft + 181, currentY + 22, { width: 151, height: 60, lineGap: 1.5, ellipsis: true });
 
     // Builder
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('#1f4e79').text('Builder Details', innerLeft + 352, currentY + 8);
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(HEADING_COLOR).text('Builder Details', innerLeft + 352, currentY + 8);
     const builderName = vessel?.builder || booking?.shipBuilder || '-';
     const builderAddr = vessel?.placeOfBuilt || '-';
     doc.font('Helvetica').fontSize(8).fillColor('#111827').text(`${builderName}\n${builderAddr}`, innerLeft + 352, currentY + 22, { width: 153, height: 60, lineGap: 1.5, ellipsis: true });
@@ -399,11 +365,11 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
       const val2 = `: ${middleFields2[idx].val || '-'}`;
 
       // Left
-      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#1f4e79').text(label1, innerLeft + 10, midY, { width: 105 });
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor(HEADING_COLOR).text(label1, innerLeft + 10, midY, { width: 105 });
       doc.font('Helvetica').fontSize(8.5).fillColor('#111827').text(val1, innerLeft + 120, midY, { width: 130 });
 
       // Right
-      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#1f4e79').text(label2, innerLeft + 265, midY, { width: 105 });
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor(HEADING_COLOR).text(label2, innerLeft + 265, midY, { width: 105 });
       doc.font('Helvetica').fontSize(8.5).fillColor('#111827').text(val2, innerLeft + 375, midY, { width: 130 });
 
       midY += rowHeights[idx] + 6;
@@ -466,7 +432,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     doc.addPage();
     currentY = drawPageHeader('RECORD OF EQUIPMENT & SURVEY REPORT');
 
-    doc.font('Helvetica-Bold').fontSize(12).fillColor('#1f4e79').text('PART B – RECORD OF EQUIPMENT', innerLeft, doc.y, { align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(HEADING_COLOR).text('PART B – RECORD OF EQUIPMENT', innerLeft, doc.y, { align: 'center' });
     doc.moveDown(0.8);
     currentY = doc.y;
 
@@ -604,7 +570,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
 
         doc.addPage();
         currentY = drawPageHeader('RECORD OF EQUIPMENT & SURVEY REPORT');
-        doc.font('Helvetica-Bold').fontSize(12).fillColor('#1f4e79').text('PART B – RECORD OF EQUIPMENT (CONTINUED)', innerLeft, doc.y, { align: 'center' });
+        doc.font('Helvetica-Bold').fontSize(12).fillColor(HEADING_COLOR).text('PART B – RECORD OF EQUIPMENT (CONTINUED)', innerLeft, doc.y, { align: 'center' });
         doc.moveDown(0.8);
         currentY = doc.y;
 
@@ -640,11 +606,11 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     doc.addPage();
     currentY = drawPageHeader('RECORD OF EQUIPMENT & SURVEY REPORT');
 
-    doc.font('Helvetica-Bold').fontSize(12).fillColor('#1f4e79').text('PART C – SURVEY REPORT', innerLeft, doc.y, { align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(HEADING_COLOR).text('PART C – SURVEY REPORT', innerLeft, doc.y, { align: 'center' });
     doc.moveDown(0.8);
     currentY = doc.y;
 
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('HULL:', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(HEADING_COLOR).text('HULL:', innerLeft, currentY);
     currentY += 16;
 
     // Stability Booklet
@@ -660,7 +626,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     currentY += doc.heightOfString(stabilityText, { width: pageWidth }) + 15;
 
     // Docking Details
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('DOCKING SURVEY DETAILS:', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(HEADING_COLOR).text('DOCKING SURVEY DETAILS:', innerLeft, currentY);
     currentY += 16;
 
     const dockHarbour = report?.dockingSurvey?.harbour || 'Dikkowita Fisheries Harbour';
@@ -671,7 +637,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     currentY += doc.heightOfString(dockingText, { width: pageWidth }) + 15;
 
     // Thickness Measurement
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('THICKNESS MEASUREMENT DETAILS:', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(HEADING_COLOR).text('THICKNESS MEASUREMENT DETAILS:', innerLeft, currentY);
     currentY += 16;
 
     const tmCarriedBy = report?.thicknessMeasurement?.carriedBy || 'Lanka High Marine (Pvt) Ltd.';
@@ -697,7 +663,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     currentY += doc.heightOfString(inspectionIntro, { width: pageWidth }) + 15;
 
     // Main Deck
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('MAIN DECK/FORECASTLE:', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(HEADING_COLOR).text('MAIN DECK/FORECASTLE:', innerLeft, currentY);
     currentY += 16;
 
     const deckCoating = report?.mainDeck?.coatingCondition || 'Good';
@@ -710,12 +676,12 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     // ────────────────────────────────────────────────────────
     doc.addPage();
     currentY = drawPageHeader('RECORD OF EQUIPMENT & SURVEY REPORT');
-    doc.font('Helvetica-Bold').fontSize(12).fillColor('#1f4e79').text('PART C – SURVEY REPORT (CONTINUED)', innerLeft, doc.y, { align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(HEADING_COLOR).text('PART C – SURVEY REPORT (CONTINUED)', innerLeft, doc.y, { align: 'center' });
     doc.moveDown(0.8);
     currentY = doc.y;
 
     // Access Openings
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('ACCESS OPENINGS & VENTILATIONS:', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(HEADING_COLOR).text('ACCESS OPENINGS & VENTILATIONS:', innerLeft, currentY);
     currentY += 16;
 
     const accessOpen = report?.accessOpeningsCondition || 'satisfactory';
@@ -725,7 +691,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     currentY += doc.heightOfString(accessText, { width: pageWidth }) + 15;
 
     // Tanks
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('TANKS:', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(HEADING_COLOR).text('TANKS:', innerLeft, currentY);
     currentY += 16;
 
     let tanksText = '';
@@ -762,7 +728,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     currentY += doc.heightOfString(tanksText, { width: pageWidth }) + 15;
 
     // Spaces
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('SPACES:', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(HEADING_COLOR).text('SPACES:', innerLeft, currentY);
     currentY += 16;
 
     const spaceMach = report?.spaces?.machinerySpace || 'Satisfactory';
@@ -779,14 +745,14 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     currentY += doc.heightOfString(spacesText, { width: pageWidth }) + 15;
 
     // Toilet
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('TOILET:', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(HEADING_COLOR).text('TOILET:', innerLeft, currentY);
     currentY += 16;
     const toiletText = `${report?.toiletCount || 1} Toilet available.`;
     doc.font('Helvetica').fontSize(9.5).fillColor('#374151').text(toiletText, innerLeft, currentY);
     currentY += 25;
 
     // Wheel House
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('WHEEL HOUSE/ OPERATING STATION & PASSENGER SEATING AREA:', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(HEADING_COLOR).text('WHEEL HOUSE/ OPERATING STATION & PASSENGER SEATING AREA:', innerLeft, currentY);
     currentY += 16;
 
     const whStruct = report?.wheelhouse?.structureCondition || 'satisfactory';
@@ -797,7 +763,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     currentY += 25;
 
     // Galley
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('GALLEY:', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(HEADING_COLOR).text('GALLEY:', innerLeft, currentY);
     currentY += 16;
     const galleyText = report?.galleyRemarks || 'No galley was found onboard at the time of inspection.';
     doc.font('Helvetica').fontSize(9.5).fillColor('#374151').text(galleyText, innerLeft, currentY, { width: pageWidth });
@@ -807,11 +773,11 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     // ────────────────────────────────────────────────────────
     doc.addPage();
     currentY = drawPageHeader('RECORD OF EQUIPMENT & SURVEY REPORT');
-    doc.font('Helvetica-Bold').fontSize(12).fillColor('#1f4e79').text('PART C – SURVEY REPORT (CONTINUED)', innerLeft, doc.y, { align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(HEADING_COLOR).text('PART C – SURVEY REPORT (CONTINUED)', innerLeft, doc.y, { align: 'center' });
     doc.moveDown(0.8);
     currentY = doc.y;
 
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('BRIDGE OUTFIT:', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(HEADING_COLOR).text('BRIDGE OUTFIT:', innerLeft, currentY);
     currentY += 14;
 
     const bridgeIntro = `Available Bridge navigation & radio equipment generally inspected and Operation verified to satisfaction. Following Navigational & radio equipment found on the bridge;`;
@@ -866,7 +832,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     currentY += 12;
 
     // Safety Equipment Intro
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('SAFETY EQUIPMENT:', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(HEADING_COLOR).text('SAFETY EQUIPMENT:', innerLeft, currentY);
     currentY += 14;
     const safetyIntro = `Safety equipment and Fire Fighting Appliances available on board generally examined. Operation verified to satisfaction.`;
     doc.font('Helvetica').fontSize(9.5).fillColor('#374151').text(safetyIntro, innerLeft, currentY, { width: pageWidth });
@@ -959,7 +925,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     // ────────────────────────────────────────────────────────
     doc.addPage();
     currentY = drawPageHeader('RECORD OF EQUIPMENT & SURVEY REPORT');
-    doc.font('Helvetica-Bold').fontSize(12).fillColor('#1f4e79').text('PART C – SURVEY REPORT (CONTINUED)', innerLeft, doc.y, { align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(HEADING_COLOR).text('PART C – SURVEY REPORT (CONTINUED)', innerLeft, doc.y, { align: 'center' });
     doc.moveDown(0.8);
     currentY = doc.y;
 
@@ -1016,7 +982,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     currentY += 110;
 
     // Life Buoys
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('Life Buoys', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(HEADING_COLOR).text('Life Buoys', innerLeft, currentY);
     currentY += 14;
     const lbText = `Complete in number (as per SCC 2025) and good condition.\n` +
       `Marked all in block letters with name and port of registry of ship.\n` +
@@ -1025,7 +991,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     currentY += 50;
 
     // Life Jackets
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('Life Jackets', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(HEADING_COLOR).text('Life Jackets', innerLeft, currentY);
     currentY += 14;
 
     const ljCond = report?.lifeJacketsCondition || 'satisfactory';
@@ -1037,7 +1003,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     currentY += 65;
 
     // Pyrotechnics
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('Pyrotechnics', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(HEADING_COLOR).text('Pyrotechnics', innerLeft, currentY);
     currentY += 14;
 
     const flareRec = findRecord('11.10', ['Parachute flares']);
@@ -1102,12 +1068,12 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     // ────────────────────────────────────────────────────────
     doc.addPage();
     currentY = drawPageHeader('RECORD OF EQUIPMENT & SURVEY REPORT');
-    doc.font('Helvetica-Bold').fontSize(12).fillColor('#1f4e79').text('PART C – SURVEY REPORT (CONTINUED)', innerLeft, doc.y, { align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(HEADING_COLOR).text('PART C – SURVEY REPORT (CONTINUED)', innerLeft, doc.y, { align: 'center' });
     doc.moveDown(0.8);
     currentY = doc.y;
 
     // Mooring Equipment
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('MOORING EQUIPMENT:', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(HEADING_COLOR).text('MOORING EQUIPMENT:', innerLeft, currentY);
     currentY += 14;
     const mooringText = `The condition of the anchoring and mooring equipment is satisfactory.\n` +
       `Mooring & Grounding tackle examined operational tested and found satisfactory.\n` +
@@ -1116,7 +1082,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     currentY += 55;
 
     // Machinery - Main Engine
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('MACHINERY:', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(HEADING_COLOR).text('MACHINERY:', innerLeft, currentY);
     currentY += 16;
 
     const enginesList = report?.machinery?.engines && report.machinery.engines.length > 0
@@ -1180,7 +1146,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     currentY += 75;
 
     // Piping
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('Piping', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(HEADING_COLOR).text('Piping', innerLeft, currentY);
     currentY += 14;
 
     const pipeCond = report?.pipingCondition || 'satisfactory';
@@ -1190,7 +1156,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     currentY += 25;
 
     // Electrical
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f4e79').text('ELECTRICAL SYSTEMS', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(HEADING_COLOR).text('ELECTRICAL SYSTEMS', innerLeft, currentY);
     currentY += 14;
 
     const elecExam = report?.electricalExamCondition || 'as far as practicable';
@@ -1203,11 +1169,14 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     // Signature Block
     const issueDateStr = report?.signature?.dateOfIssue ? formatDate(report.signature.dateOfIssue) : '2026/04/03';
 
-    // Keep the date line and the electronic signature field together above the footer.
-    if (currentY + 20 + SIGNATURE_BLOCK_HEIGHT > doc.page.height - PAGE_MARGIN - 45) {
+    // Keep the additional remarks, the date line and the electronic signature field together above the footer.
+    const remarksHeight = measureAdditionalRemarks(doc, report?.additionalRemarks, pageWidth);
+    if (currentY + remarksHeight + 20 + SIGNATURE_BLOCK_HEIGHT > doc.page.height - PAGE_MARGIN - FOOTER_RESERVED_HEIGHT) {
       doc.addPage();
       currentY = drawPageHeader('RECORD OF EQUIPMENT & SURVEY REPORT');
     }
+
+    currentY = drawAdditionalRemarks(doc, report?.additionalRemarks, innerLeft, currentY, pageWidth);
 
     doc
       .font('Helvetica')
@@ -1218,61 +1187,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
     currentY += 20;
     signatureField = drawSignatureBlock(doc, innerLeft, currentY, report?.eSignature);
 
-    // ────────────────────────────────────────────────────────
-    // APPLY FOOTERS TO ALL PAGES AT THE END
-    // ────────────────────────────────────────────────────────
-    const totalPages = doc.bufferedPageRange().count;
-    for (let i = 0; i < totalPages; i++) {
-      doc.switchToPage(i);
-
-      const footerY = doc.page.height - PAGE_MARGIN - 20;
-
-      // Draw horizontal line
-      doc
-        .moveTo(PAGE_MARGIN, footerY - 5)
-        .lineTo(PAGE_MARGIN + pageWidth, footerY - 5)
-        .strokeColor('#e5e7eb')
-        .lineWidth(0.5)
-        .stroke();
-
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(7.5)
-        .fillColor('#4b5563')
-        .text('RECORD OF EQUIPMENT & SURVEY REPORT', PAGE_MARGIN, footerY);
-
-      doc
-        .font('Helvetica')
-        .fontSize(7.5)
-        .fillColor('#9ca3af')
-        .text(
-          `Page ${i + 1} of ${totalPages}`,
-          PAGE_MARGIN,
-          footerY,
-          { width: pageWidth, align: 'right', lineBreak: false }
-        );
-
-      // Controlled document details — single horizontal line on every page
-      doc
-        .font('Helvetica')
-        .fontSize(7.5)
-        .fillColor('#000000')
-        .text(
-          'Document No: UQMS-FM-018  |  Revision: 00  |  Effective Date: [25/01/2026]  |  Approved By: Technical Committee',
-          PAGE_MARGIN,
-          footerY + 11,
-          { width: pageWidth, align: 'left', lineBreak: false }
-        );
-
-      if (i === 0) {
-        // Draw contact info on page 1 above the standard footer text
-        doc
-          .font('Helvetica-Bold')
-          .fontSize(7.5)
-          .fillColor('#111827')
-          .text('PHONE: +94 76 68 68 718     WEB: www.uqms.net     E-Mail: info@uqms.net', PAGE_MARGIN, footerY - 15);
-      }
-    }
+    drawControlledFooter(doc, { template, margin: PAGE_MARGIN });
 
     doc.end();
   });

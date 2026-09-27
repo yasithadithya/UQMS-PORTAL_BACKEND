@@ -11,6 +11,7 @@ import {
   getPublicSCCCOSPdf,
 } from '../controllers/scccosController';
 import authMiddleware from '../middleware/auth';
+import { requirePermission } from '../middleware/permission';
 
 const router = Router();
 
@@ -39,7 +40,7 @@ router.get('/public-pdf/:id', getPublicSCCCOSPdf);
 // Protect all routes under SCCCOS Certificates
 router.use(authMiddleware);
 
-router.get('/report/:surveyReportId', getSCCCOSBySurveyReportId);
+router.get('/report/:surveyReportId', requirePermission('marine.certificates', 'read'), getSCCCOSBySurveyReportId);
 
 /**
  * @swagger
@@ -98,7 +99,7 @@ router.get('/report/:surveyReportId', getSCCCOSBySurveyReportId);
  *       404:
  *         description: Vessel, Report, or Booking not found
  */
-router.post('/', createSCCCOS);
+router.post('/', requirePermission('marine.certificates', 'create'), createSCCCOS);
 
 /**
  * @swagger
@@ -115,7 +116,7 @@ router.post('/', createSCCCOS);
  *       401:
  *         description: Unauthorized
  */
-router.get('/', getAllSCCCOS);
+router.get('/', requirePermission('marine.certificates', 'read'), getAllSCCCOS);
 
 /**
  * @swagger
@@ -143,7 +144,7 @@ router.get('/', getAllSCCCOS);
  *       404:
  *         description: Certificate not found
  */
-router.get('/:id', getSCCCOSById);
+router.get('/:id', requirePermission('marine.certificates', 'read'), getSCCCOSById);
 
 /**
  * @swagger
@@ -197,7 +198,7 @@ router.get('/:id', getSCCCOSById);
  *       404:
  *         description: Certificate not found
  */
-router.put('/:id', updateSCCCOS);
+router.put('/:id', requirePermission('marine.certificates', 'update'), updateSCCCOS);
 
 /**
  * @swagger
@@ -225,7 +226,7 @@ router.put('/:id', updateSCCCOS);
  *       404:
  *         description: Certificate not found
  */
-router.delete('/:id', deleteSCCCOS);
+router.delete('/:id', requirePermission('marine.certificates', 'delete'), deleteSCCCOS);
 
 /**
  * @swagger
@@ -245,7 +246,7 @@ router.delete('/:id', deleteSCCCOS);
  *               type: string
  *               format: binary
  */
-router.post('/preview', getSCCCOSPreviewPdf);
+router.post('/preview', requirePermission('marine.certificates', 'read'), getSCCCOSPreviewPdf);
 
 /**
  * @swagger
@@ -272,6 +273,6 @@ router.post('/preview', getSCCCOSPreviewPdf);
  *               type: string
  *               format: binary
  */
-router.get('/pdf/:id', getSCCCOSFinalPdf);
+router.get('/pdf/:id', requirePermission('marine.certificates', 'read'), getSCCCOSFinalPdf);
 
 export default router;

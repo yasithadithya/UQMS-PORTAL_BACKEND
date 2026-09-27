@@ -7,6 +7,10 @@ import {
   deleteFirstEntrySurveyBooking,
 } from '../controllers/firstEntrySurveyBookingController';
 import authMiddleware from '../middleware/auth';
+import { requireAny, requirePermission } from '../middleware/permission';
+
+// Survey reports and certificates are built from a booking, so their users may read bookings too.
+const canReadBookings = requireAny(['marine.bookings', 'marine.reports', 'marine.certificates'], ['read']);
 
 const router = Router();
 
@@ -45,7 +49,7 @@ router.use(authMiddleware);
  *       201:
  *         description: Booking created successfully
  */
-router.post('/', createFirstEntrySurveyBooking);
+router.post('/', requirePermission('marine.bookings', 'create'), createFirstEntrySurveyBooking);
 
 /**
  * @swagger
@@ -59,7 +63,7 @@ router.post('/', createFirstEntrySurveyBooking);
  *       200:
  *         description: List of bookings
  */
-router.get('/', getAllFirstEntrySurveyBookings);
+router.get('/', canReadBookings, getAllFirstEntrySurveyBookings);
 
 /**
  * @swagger
@@ -81,7 +85,7 @@ router.get('/', getAllFirstEntrySurveyBookings);
  *       404:
  *         description: Booking not found
  */
-router.get('/:id', getFirstEntrySurveyBookingById);
+router.get('/:id', canReadBookings, getFirstEntrySurveyBookingById);
 
 /**
  * @swagger
@@ -109,7 +113,7 @@ router.get('/:id', getFirstEntrySurveyBookingById);
  *       404:
  *         description: Booking not found
  */
-router.put('/:id', updateFirstEntrySurveyBooking);
+router.put('/:id', requirePermission('marine.bookings', 'update'), updateFirstEntrySurveyBooking);
 
 /**
  * @swagger
@@ -131,6 +135,6 @@ router.put('/:id', updateFirstEntrySurveyBooking);
  *       404:
  *         description: Booking not found
  */
-router.delete('/:id', deleteFirstEntrySurveyBooking);
+router.delete('/:id', requirePermission('marine.bookings', 'delete'), deleteFirstEntrySurveyBooking);
 
 export default router;

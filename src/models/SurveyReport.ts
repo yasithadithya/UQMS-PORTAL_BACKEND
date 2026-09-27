@@ -60,6 +60,7 @@ export interface ISurveyReport extends Document {
   };
   hasGalley: boolean;
   galleyRemarks?: string;
+  additionalRemarks?: string;
 
   // Page 7: Life Jackets
   lifeJacketsCondition: string; // satisfactory / unsatisfactory
@@ -172,6 +173,7 @@ const surveyReportSchema: Schema = new Schema(
     },
     hasGalley: { type: Boolean, default: false },
     galleyRemarks: { type: String, default: '', trim: true },
+    additionalRemarks: { type: String, default: '', trim: true },
     lifeJacketsCondition: { type: String, default: 'satisfactory', trim: true },
     pipingCondition: { type: String, default: 'satisfactory', trim: true },
     electricalExamCondition: { type: String, default: 'as far as practicable', trim: true },

@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import dotenv from 'dotenv';
 import authMiddleware from '../middleware/auth';
+import { requireAny } from '../middleware/permission';
 import { uploadFile } from '../controllers/uploadController';
 
 dotenv.config();
@@ -72,7 +73,7 @@ router.use(authMiddleware);
  *       401:
  *         description: Unauthorized
  */
-router.post('/', upload.single('file'), uploadFile);
+router.post('/', requireAny(['new-request', 'marine.entries', 'marine.bookings', 'marine.reports', 'marine.certificates'], ['create', 'update']), upload.single('file'), uploadFile);
 
 router.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof multer.MulterError) {

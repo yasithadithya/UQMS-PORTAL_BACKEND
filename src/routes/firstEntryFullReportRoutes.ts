@@ -17,6 +17,7 @@ import {
   editRemarkComment,
 } from '../controllers/firstEntryFullReportController';
 import authMiddleware from '../middleware/auth';
+import { requirePermission } from '../middleware/permission';
 
 const router = Router();
 
@@ -27,16 +28,16 @@ router.get('/public-pdf/:id', getPublicDailyReportPdf);
 router.use(authMiddleware);
 
 // Daily visit report PDF generation routes (authenticated)
-router.post('/:id/daily-report', generateDailyReportPdf);
-router.get('/:id/daily-report-preview', getDailyReportPdfPreview);
-router.get('/:id/daily-report-pdf', getDailyReportPdf);
+router.post('/:id/daily-report', requirePermission('marine.reports', 'update'), generateDailyReportPdf);
+router.get('/:id/daily-report-preview', requirePermission('marine.reports', 'read'), getDailyReportPdfPreview);
+router.get('/:id/daily-report-pdf', requirePermission('marine.reports', 'read'), getDailyReportPdf);
 
 // Remarks and comments routes (authenticated)
-router.post('/:id/remarks', addGeneralRemark);
-router.put('/:id/remarks/:remarkId', editGeneralRemark);
-router.put('/:id/remarks/:remarkId/toggle-close', toggleCloseGeneralRemark);
-router.post('/:id/remarks/:remarkId/comments', addRemarkComment);
-router.put('/:id/remarks/:remarkId/comments/:commentId', editRemarkComment);
+router.post('/:id/remarks', requirePermission('marine.reports', 'update'), addGeneralRemark);
+router.put('/:id/remarks/:remarkId', requirePermission('marine.reports', 'update'), editGeneralRemark);
+router.put('/:id/remarks/:remarkId/toggle-close', requirePermission('marine.reports', 'update'), toggleCloseGeneralRemark);
+router.post('/:id/remarks/:remarkId/comments', requirePermission('marine.reports', 'update'), addRemarkComment);
+router.put('/:id/remarks/:remarkId/comments/:commentId', requirePermission('marine.reports', 'update'), editRemarkComment);
 
 /**
  * @swagger
@@ -59,7 +60,7 @@ router.put('/:id/remarks/:remarkId/comments/:commentId', editRemarkComment);
  *       500:
  *         description: Server error
  */
-router.get('/', getAllFirstEntryFullReports);
+router.get('/', requirePermission('marine.reports', 'read'), getAllFirstEntryFullReports);
 
 /**
  * @swagger
@@ -86,7 +87,7 @@ router.get('/', getAllFirstEntryFullReports);
  *       500:
  *         description: Server error
  */
-router.get('/:id', getFirstEntryFullReportById);
+router.get('/:id', requirePermission('marine.reports', 'read'), getFirstEntryFullReportById);
 
 /**
  * @swagger
@@ -113,7 +114,7 @@ router.get('/:id', getFirstEntryFullReportById);
  *       500:
  *         description: Server error
  */
-router.get('/survey-report/:surveyReportId', getFirstEntryFullReportBySurveyReportId);
+router.get('/survey-report/:surveyReportId', requirePermission('marine.reports', 'read'), getFirstEntryFullReportBySurveyReportId);
 
 /**
  * @swagger
@@ -166,7 +167,7 @@ router.get('/survey-report/:surveyReportId', getFirstEntryFullReportBySurveyRepo
  *       500:
  *         description: Server error
  */
-router.put('/:id', updateFirstEntryFullReport);
+router.put('/:id', requirePermission('marine.reports', 'update'), updateFirstEntryFullReport);
 
 /**
  * @swagger
@@ -193,7 +194,7 @@ router.put('/:id', updateFirstEntryFullReport);
  *       500:
  *         description: Server error
  */
-router.delete('/:id', deleteFirstEntryFullReport);
+router.delete('/:id', requirePermission('marine.reports', 'delete'), deleteFirstEntryFullReport);
 
 /**
  * @swagger
@@ -220,6 +221,6 @@ router.delete('/:id', deleteFirstEntryFullReport);
  *       500:
  *         description: Server error
  */
-router.post('/generate/:surveyReportId', triggerFullReportGeneration);
+router.post('/generate/:surveyReportId', requirePermission('marine.reports', 'update'), triggerFullReportGeneration);
 
 export default router;

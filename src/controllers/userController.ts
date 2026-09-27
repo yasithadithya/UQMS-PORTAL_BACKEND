@@ -2,9 +2,29 @@ import { Request, Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import User from '../models/User';
 import Role from '../models/Role';
+import { isSuperAdmin, userCan } from '../utils/permissions';
+
+/** Whether the user with this id holds the super admin role. */
+const targetIsSuperAdmin = async (userId: string): Promise<boolean> => {
+  const target = await User.findById(userId).select('role').populate('role', 'roleName');
+  return !!target && isSuperAdmin(target.role);
+};
+
+// Minimal user list (no contact details) for pickers such as surveyor assignment and HR account linking
+export const getUserDirectory = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const users = await User.find()
+      .select('username fullName nameWithInitials empNumber')
+      .sort({ fullName: 1 })
+      .lean();
+    res.status(200).json({ success: true, count: users.length, data: users.map((u) => ({ ...u, id: String(u._id) })) });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Error fetching user directory.', error: error.message });
+  }
+};
 
 // Create a new user
-export const createUser = async (req: Request, res: Response): Promise<void> => {
+export const createUser = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { username, email, password, role, fullName, nameWithInitials, phoneNumber, address, dob, empNumber } = req.body;
 
@@ -15,6 +35,10 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
         success: false,
         message: 'Invalid role ID. Role does not exist.',
       });
+      return;
+    }
+    if (isSuperAdmin(roleExists) && !isSuperAdmin(req.user?.role)) {
+      res.status(403).json({ success: false, message: 'Only a super admin can assign the admin role.' });
       return;
     }
 
@@ -94,8 +118,13 @@ export const getAllUsers = async (_req: Request, res: Response): Promise<void> =
 };
 
 // Get user by ID
-export const getUserById = async (req: Request, res: Response): Promise<void> => {
+export const getUserById = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    if (req.user?.id !== req.params.id && !(await userCan(req, 'admin.users', 'read'))) {
+      res.status(403).json({ success: false, message: 'You do not have permission to view this user.' });
+      return;
+    }
+
     const user = await User.findById(req.params.id)
       .select('-password')
       .populate('role');
@@ -141,15 +170,14 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
-    const targetUserId = req.params.id;
+    const targetUserId = String(req.params.id);
     const currentUserId = req.user.id;
 
-    // Check if the current user is an admin or the target user itself
-    const roleObj = req.user.role as any;
-    const roleName = typeof roleObj === 'object' && roleObj !== null ? roleObj.roleName : roleObj;
-    const isAdmin = typeof roleName === 'string' && roleName.toLowerCase() === 'admin';
+    const isSelf = currentUserId === targetUserId;
+    const callerIsSuperAdmin = isSuperAdmin(req.user.role);
+    const canManageUsers = await userCan(req, 'admin.users', 'update');
 
-    if (currentUserId !== targetUserId && !isAdmin) {
+    if (!isSelf && !canManageUsers) {
       res.status(403).json({
         success: false,
         message: 'Forbidden. You are not authorized to update this user.',
@@ -157,23 +185,9 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
-    // If role is being updated, verify it exists and caller is admin
-    if (role) {
-      if (!isAdmin) {
-        res.status(403).json({
-          success: false,
-          message: 'Forbidden. Non-admin users cannot change roles.',
-        });
-        return;
-      }
-      const roleExists = await Role.findById(role);
-      if (!roleExists) {
-        res.status(400).json({
-          success: false,
-          message: 'Invalid role ID. Role does not exist.',
-        });
-        return;
-      }
+    if (!isSelf && !callerIsSuperAdmin && (await targetIsSuperAdmin(targetUserId))) {
+      res.status(403).json({ success: false, message: 'Only a super admin can edit an admin user.' });
+      return;
     }
 
     const user = await User.findById(targetUserId);
@@ -186,11 +200,36 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
+    // Role changes: never your own role, only with User Management rights, and only a super admin assigns admin.
+    const roleChanged = !!role && String(role) !== String(user.role);
+    if (roleChanged) {
+      if (isSelf) {
+        res.status(403).json({ success: false, message: 'You cannot change your own role.' });
+        return;
+      }
+      if (!canManageUsers) {
+        res.status(403).json({ success: false, message: 'Forbidden. You cannot change roles.' });
+        return;
+      }
+      const roleExists = await Role.findById(role);
+      if (!roleExists) {
+        res.status(400).json({
+          success: false,
+          message: 'Invalid role ID. Role does not exist.',
+        });
+        return;
+      }
+      if (isSuperAdmin(roleExists) && !callerIsSuperAdmin) {
+        res.status(403).json({ success: false, message: 'Only a super admin can assign the admin role.' });
+        return;
+      }
+    }
+
     // Update fields
     if (username) user.username = username;
     if (email) user.email = email;
     if (password) user.password = password; // Will be hashed by pre-save hook
-    if (role) user.role = role;
+    if (roleChanged) user.role = role;
     if (fullName !== undefined) user.fullName = fullName;
     if (nameWithInitials !== undefined) user.nameWithInitials = nameWithInitials;
     if (phoneNumber !== undefined) user.phoneNumber = phoneNumber;
@@ -234,8 +273,17 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
 };
 
 // Delete user
-export const deleteUser = async (req: Request, res: Response): Promise<void> => {
+export const deleteUser = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    if (req.user?.id === req.params.id) {
+      res.status(400).json({ success: false, message: 'You cannot delete your own account.' });
+      return;
+    }
+    if (!isSuperAdmin(req.user?.role) && (await targetIsSuperAdmin(String(req.params.id)))) {
+      res.status(403).json({ success: false, message: 'Only a super admin can delete an admin user.' });
+      return;
+    }
+
     const user = await User.findByIdAndDelete(req.params.id);
 
     if (!user) {

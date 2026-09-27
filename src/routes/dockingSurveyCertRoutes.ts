@@ -10,6 +10,7 @@ import {
   getPublicDockingSurveyPdf
 } from '../controllers/dockingSurveyCertController';
 import authMiddleware from '../middleware/auth';
+import { requirePermission } from '../middleware/permission';
 
 const router = express.Router();
 
@@ -18,10 +19,10 @@ router.get('/public-pdf/:id', getPublicDockingSurveyPdf);
 
 router.use(authMiddleware);
 
-router.post('/', createDockingSurveyCert);
-router.post('/preview', getDockingSurveyPreviewPdf);
-router.get('/pdf/:id', getDockingSurveyFinalPdf);
-router.get('/report/:surveyReportId', getDockingSurveyCertBySurveyReportId);
+router.post('/', requirePermission('marine.certificates', 'create'), createDockingSurveyCert);
+router.post('/preview', requirePermission('marine.certificates', 'read'), getDockingSurveyPreviewPdf);
+router.get('/pdf/:id', requirePermission('marine.certificates', 'read'), getDockingSurveyFinalPdf);
+router.get('/report/:surveyReportId', requirePermission('marine.certificates', 'read'), getDockingSurveyCertBySurveyReportId);
 
 router.route('/:id')
   .get(getDockingSurveyCertById)
