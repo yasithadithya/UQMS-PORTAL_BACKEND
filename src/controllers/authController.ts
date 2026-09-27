@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import User from '../models/User';
+import { getJwtSecret } from '../middleware/auth';
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -40,7 +41,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Generate JWT
-    const secret = process.env.JWT_SECRET || 'fallback_secret';
+    const secret = getJwtSecret();
 
     const signOptions: SignOptions = {
       expiresIn: '12h',

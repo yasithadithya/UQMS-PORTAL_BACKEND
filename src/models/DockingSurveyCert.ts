@@ -49,6 +49,7 @@ export interface IDockingSurveyCert extends Document {
 
   overboardValves: string;
   anodes: string;
+  additionalRemarks?: string;
   dateOfIssue: Date;
   
   issuedBy: mongoose.Types.ObjectId;
@@ -124,6 +125,7 @@ const dockingSurveyCertSchema: Schema = new Schema(
 
     overboardValves: { type: String, trim: true, default: 'Overboard valves have been cleaned, overhauled and examined.' },
     anodes: { type: String, trim: true, default: '' },
+    additionalRemarks: { type: String, trim: true, default: '' },
     dateOfIssue: {
       type: Date,
       required: [true, 'Date of issue is required'],

@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IRequest extends Document {
   requestNumber: string;
   rfsDocNo?: string;
+  jobNumber?: string;
   vesselCode?: string;
   uqmsNumber?: string;
   imoNumber?: string;
@@ -22,6 +23,9 @@ export interface IRequest extends Document {
   signedPdf?: IRequestDocument;
   status: 'active' | 'print' | 'reject' | 'success';
   source: 'staff' | 'web';
+  approvalStatus: 'pending' | 'accepted' | 'rejected';
+  reviewedBy?: mongoose.Types.ObjectId;
+  reviewedAt?: Date;
   createdBy: mongoose.Types.ObjectId;
   updatedBy: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -80,6 +84,14 @@ const requestSchema: Schema = new Schema(
     rfsDocNo: {
       type: String,
       trim: true,
+    },
+    // Assigned when the request becomes a job: on creation for staff requests,
+    // on acceptance for website requests.
+    jobNumber: {
+      type: String,
+      trim: true,
+      unique: true,
+      sparse: true,
     },
     vesselCode: {
       type: String,
@@ -174,6 +186,21 @@ const requestSchema: Schema = new Schema(
       enum: ['staff', 'web'],
       default: 'staff',
       trim: true,
+    },
+    // Website requests start as 'pending' and only reach the New Request list once accepted.
+    // Records created before this field existed have no value and are treated as accepted.
+    approvalStatus: {
+      type: String,
+      enum: ['pending', 'accepted', 'rejected'],
+      default: 'accepted',
+      trim: true,
+    },
+    reviewedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    reviewedAt: {
+      type: Date,
     },
     createdBy: {
       type: Schema.Types.ObjectId,

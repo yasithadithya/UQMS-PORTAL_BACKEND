@@ -2,6 +2,10 @@ import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import dotenv from 'dotenv';
 import authMiddleware from '../middleware/auth';
+import { requireAny, requirePermission } from '../middleware/permission';
+
+// Marine screens pick requests when creating first entries and bookings, so they may read them too.
+const canReadRequests = requireAny(['new-request', 'marine.entries', 'marine.bookings', 'marine.reports'], ['read']);
 import {
   createRequest,
   getAllRequests,
@@ -18,6 +22,9 @@ import {
   printAndSendRequestSurveyPdf,
   uploadSignedPdf,
   deleteSignedPdf,
+  getPendingWebRequests,
+  acceptWebRequest,
+  rejectWebRequest,
 } from '../controllers/requestController';
 
 dotenv.config();
@@ -118,7 +125,7 @@ router.use(authMiddleware);
  *       401:
  *         description: Unauthorized
  */
-router.post('/', createRequest);
+router.post('/', requirePermission('new-request', 'create'), createRequest);
 
 /**
  * @swagger
@@ -147,7 +154,75 @@ router.post('/', createRequest);
  *       401:
  *         description: Unauthorized
  */
-router.get('/', getAllRequests);
+router.get('/', canReadRequests, getAllRequests);
+
+/**
+ * @swagger
+ * /api/requests/website-pending:
+ *   get:
+ *     summary: Get website requests waiting to be accepted or rejected
+ *     tags: [Requests]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of pending website requests
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/website-pending', requirePermission('new-request', 'read'), getPendingWebRequests);
+
+/**
+ * @swagger
+ * /api/requests/{id}/accept:
+ *   post:
+ *     summary: Accept a pending website request and assign it a job number
+ *     tags: [Requests]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Request accepted
+ *       400:
+ *         description: Request is not pending
+ *       404:
+ *         description: Request not found
+ *       409:
+ *         description: Request was reviewed concurrently
+ */
+router.post('/:id/accept', requirePermission('new-request', 'update'), acceptWebRequest);
+
+/**
+ * @swagger
+ * /api/requests/{id}/reject:
+ *   post:
+ *     summary: Reject a pending website request
+ *     tags: [Requests]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Request rejected
+ *       400:
+ *         description: Request is not pending
+ *       404:
+ *         description: Request not found
+ *       409:
+ *         description: Request was reviewed concurrently
+ */
+router.post('/:id/reject', requirePermission('new-request', 'update'), rejectWebRequest);
 
 /**
  * @swagger
@@ -180,7 +255,7 @@ router.get('/', getAllRequests);
  *       401:
  *         description: Unauthorized
  */
-router.get('/:id', getRequestById);
+router.get('/:id', canReadRequests, getRequestById);
 
 /**
  * @swagger
@@ -215,7 +290,7 @@ router.get('/:id', getRequestById);
  *       401:
  *         description: Unauthorized
  */
-router.get('/:id/surveys', getRequestSurveys);
+router.get('/:id/surveys', canReadRequests, getRequestSurveys);
 
 
 /**
@@ -242,7 +317,7 @@ router.get('/:id/surveys', getRequestSurveys);
  *       404:
  *         description: Request not found
  */
-router.post('/:id/survey-pdf', generateRequestSurveyPdf);
+router.post('/:id/survey-pdf', requirePermission('new-request', 'update'), generateRequestSurveyPdf);
 
 /**
  * @swagger
@@ -271,7 +346,7 @@ router.post('/:id/survey-pdf', generateRequestSurveyPdf);
  *       401:
  *         description: Unauthorized
  */
-router.get('/:id/survey-preview', getRequestSurveyPreview);
+router.get('/:id/survey-preview', requirePermission('new-request', 'read'), getRequestSurveyPreview);
 
 /**
  * @swagger
@@ -297,7 +372,7 @@ router.get('/:id/survey-preview', getRequestSurveyPreview);
  *       404:
  *         description: Request not found
  */
-router.post('/:id/survey-print-send', printAndSendRequestSurveyPdf);
+router.post('/:id/survey-print-send', requirePermission('new-request', 'update'), printAndSendRequestSurveyPdf);
 
 /**
  * @swagger
@@ -326,7 +401,7 @@ router.post('/:id/survey-print-send', printAndSendRequestSurveyPdf);
  *       401:
  *         description: Unauthorized
  */
-router.get('/:id/survey-pdf', getRequestSurveyPdf);
+router.get('/:id/survey-pdf', requirePermission('new-request', 'read'), getRequestSurveyPdf);
 
 /**
  * @swagger
@@ -393,7 +468,7 @@ router.get('/:id/survey-pdf', getRequestSurveyPdf);
  *       401:
  *         description: Unauthorized
  */
-router.put('/:id', updateRequest);
+router.put('/:id', requirePermission('new-request', 'update'), updateRequest);
 
 /**
  * @swagger
@@ -435,7 +510,7 @@ router.put('/:id', updateRequest);
  *       401:
  *         description: Unauthorized
  */
-router.post('/:id/documents', upload.array('files'), addRequestDocuments);
+router.post('/:id/documents', requirePermission('new-request', 'update'), upload.array('files'), addRequestDocuments);
 
 /**
  * @swagger
@@ -476,7 +551,7 @@ router.post('/:id/documents', upload.array('files'), addRequestDocuments);
  *       401:
  *         description: Unauthorized
  */
-router.put('/:id/documents/:documentId', upload.single('file'), updateRequestDocument);
+router.put('/:id/documents/:documentId', requirePermission('new-request', 'update'), upload.single('file'), updateRequestDocument);
 
 /**
  * @swagger
@@ -503,7 +578,7 @@ router.put('/:id/documents/:documentId', upload.single('file'), updateRequestDoc
  *       401:
  *         description: Unauthorized
  */
-router.delete('/:id/documents/:documentId', deleteRequestDocument);
+router.delete('/:id/documents/:documentId', requirePermission('new-request', 'update'), deleteRequestDocument);
 
 /**
  * @swagger
@@ -541,7 +616,7 @@ router.delete('/:id/documents/:documentId', deleteRequestDocument);
  *       404:
  *         description: Request not found
  */
-router.post('/:id/signed-pdf', upload.single('signedPdf'), uploadSignedPdf);
+router.post('/:id/signed-pdf', requirePermission('new-request', 'update'), upload.single('signedPdf'), uploadSignedPdf);
 
 /**
  * @swagger
@@ -567,7 +642,7 @@ router.post('/:id/signed-pdf', upload.single('signedPdf'), uploadSignedPdf);
  *       404:
  *         description: Request not found
  */
-router.delete('/:id/signed-pdf', deleteSignedPdf);
+router.delete('/:id/signed-pdf', requirePermission('new-request', 'update'), deleteSignedPdf);
 
 /**
  * @swagger
@@ -591,7 +666,7 @@ router.delete('/:id/signed-pdf', deleteSignedPdf);
  *       401:
  *         description: Unauthorized
  */
-router.delete('/:id', deleteRequest);
+router.delete('/:id', requirePermission('new-request', 'delete'), deleteRequest);
 
 router.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof multer.MulterError) {

@@ -26,9 +26,10 @@ import surveyReportRoutes from './routes/surveyReportRoutes';
 import documentTemplateRoutes from './routes/documentTemplateRoutes';
 import dockingSurveyCertRoutes from './routes/dockingSurveyCertRoutes';
 import eSignatureRoutes from './routes/eSignatureRoutes';
+import financeRoutes from './routes/financeRoutes';
 import publicRoutes from './routes/publicRoutes';
 import hrRoutes from './HR/routes';
-import { seedModulesAndAdminPermissions } from './config/seedModules';
+import { syncSystemModules } from './config/seedModules';
 import { formatDate } from './utils/date';
 
 // Load environment variables
@@ -75,6 +76,7 @@ app.use('/api/document-templates', documentTemplateRoutes);
 app.use('/api/docking-survey', dockingSurveyCertRoutes);
 app.use('/api/e-signatures', eSignatureRoutes);
 app.use('/api/hr', hrRoutes);
+app.use('/api/finance', financeRoutes);
 
 // Public intake (API-key authenticated, called by the public website)
 app.use('/api/public', publicRoutes);
@@ -95,8 +97,12 @@ app.get('/', (_req, res) => {
 
 // Connect to MongoDB and start server
 const startServer = async () => {
+  if (!process.env.JWT_SECRET) {
+    console.error('❌ JWT_SECRET is not set. Refusing to start without a token signing secret.');
+    process.exit(1);
+  }
   await connectDB();
-  await seedModulesAndAdminPermissions();
+  await syncSystemModules();
 
   app.listen(PORT, () => {
     console.log(`\n🚀 Server running on http://localhost:${PORT}`);

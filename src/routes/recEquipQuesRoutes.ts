@@ -7,6 +7,7 @@ import {
   deleteRecEquipQues,
 } from '../controllers/recEquipQuesController';
 import authMiddleware from '../middleware/auth';
+import { requirePermission } from '../middleware/permission';
 
 const router = Router();
 
@@ -91,7 +92,7 @@ router.get('/:id', getRecEquipQuesById);
  *       401:
  *         description: Unauthorized
  */
-router.post('/', createRecEquipQues);
+router.post('/', requirePermission('admin.master-data', 'create'), createRecEquipQues);
 
 /**
  * @swagger
@@ -132,7 +133,7 @@ router.post('/', createRecEquipQues);
  *       401:
  *         description: Unauthorized
  */
-router.put('/:id', updateRecEquipQues);
+router.put('/:id', requirePermission('admin.master-data', 'update'), updateRecEquipQues);
 
 /**
  * @swagger
@@ -160,6 +161,6 @@ router.put('/:id', updateRecEquipQues);
  *       401:
  *         description: Unauthorized
  */
-router.delete('/:id', deleteRecEquipQues);
+router.delete('/:id', requirePermission('admin.master-data', 'delete'), deleteRecEquipQues);
 
 export default router;

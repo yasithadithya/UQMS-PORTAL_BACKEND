@@ -246,6 +246,16 @@ const options: swaggerJsdoc.Options = {
               description: 'Generated request number',
               example: 'RQ0001',
             },
+            jobNumber: {
+              type: 'string',
+              description: 'Job number, assigned on creation (staff) or on acceptance (website)',
+              example: 'JOB-0001',
+            },
+            approvalStatus: {
+              type: 'string',
+              enum: ['pending', 'accepted', 'rejected'],
+              description: 'Review state for website requests; staff requests are accepted on creation',
+            },
             uqmsNumber: {
               type: 'string',
               description: 'Optional UQMS number',

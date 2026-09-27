@@ -1,5 +1,15 @@
 import { Request, Response } from 'express';
 import Module from '../models/Module';
+import Role from '../models/Role';
+import { ACTIONS, CRUD_ACTIONS } from '../config/permissionRegistry';
+import { invalidateModuleCache } from '../utils/permissions';
+
+/** Custom modules may only offer known actions; defaults to CRUD. */
+const sanitizeActions = (actions: unknown): string[] => {
+  if (!Array.isArray(actions)) return [...CRUD_ACTIONS];
+  const valid = [...new Set(actions.filter((a): a is string => typeof a === 'string' && (ACTIONS as readonly string[]).includes(a)))];
+  return valid.includes('read') ? valid : ['read', ...valid];
+};
 
 /**
  * Walk the parentId chain from a given moduleId upward to detect circular references.
@@ -45,7 +55,7 @@ const getDescendantIds = async (moduleId: string): Promise<Set<string>> => {
 
 export const createModule = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, description, parentId, order } = req.body;
+    const { name, description, parentId, order, actions } = req.body;
 
     if (!name) {
       res.status(400).json({ success: false, message: 'Module name is required.' });
@@ -61,8 +71,10 @@ export const createModule = async (req: Request, res: Response): Promise<void> =
       }
     }
 
-    const newModule = new Module({ name, description, parentId: parentId || null, order: order || 0 });
+    // `key`, `isSystem` and `navigable` are reserved for registry-defined system modules.
+    const newModule = new Module({ name, description, parentId: parentId || null, order: order || 0, actions: sanitizeActions(actions) });
     await newModule.save();
+    invalidateModuleCache();
 
     res.status(201).json({ success: true, message: 'Module created successfully.', data: newModule });
   } catch (error: any) {
@@ -85,8 +97,34 @@ export const getModules = async (_req: Request, res: Response): Promise<void> =>
 
 export const updateModule = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, description, parentId, order } = req.body;
+    const { name, description, parentId, order, actions } = req.body;
     const moduleId: string = req.params.id as string;
+
+    const existing = await Module.findById(moduleId);
+    if (!existing) {
+      res.status(404).json({ success: false, message: 'Module not found.' });
+      return;
+    }
+
+    // System modules keep their name, parent and actions: code, routes and permissions depend on them.
+    if (existing.isSystem) {
+      const sameParent = String(existing.parentId ?? '') === String(parentId ?? '');
+      if ((name !== undefined && name !== existing.name) || (parentId !== undefined && !sameParent) || actions !== undefined) {
+        res.status(400).json({ success: false, message: 'System modules cannot be renamed, moved or have their actions changed. Only the description and order can be edited.' });
+        return;
+      }
+      if (description !== undefined) existing.description = description;
+      if (order !== undefined) existing.order = order;
+      await existing.save();
+      invalidateModuleCache();
+      res.status(200).json({ success: true, message: 'Module updated successfully.', data: existing });
+      return;
+    }
+
+    if (!name) {
+      res.status(400).json({ success: false, message: 'Module name is required.' });
+      return;
+    }
 
     // Prevent setting self as parent
     if (parentId && parentId === moduleId) {
@@ -114,6 +152,9 @@ export const updateModule = async (req: Request, res: Response): Promise<void> =
     if (order !== undefined) {
       updateData.order = order;
     }
+    if (actions !== undefined) {
+      updateData.actions = sanitizeActions(actions);
+    }
 
     const mod = await Module.findByIdAndUpdate(
       moduleId,
@@ -125,15 +166,39 @@ export const updateModule = async (req: Request, res: Response): Promise<void> =
       res.status(404).json({ success: false, message: 'Module not found.' });
       return;
     }
+    invalidateModuleCache();
+
+    // Drop granted actions the module no longer offers.
+    if (actions !== undefined) {
+      await Role.updateMany(
+        { 'permissions.module': mod._id },
+        { $pull: { 'permissions.$[p].actions': { $nin: mod.actions } } },
+        { arrayFilters: [{ 'p.module': mod._id }] }
+      );
+    }
 
     res.status(200).json({ success: true, message: 'Module updated successfully.', data: mod });
   } catch (error: any) {
+    if (error.code === 11000) {
+      res.status(409).json({ success: false, message: 'A module with this name already exists.' });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Error updating module.', error: error.message });
   }
 };
 
 export const deleteModule = async (req: Request, res: Response): Promise<void> => {
   try {
+    const target = await Module.findById(req.params.id).select('isSystem name');
+    if (!target) {
+      res.status(404).json({ success: false, message: 'Module not found.' });
+      return;
+    }
+    if (target.isSystem) {
+      res.status(400).json({ success: false, message: `"${target.name}" is a system module and cannot be deleted.` });
+      return;
+    }
+
     const subModulesCount = await Module.countDocuments({ parentId: req.params.id });
     if (subModulesCount > 0) {
       res.status(400).json({ success: false, message: `Cannot delete module. ${subModulesCount} sub-modules depend on it.` });
@@ -145,6 +210,10 @@ export const deleteModule = async (req: Request, res: Response): Promise<void> =
       res.status(404).json({ success: false, message: 'Module not found.' });
       return;
     }
+
+    // Remove the deleted module from every role's permissions so no dangling references remain.
+    await Role.updateMany({}, { $pull: { permissions: { module: mod._id } } });
+    invalidateModuleCache();
 
     res.status(200).json({ success: true, message: 'Module deleted successfully.' });
   } catch (error: any) {

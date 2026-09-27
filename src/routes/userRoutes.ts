@@ -5,9 +5,10 @@ import {
   getUserById,
   updateUser,
   deleteUser,
+  getUserDirectory,
 } from '../controllers/userController';
 import authMiddleware from '../middleware/auth';
-import adminAuthMiddleware from '../middleware/adminAuth';
+import { requirePermission } from '../middleware/permission';
 
 const router = Router();
 
@@ -70,7 +71,7 @@ router.use(authMiddleware);
  *       401:
  *         description: Unauthorized
  */
-router.post('/', adminAuthMiddleware, createUser);
+router.post('/', requirePermission('admin.users', 'create'), createUser);
 
 /**
  * @swagger
@@ -100,7 +101,21 @@ router.post('/', adminAuthMiddleware, createUser);
  *       401:
  *         description: Unauthorized
  */
-router.get('/', getAllUsers);
+router.get('/', requirePermission('admin.users', 'read'), getAllUsers);
+
+/**
+ * @swagger
+ * /api/users/directory:
+ *   get:
+ *     summary: Minimal list of users (id and names only) for pickers such as surveyor assignment
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User directory
+ */
+router.get('/directory', getUserDirectory);
 
 /**
  * @swagger
@@ -221,6 +236,6 @@ router.put('/:id', updateUser);
  *       401:
  *         description: Unauthorized
  */
-router.delete('/:id', adminAuthMiddleware, deleteUser);
+router.delete('/:id', requirePermission('admin.users', 'delete'), deleteUser);
 
 export default router;

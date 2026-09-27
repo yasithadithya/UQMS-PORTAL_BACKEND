@@ -1,6 +1,14 @@
 import PDFDocument from 'pdfkit';
-import path from 'path';
 import { formatDate } from '../utils/date';
+import { DOCUMENT_TEMPLATE_NAMES, getDocumentTemplate } from './documentTemplateService';
+import {
+  FOOTER_RESERVED_HEIGHT,
+  HEADING_COLOR,
+  drawAdditionalRemarks,
+  drawControlledFooter,
+  drawLetterhead,
+  measureAdditionalRemarks,
+} from './pdfLayout';
 import { ISignatureField } from '../models/ESignature';
 import { GeneratedPdf, SIGNATURE_BLOCK_HEIGHT, drawSignatureBlock } from './eSignatureStamp';
 
@@ -31,6 +39,8 @@ export const createDockingSurveyPdfBuffer = async (
   cert: any,
   qrBuffer: Buffer
 ): Promise<GeneratedPdf> => {
+  const template = await getDocumentTemplate(DOCUMENT_TEMPLATE_NAMES.dockingStatement);
+
   return new Promise<GeneratedPdf>((resolve, reject) => {
     const doc = new PDFDocument({
       size: 'A4',
@@ -48,72 +58,22 @@ export const createDockingSurveyPdfBuffer = async (
     const pageWidth = doc.page.width - PAGE_MARGIN * 2;
     const innerLeft = PAGE_MARGIN;
 
-    // Resolve logo path
-    let logoPath = path.join(__dirname, '../public/logo.png');
-    if (!require('fs').existsSync(logoPath)) {
-      logoPath = path.join(__dirname, '../../src/public/logo.png');
-    }
-
-    const drawHeader = (pageIndex: number) => {
-      // 1. Logo
-      try {
-        if (require('fs').existsSync(logoPath)) {
-          doc.image(logoPath, PAGE_MARGIN, PAGE_MARGIN - 5, { width: 50 });
-        }
-      } catch (err) {
-        console.warn('Could not load logo image:', err);
-      }
-
-      // 2. Company Name
-      doc.y = PAGE_MARGIN + 5;
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(13)
-        .fillColor('#1f4e79')
-        .text('UNIVERSAL QUALITY MANAGEMENT SYSTEMS (PVT) LTD', PAGE_MARGIN + 60, PAGE_MARGIN + 5, {
-          width: doc.page.width - PAGE_MARGIN * 2 - 130,
-          align: 'center',
-        });
-
-      doc.moveDown(0.3);
-      doc
-        .font('Helvetica')
-        .fontSize(9)
-        .fillColor('#4b5563')
-        .text('No; 08, Chandralekha Mawatha, Colombo 08, Sri Lanka.', {
-          width: doc.page.width - PAGE_MARGIN * 2 - 130,
-          align: 'center',
-        });
-
-      // 3. Horizontal Rule
-      const ruleY = PAGE_MARGIN + 60;
-      doc
-        .moveTo(innerLeft, ruleY)
-        .lineTo(innerLeft + pageWidth, ruleY)
-        .strokeColor('#5c93c4')
-        .lineWidth(1)
-        .stroke()
-        .strokeColor('#000000')
-        .lineWidth(1);
-
-      return ruleY + 25;
-    };
-
     // ────────────────────────────────────────────────────────
     // DRAW PAGE 1
     // ────────────────────────────────────────────────────────
-    let currentY = drawHeader(0);
+    let currentY = drawLetterhead(doc, { title: 'DOCKING STATEMENT', template, margin: PAGE_MARGIN });
 
-    // Title
-    doc
-      .font('Helvetica-Bold')
-      .fontSize(16)
-      .fillColor('#111827')
-      .text('DOCKING STATEMENT', innerLeft, currentY);
-
-    currentY += 25;
+    // Verification QR code beside the certificate details
+    const qrSize = 60;
+    try {
+      doc.image(qrBuffer, doc.page.width - PAGE_MARGIN - qrSize, currentY - 4, { width: qrSize, height: qrSize });
+    } catch (err) {
+      console.warn('Could not draw QR code image:', err);
+    }
 
     const vesselName = cert.vesselId?.vesselName || 'NICOLAS';
+    // The client is the vessel's manager, as shown under Manager Details in the survey report.
+    const clientName = cert.client || cert.vesselId?.managerName || cert.surveyBookingId?.managedBy || '-';
 
     doc.font('Helvetica').fontSize(10).fillColor('#111827');
     const labelW = 120;
@@ -121,21 +81,23 @@ export const createDockingSurveyPdfBuffer = async (
     const metadataFields = [
       { label: 'Project Name', value: vesselName },
       { label: 'Certificate No.', value: cert.certificateNumber },
-      { label: 'Client', value: cert.client || 'DOLPHINE MARINE COLOMBO (PVT) LTD (MANAGERS)' },
+      { label: 'Client', value: clientName },
       { label: 'Survey Location', value: cert.surveyLocation || 'DIKKOWITA FISHERIES HARBOUR' },
       { label: 'Docking Period', value: `${formatDate(cert.dockingPeriodStart)} – ${formatDate(cert.dockingPeriodEnd)}` },
     ];
 
+    // Values stop short of the QR code and wrap onto extra lines when long.
+    const valueW = pageWidth - labelW - qrSize - 10;
     metadataFields.forEach((field) => {
       doc.font('Helvetica').text(field.label, innerLeft, currentY);
-      doc.font('Helvetica').text(`: ${field.value}`, innerLeft + labelW, currentY);
-      currentY += 18;
+      doc.font('Helvetica').text(`: ${field.value}`, innerLeft + labelW, currentY, { width: valueW });
+      currentY += Math.max(18, doc.heightOfString(`: ${field.value}`, { width: valueW }) + 4);
     });
 
     currentY += 15;
 
     // Paragraph 1
-    const p1Text = `This is to confirm that the undersigned surveyor was in attendance at the request of ${cert.client}, in their capacity as Managers, and Operators of the vessel ${vesselName}. The surveyor attended along with a representative of the company during the above-mentioned dates, while the vessel was docked at ${cert.surveyLocation}.`;
+    const p1Text = `This is to confirm that the undersigned surveyor was in attendance at the request of ${clientName}, in their capacity as Managers, and Operators of the vessel ${vesselName}. The surveyor attended along with a representative of the company during the above-mentioned dates, while the vessel was docked at ${cert.surveyLocation}.`;
     
     doc.font('Helvetica').fontSize(10).fillColor('#111827').text(p1Text, innerLeft, currentY, { align: 'justify', lineGap: 3 });
     currentY += doc.heightOfString(p1Text, { width: pageWidth, lineGap: 3 }) + 10;
@@ -146,7 +108,7 @@ export const createDockingSurveyPdfBuffer = async (
     currentY += doc.heightOfString(p2Text, { width: pageWidth, lineGap: 3 }) + 25;
 
     // SURVEY FINDINGS SUMMARY
-    doc.font('Helvetica-Bold').fontSize(12).fillColor('#111827').text('SURVEY FINDINGS SUMMARY', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(HEADING_COLOR).text('SURVEY FINDINGS SUMMARY', innerLeft, currentY);
     currentY += 15;
 
     const p3Text = `The underwater portion of the hull, including all openings, fastenings, and associated hull appendages, was examined while the vessel was resting on blocks at ${cert.surveyLocation}.\nThe following observations were made:`;
@@ -182,7 +144,7 @@ export const createDockingSurveyPdfBuffer = async (
     doc.addPage();
     currentY = PAGE_MARGIN + 10;
 
-    doc.font('Helvetica-Bold').fontSize(11).fillColor('#111827').text('Paint Details of Under Water:', innerLeft, currentY, { underline: true });
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(HEADING_COLOR).text('Paint Details of Under Water:', innerLeft, currentY, { underline: true });
     currentY += 20;
 
     // Paint details table
@@ -265,46 +227,47 @@ export const createDockingSurveyPdfBuffer = async (
       doc.text(title, innerLeft, currentY);
       currentY += 15;
 
+      // Size the label column to fit its text so labels never run under the value columns.
+      const valW = 100;
+      const cellPad = 5;
+      const rows = [[row1, val11, val12], ...(row2 ? [[row2, val21, val22]] : [])];
+      const widestLabel = Math.max(...rows.map(([label]) => doc.widthOfString(label)));
+      const labelW = Math.min(Math.max(120, widestLabel + cellPad * 2), pageWidth - valW * 2);
+      const col1X = innerLeft + labelW;
+      const col2X = col1X + valW;
+      const tableRight = col2X + valW;
+
       const cTableTop = currentY;
       // headers
-      doc.rect(innerLeft + 120, currentY, 100, 20).fill('#e5e7eb');
-      doc.rect(innerLeft + 220, currentY, 100, 20).fill('#e5e7eb');
+      doc.rect(col1X, currentY, valW * 2, 20).fill('#e5e7eb');
       doc.fillColor('#111827');
-      
-      doc.text(headers[0], innerLeft + 120, currentY + 5, { width: 100, align: 'center' });
-      doc.text(headers[1], innerLeft + 220, currentY + 5, { width: 100, align: 'center' });
-      
+
+      doc.text(headers[0], col1X, currentY + 5, { width: valW, align: 'center' });
+      doc.text(headers[1], col2X, currentY + 5, { width: valW, align: 'center' });
+
       currentY += 20;
-      doc.text(row1, innerLeft + 5, currentY + 5);
-      doc.text(val11 || '-', innerLeft + 120, currentY + 5, { width: 100, align: 'center' });
-      doc.text(val12 || '-', innerLeft + 220, currentY + 5, { width: 100, align: 'center' });
-      
-      currentY += 20;
-      if (row2) {
-        doc.text(row2, innerLeft + 5, currentY + 5);
-        doc.text(val21 || '-', innerLeft + 120, currentY + 5, { width: 100, align: 'center' });
-        doc.text(val22 || '-', innerLeft + 220, currentY + 5, { width: 100, align: 'center' });
-        currentY += 20;
-      }
-      
+      const rowLines = [currentY];
+      rows.forEach(([label, v1, v2]) => {
+        const rowH = Math.max(20, doc.heightOfString(label, { width: labelW - cellPad * 2 }) + cellPad * 2);
+        doc.text(label, innerLeft + cellPad, currentY + cellPad, { width: labelW - cellPad * 2 });
+        doc.text(v1 || '-', col1X, currentY + cellPad, { width: valW, align: 'center' });
+        doc.text(v2 || '-', col2X, currentY + cellPad, { width: valW, align: 'center' });
+        currentY += rowH;
+        rowLines.push(currentY);
+      });
+
       const cTableBottom = currentY;
-      
+
       // Lines
       doc.lineWidth(1).strokeColor('#d1d5db');
       // Horiz
-      doc.moveTo(innerLeft + 120, cTableTop).lineTo(innerLeft + 320, cTableTop).stroke();
-      doc.moveTo(innerLeft, cTableTop + 20).lineTo(innerLeft + 320, cTableTop + 20).stroke();
-      doc.moveTo(innerLeft, cTableTop + 40).lineTo(innerLeft + 320, cTableTop + 40).stroke();
-      if (row2) {
-        doc.moveTo(innerLeft, cTableTop + 60).lineTo(innerLeft + 320, cTableTop + 60).stroke();
-      }
-      
+      doc.moveTo(col1X, cTableTop).lineTo(tableRight, cTableTop).stroke();
+      rowLines.forEach((y) => doc.moveTo(innerLeft, y).lineTo(tableRight, y).stroke());
+
       // Vert
       doc.moveTo(innerLeft, cTableTop + 20).lineTo(innerLeft, cTableBottom).stroke();
-      doc.moveTo(innerLeft + 120, cTableTop).lineTo(innerLeft + 120, cTableBottom).stroke();
-      doc.moveTo(innerLeft + 220, cTableTop).lineTo(innerLeft + 220, cTableBottom).stroke();
-      doc.moveTo(innerLeft + 320, cTableTop).lineTo(innerLeft + 320, cTableBottom).stroke();
-      
+      [col1X, col2X, tableRight].forEach((x) => doc.moveTo(x, cTableTop).lineTo(x, cTableBottom).stroke());
+
       currentY += 20;
     };
 
@@ -335,14 +298,17 @@ export const createDockingSurveyPdfBuffer = async (
     doc.text(`6. ${cert.anodes}`, innerLeft, currentY, { width: pageWidth });
     currentY += 40;
 
-    // Keep the SIGNED line and the electronic signature field together above the footer.
-    if (currentY + 25 + SIGNATURE_BLOCK_HEIGHT > doc.page.height - PAGE_MARGIN - 45) {
+    // Keep the additional remarks, the SIGNED line and the electronic signature field together above the footer.
+    const remarksHeight = measureAdditionalRemarks(doc, cert.additionalRemarks, pageWidth);
+    if (currentY + remarksHeight + 25 + SIGNATURE_BLOCK_HEIGHT > doc.page.height - PAGE_MARGIN - FOOTER_RESERVED_HEIGHT) {
       doc.addPage();
       currentY = PAGE_MARGIN + 10;
     }
 
+    currentY = drawAdditionalRemarks(doc, cert.additionalRemarks, innerLeft, currentY, pageWidth);
+
     // SIGNED details
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#111827').text('SIGNED:', innerLeft, currentY);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(HEADING_COLOR).text('SIGNED:', innerLeft, currentY);
 
     // Date of issue on the right side
     const issueDateStr = `Date of issue: ${formatDate(cert.dateOfIssue)}`;
@@ -351,48 +317,7 @@ export const createDockingSurveyPdfBuffer = async (
     currentY += 25;
     signatureField = drawSignatureBlock(doc, innerLeft, currentY, cert.eSignature);
 
-
-    // Apply Footers to all pages
-    const totalPages = doc.bufferedPageRange().count;
-    for (let i = 0; i < totalPages; i++) {
-      doc.switchToPage(i);
-
-      // Page Footer Contact details — single line so the controlled
-      // document details fit beneath it.
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(8)
-        .fillColor('#111827')
-        .text(
-          'PHONE: +94 76 68 68 718     WEB: www.uqms.net     E-Mail: info@uqms.net',
-          PAGE_MARGIN,
-          doc.page.height - PAGE_MARGIN - 26,
-          { width: pageWidth, align: 'left', lineBreak: false }
-        );
-
-      // Controlled document details — single horizontal line on every page
-      doc
-        .font('Helvetica')
-        .fontSize(8)
-        .fillColor('#000000')
-        .text(
-          'Document No: UQMS-FM-017  |  Revision: 00  |  Effective Date: [25/01/2026]  |  Approved By: Technical Committee',
-          PAGE_MARGIN,
-          doc.page.height - PAGE_MARGIN - 12,
-          { width: pageWidth, align: 'left', lineBreak: false }
-        );
-
-      doc
-        .font('Helvetica')
-        .fontSize(8)
-        .fillColor('#9ca3af')
-        .text(
-          `Page ${i + 1} of ${totalPages}`,
-          PAGE_MARGIN,
-          doc.page.height - PAGE_MARGIN - 12,
-          { width: pageWidth, align: 'right', lineBreak: false }
-        );
-    }
+    drawControlledFooter(doc, { template, margin: PAGE_MARGIN });
 
     doc.end();
   });

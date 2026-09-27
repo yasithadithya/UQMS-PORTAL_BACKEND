@@ -20,6 +20,8 @@ import {
   storePdfAfterSave,
 } from '../services/storedPdfService';
 import { rejectIfSigned } from '../services/eSignatureLock';
+import { AuthRequest } from '../middleware/auth';
+import { rejectUnlessCan } from '../middleware/permission';
 
 /**
  * Render the Survey Report PDF and store it in R2.
@@ -261,6 +263,9 @@ export const createSurveyReport = async (req: Request, res: Response): Promise<v
     const reportData = { ...req.body };
     delete reportData.pdf;
 
+    // Creating the report already Approved is an approval.
+    if (reportData.status && reportData.status !== 'Draft' && (await rejectUnlessCan(req as AuthRequest, res, 'marine.certificates', 'approve'))) return;
+
     if (userId) {
       reportData.createdBy = userId;
       reportData.updatedBy = userId;
@@ -392,8 +397,16 @@ export const updateSurveyReport = async (req: Request, res: Response): Promise<v
       return;
     }
 
-    const existingReport = await SurveyReportModel.findById(id).select('eSignature');
+    const existingReport = await SurveyReportModel.findById(id).select('eSignature status');
     if (rejectIfSigned(res, existingReport)) return;
+
+    // Changing the report status (approving or un-approving) needs the approve permission.
+    if (
+      existingReport &&
+      req.body.status !== undefined &&
+      req.body.status !== existingReport.status &&
+      (await rejectUnlessCan(req as AuthRequest, res, 'marine.certificates', 'approve'))
+    ) return;
 
     const updateData = { ...req.body };
     delete updateData.pdf;
