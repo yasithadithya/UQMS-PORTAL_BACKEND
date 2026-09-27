@@ -7,6 +7,7 @@ import {
   deleteVesselCode,
 } from '../controllers/vesselCodeController';
 import authMiddleware from '../middleware/auth';
+import { requirePermission } from '../middleware/permission';
 
 const router = Router();
 
@@ -93,7 +94,7 @@ router.get('/:id', getVesselCodeById);
  *       401:
  *         description: Unauthorized
  */
-router.post('/', createVesselCode);
+router.post('/', requirePermission('admin.master-data', 'create'), createVesselCode);
 
 /**
  * @swagger
@@ -136,7 +137,7 @@ router.post('/', createVesselCode);
  *       401:
  *         description: Unauthorized
  */
-router.put('/:id', updateVesselCode);
+router.put('/:id', requirePermission('admin.master-data', 'update'), updateVesselCode);
 
 /**
  * @swagger
@@ -164,6 +165,6 @@ router.put('/:id', updateVesselCode);
  *       401:
  *         description: Unauthorized
  */
-router.delete('/:id', deleteVesselCode);
+router.delete('/:id', requirePermission('admin.master-data', 'delete'), deleteVesselCode);
 
 export default router;

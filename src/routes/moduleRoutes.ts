@@ -6,18 +6,17 @@ import {
   deleteModule,
 } from '../controllers/moduleController';
 import authMiddleware from '../middleware/auth';
-import adminAuthMiddleware from '../middleware/adminAuth';
+import { requirePermission } from '../middleware/permission';
 
 const router = Router();
 
 router.use(authMiddleware);
 
+// Every signed-in user needs the module tree to build their navigation.
 router.get('/', getModules);
 
-// Only admin can manage modules
-router.use(adminAuthMiddleware);
-router.post('/', createModule);
-router.put('/:id', updateModule);
-router.delete('/:id', deleteModule);
+router.post('/', requirePermission('admin.modules', 'create'), createModule);
+router.put('/:id', requirePermission('admin.modules', 'update'), updateModule);
+router.delete('/:id', requirePermission('admin.modules', 'delete'), deleteModule);
 
 export default router;

@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { ACTIONS } from '../config/permissionRegistry';
 
 export interface IRolePermission {
   module: mongoose.Types.ObjectId;
@@ -30,7 +31,7 @@ const roleSchema: Schema = new Schema(
         actions: [
           {
             type: String,
-            enum: ['create', 'read', 'update', 'delete'],
+            enum: ACTIONS,
           },
         ],
       },

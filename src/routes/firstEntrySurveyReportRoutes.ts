@@ -8,6 +8,7 @@ import {
   deleteFirstEntrySurveyReport,
 } from '../controllers/firstEntrySurveyReportController';
 import authMiddleware from '../middleware/auth';
+import { requirePermission } from '../middleware/permission';
 
 const router = Router();
 
@@ -75,7 +76,7 @@ router.use(authMiddleware);
  *       404:
  *         description: Booking not found
  */
-router.post('/', createFirstEntrySurveyReport);
+router.post('/', requirePermission('marine.reports', 'create'), createFirstEntrySurveyReport);
 
 /**
  * @swagger
@@ -89,7 +90,7 @@ router.post('/', createFirstEntrySurveyReport);
  *       200:
  *         description: List of reports retrieved successfully
  */
-router.get('/', getAllFirstEntrySurveyReports);
+router.get('/', requirePermission('marine.reports', 'read'), getAllFirstEntrySurveyReports);
 
 /**
  * @swagger
@@ -114,7 +115,7 @@ router.get('/', getAllFirstEntrySurveyReports);
  *       404:
  *         description: Booking not found
  */
-router.get('/pre-populate/:bookingId', getPrePopulatedReportDataByBookingId);
+router.get('/pre-populate/:bookingId', requirePermission('marine.reports', 'read'), getPrePopulatedReportDataByBookingId);
 
 /**
  * @swagger
@@ -138,7 +139,7 @@ router.get('/pre-populate/:bookingId', getPrePopulatedReportDataByBookingId);
  *       404:
  *         description: Report not found
  */
-router.get('/:id', getFirstEntrySurveyReportById);
+router.get('/:id', requirePermission('marine.reports', 'read'), getFirstEntrySurveyReportById);
 
 /**
  * @swagger
@@ -168,7 +169,7 @@ router.get('/:id', getFirstEntrySurveyReportById);
  *       404:
  *         description: Report not found
  */
-router.put('/:id', updateFirstEntrySurveyReport);
+router.put('/:id', requirePermission('marine.reports', 'update'), updateFirstEntrySurveyReport);
 
 /**
  * @swagger
@@ -192,6 +193,6 @@ router.put('/:id', updateFirstEntrySurveyReport);
  *       404:
  *         description: Report not found
  */
-router.delete('/:id', deleteFirstEntrySurveyReport);
+router.delete('/:id', requirePermission('marine.reports', 'delete'), deleteFirstEntrySurveyReport);
 
 export default router;

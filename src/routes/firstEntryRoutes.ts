@@ -12,6 +12,7 @@ import {
   sendScheduleIIEmail,
 } from '../controllers/firstEntryController';
 import authMiddleware from '../middleware/auth';
+import { requirePermission } from '../middleware/permission';
 
 const router = Router();
 
@@ -54,7 +55,7 @@ router.use(authMiddleware);
  *       201:
  *         description: First entry created successfully
  */
-router.post('/', createFirstEntry);
+router.post('/', requirePermission('marine.entries', 'create'), createFirstEntry);
 
 /**
  * @swagger
@@ -68,7 +69,7 @@ router.post('/', createFirstEntry);
  *       200:
  *         description: List of first entries
  */
-router.get('/', getAllFirstEntries);
+router.get('/', requirePermission('marine.entries', 'read'), getAllFirstEntries);
 
 /**
  * @swagger
@@ -88,7 +89,7 @@ router.get('/', getAllFirstEntries);
  *       200:
  *         description: First entry found
  */
-router.get('/:id', getFirstEntryById);
+router.get('/:id', requirePermission('marine.entries', 'read'), getFirstEntryById);
 
 /**
  * @swagger
@@ -125,7 +126,7 @@ router.get('/:id', getFirstEntryById);
  *       200:
  *         description: First entry updated successfully
  */
-router.put('/:id', updateFirstEntry);
+router.put('/:id', requirePermission('marine.entries', 'update'), updateFirstEntry);
 
 /**
  * @swagger
@@ -145,7 +146,7 @@ router.put('/:id', updateFirstEntry);
  *       200:
  *         description: First entry deleted successfully
  */
-router.delete('/:id', deleteFirstEntry);
+router.delete('/:id', requirePermission('marine.entries', 'delete'), deleteFirstEntry);
 
 // ==========================================
 // SCHEDULE II ROUTES
@@ -176,7 +177,7 @@ router.delete('/:id', deleteFirstEntry);
  *       201:
  *         description: Schedule II created successfully
  */
-router.post('/schedule2', createScheduleII);
+router.post('/schedule2', requirePermission('marine.entries', 'update'), createScheduleII);
 
 /**
  * @swagger
@@ -196,7 +197,7 @@ router.post('/schedule2', createScheduleII);
  *       200:
  *         description: Schedule II found
  */
-router.get('/schedule2/:scheduleId', getScheduleIIById);
+router.get('/schedule2/:scheduleId', requirePermission('marine.entries', 'read'), getScheduleIIById);
 
 /**
  * @swagger
@@ -225,7 +226,7 @@ router.get('/schedule2/:scheduleId', getScheduleIIById);
  *       200:
  *         description: Schedule II updated successfully
  */
-router.put('/schedule2/:scheduleId', updateScheduleII);
+router.put('/schedule2/:scheduleId', requirePermission('marine.entries', 'update'), updateScheduleII);
 
 /**
  * @swagger
@@ -245,7 +246,7 @@ router.put('/schedule2/:scheduleId', updateScheduleII);
  *       200:
  *         description: Schedule II deleted successfully
  */
-router.delete('/schedule2/:scheduleId', deleteScheduleII);
+router.delete('/schedule2/:scheduleId', requirePermission('marine.entries', 'update'), deleteScheduleII);
 
 /**
  * @swagger
@@ -265,6 +266,6 @@ router.delete('/schedule2/:scheduleId', deleteScheduleII);
  *       200:
  *         description: Email sent successfully
  */
-router.post('/schedule2/:scheduleId/send-email', sendScheduleIIEmail);
+router.post('/schedule2/:scheduleId/send-email', requirePermission('marine.entries', 'update'), sendScheduleIIEmail);
 
 export default router;

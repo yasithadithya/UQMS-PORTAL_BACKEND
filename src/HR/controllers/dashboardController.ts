@@ -6,6 +6,8 @@ import LeaveRequest from '../models/LeaveRequest';
 import Announcement from '../models/Announcement';
 import EmployeeDocument from '../models/EmployeeDocument';
 import { computePayrollSummary } from '../services/payrollService';
+import { AuthRequest } from '../../middleware/auth';
+import { userCan } from '../../utils/permissions';
 
 // Upcoming birthdays/anniversaries within the next `days`, computed in JS to
 // handle year boundaries safely.
@@ -39,6 +41,15 @@ const upcomingWithin = (employees: any[], dateField: 'dateOfBirth' | 'joinedDate
 
 export const getDashboardStats = async (req: Request, res: Response): Promise<void> => {
   try {
+    // Each section is only included for users who can read the HR area it comes from.
+    const authReq = req as AuthRequest;
+    const [canAttendance, canLeave, canPayroll, canEmployees] = await Promise.all([
+      userCan(authReq, 'hr.attendance', 'read'),
+      userCan(authReq, 'hr.leave', 'read'),
+      userCan(authReq, 'hr.payroll', 'read'),
+      userCan(authReq, 'hr.employees', 'read'),
+    ]);
+
     const now = new Date();
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
@@ -65,20 +76,22 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
         { $group: { _id: '$department', count: { $sum: 1 } } },
       ]),
       Department.find().select('name'),
-      AttendanceLog.aggregate([
-        { $match: { date: { $gte: todayStart, $lt: todayEnd } } },
-        { $group: { _id: '$status', count: { $sum: 1 } } },
-      ]),
-      LeaveRequest.countDocuments({ status: 'Pending' }),
-      LeaveRequest.find({ status: 'Pending' })
+      canAttendance
+        ? AttendanceLog.aggregate([
+            { $match: { date: { $gte: todayStart, $lt: todayEnd } } },
+            { $group: { _id: '$status', count: { $sum: 1 } } },
+          ])
+        : [],
+      canLeave ? LeaveRequest.countDocuments({ status: 'Pending' }) : 0,
+      !canLeave ? [] : LeaveRequest.find({ status: 'Pending' })
         .populate('employee', 'firstName lastName employeeId')
         .populate('leaveType', 'name')
         .sort({ createdAt: -1 })
         .limit(5),
       Employee.find({ isDeleted: false, employmentStatus: { $in: ['Active', 'OnProbation'] } })
         .select('employeeId firstName lastName dateOfBirth joinedDate'),
-      computePayrollSummary(now.getMonth() + 1, now.getFullYear()),
-      EmployeeDocument.find({
+      canPayroll ? computePayrollSummary(now.getMonth() + 1, now.getFullYear()) : null,
+      !canEmployees ? [] : EmployeeDocument.find({
         expiryDate: { $gte: now, $lte: new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000) },
       })
         .populate('employee', 'firstName lastName employeeId')

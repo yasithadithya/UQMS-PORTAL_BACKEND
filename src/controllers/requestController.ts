@@ -11,7 +11,7 @@ import VesselType from '../models/VesselType';
 import AreaOfOperation from '../models/AreaOfOperation';
 import SurveyType from '../models/SurveyType';
 import { getR2Client } from '../config/r2';
-import { allocateRequestNumbers } from '../services/requestNumberService';
+import { allocateJobNumber, allocateRequestNumbers } from '../services/requestNumberService';
 import { deleteFromR2, uploadToR2 } from '../services/r2Storage';
 import { createRequestSurveyPdfBuffer } from '../services/requestPdfService';
 import { getIstDateParts } from '../utils/date';
@@ -277,6 +277,8 @@ export const createRequest = async (req: Request, res: Response): Promise<void> 
     }
 
     const { requestNumber, rfsDocNo } = await allocateRequestNumbers();
+    // Requests entered by staff are jobs from the start.
+    const jobNumber = await allocateJobNumber();
 
     const normalizedImoNumber = typeof imoNumber === 'string' ? toTrimmedString(imoNumber) : '';
     const normalizedMmsiNumber = typeof mmsiNumber === 'string' ? toTrimmedString(mmsiNumber) : '';
@@ -284,6 +286,8 @@ export const createRequest = async (req: Request, res: Response): Promise<void> 
     const newRequest = new RequestModel({
       requestNumber,
       rfsDocNo,
+      jobNumber,
+      approvalStatus: 'accepted',
       vesselCode: typeof vesselCode === 'string' ? toTrimmedString(vesselCode) : undefined,
       uqmsNumber: typeof uqmsNumber === 'string' ? toTrimmedString(uqmsNumber) : undefined,
       imoNumber: normalizedImoNumber || undefined,
@@ -328,30 +332,122 @@ export const createRequest = async (req: Request, res: Response): Promise<void> 
   }
 };
 
+const requestListPopulateOptions = [
+  'vesselType',
+  'areaOfOperation',
+  'surveyTypes',
+  { path: 'createdBy', select: 'username email' },
+  { path: 'updatedBy', select: 'username email' },
+];
+
 export const getAllRequests = async (req: Request, res: Response): Promise<void> => {
   try {
     const search = req.query.search as string;
-    const query: any = {};
+    // Website requests awaiting review (or rejected) are not jobs yet and stay off this list.
+    // $nin rather than 'accepted' so records from before approvalStatus existed are included.
+    const query: any = { approvalStatus: { $nin: ['pending', 'rejected'] } };
 
     if (search) {
       query.$or = [
         { requestNumber: { $regex: search, $options: 'i' } },
+        { jobNumber: { $regex: search, $options: 'i' } },
         { vesselName: { $regex: search, $options: 'i' } }
       ];
     }
 
-    const populateOptions = [
-      'vesselType',
-      'areaOfOperation',
-      'surveyTypes',
-      { path: 'createdBy', select: 'username email' },
-      { path: 'updatedBy', select: 'username email' }
-    ];
-
-    const result = await paginate(RequestModel, query, req, populateOptions, { requestNumber: -1 });
+    const result = await paginate(RequestModel, query, req, requestListPopulateOptions, { requestNumber: -1 });
     res.status(200).json(result);
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Error fetching requests.', error: error.message });
+  }
+};
+
+/** Website requests waiting for staff to accept or reject them, oldest first. */
+export const getPendingWebRequests = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const query = { source: 'web', approvalStatus: 'pending' };
+    const result = await paginate(RequestModel, query, req, requestListPopulateOptions, { createdAt: 1 });
+    res.status(200).json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Error fetching website requests.', error: error.message });
+  }
+};
+
+const reviewWebRequest = async (
+  req: Request,
+  res: Response,
+  decision: 'accepted' | 'rejected'
+): Promise<void> => {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    res.status(400).json({ success: false, message: 'Invalid request ID format.' });
+    return;
+  }
+
+  const request = await RequestModel.findById(req.params.id);
+  if (!request) {
+    res.status(404).json({ success: false, message: 'Request not found.' });
+    return;
+  }
+  if (request.approvalStatus !== 'pending') {
+    res.status(400).json({ success: false, message: 'This request has already been reviewed.' });
+    return;
+  }
+
+  const userId = (req as any).user?.id;
+  const update: Record<string, unknown> = {
+    approvalStatus: decision,
+    reviewedAt: new Date(),
+  };
+  if (userId) {
+    update.reviewedBy = userId;
+    update.updatedBy = userId;
+  }
+  if (decision === 'accepted') {
+    update.jobNumber = await allocateJobNumber();
+  } else {
+    update.status = 'reject';
+  }
+
+  // Conditional on still being pending so two reviewers acting at once can't both succeed.
+  const reviewed = await RequestModel.findOneAndUpdate(
+    { _id: request._id, approvalStatus: 'pending' },
+    { $set: update },
+    { new: true }
+  );
+  if (!reviewed) {
+    res.status(409).json({ success: false, message: 'This request has already been reviewed.' });
+    return;
+  }
+
+  const populatedRequest = await RequestModel.findById(reviewed._id)
+    .populate('vesselType')
+    .populate('areaOfOperation')
+    .populate('surveyTypes')
+    .populate('createdBy', 'username email')
+    .populate('updatedBy', 'username email');
+
+  res.status(200).json({
+    success: true,
+    message: decision === 'accepted'
+      ? `Request accepted. Job number ${reviewed.jobNumber} assigned.`
+      : 'Request rejected.',
+    data: populatedRequest,
+  });
+};
+
+export const acceptWebRequest = async (req: Request, res: Response): Promise<void> => {
+  try {
+    await reviewWebRequest(req, res, 'accepted');
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Error accepting request.', error: error.message });
+  }
+};
+
+export const rejectWebRequest = async (req: Request, res: Response): Promise<void> => {
+  try {
+    await reviewWebRequest(req, res, 'rejected');
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Error rejecting request.', error: error.message });
   }
 };
 

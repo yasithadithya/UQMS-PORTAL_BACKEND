@@ -32,3 +32,20 @@ export const allocateRequestNumbers = async (): Promise<RequestNumbers> => {
 
   return { requestNumber, rfsDocNo };
 };
+
+/**
+ * Allocates the next job number (JOB-####) from the 'jobNumber' document number sequence.
+ *
+ * Called when a request becomes a job: straight away for staff-created requests,
+ * and on acceptance for requests submitted through the website.
+ *
+ * The counter is created on first use, since older installations were seeded before it existed.
+ */
+export const allocateJobNumber = async (): Promise<string> => {
+  await DocumentNumber.updateOne(
+    { name: 'jobNumber' },
+    { $setOnInsert: { name: 'jobNumber', prefix: 'JOB-', digits: 4, lastNumber: 0 } },
+    { upsert: true }
+  );
+  return getNextDocumentNumber('jobNumber');
+};

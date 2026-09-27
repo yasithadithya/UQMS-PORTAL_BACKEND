@@ -7,6 +7,7 @@ import {
   deleteDocumentTemplate,
 } from '../controllers/documentTemplateController';
 import authMiddleware from '../middleware/auth';
+import { requirePermission } from '../middleware/permission';
 
 const router = Router();
 
@@ -106,7 +107,7 @@ router.get('/:id', getDocumentTemplateById);
  *       401:
  *         description: Unauthorized
  */
-router.post('/', createDocumentTemplate);
+router.post('/', requirePermission('admin.master-data', 'create'), createDocumentTemplate);
 
 /**
  * @swagger
@@ -159,7 +160,7 @@ router.post('/', createDocumentTemplate);
  *       401:
  *         description: Unauthorized
  */
-router.put('/:id', updateDocumentTemplate);
+router.put('/:id', requirePermission('admin.master-data', 'update'), updateDocumentTemplate);
 
 /**
  * @swagger
@@ -187,6 +188,6 @@ router.put('/:id', updateDocumentTemplate);
  *       401:
  *         description: Unauthorized
  */
-router.delete('/:id', deleteDocumentTemplate);
+router.delete('/:id', requirePermission('admin.master-data', 'delete'), deleteDocumentTemplate);
 
 export default router;

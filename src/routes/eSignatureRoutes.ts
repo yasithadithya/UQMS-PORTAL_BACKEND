@@ -36,7 +36,7 @@ router.get('/:docType/:id', getSignatureStatus);
  * @swagger
  * /api/e-signatures/{docType}/{id}/sign:
  *   post:
- *     summary: Electronically sign a document (locks it). Assigned surveyors sign as themselves; admin and uqms-admin sign on an assigned surveyor's behalf
+ *     summary: Electronically sign a document (locks it). Assigned surveyors sign as themselves; users with sign-on-behalf sign on an assigned surveyor's behalf
  *     tags: [E-Signatures]
  *     security:
  *       - bearerAuth: []
@@ -51,7 +51,7 @@ router.get('/:docType/:id', getSignatureStatus);
  *                 example: COLOMBO, SRI LANKA
  *               signerId:
  *                 type: string
- *                 description: Assigned surveyor to sign as (admin and uqms-admin only; defaults to the most recent visit's surveyor)
+ *                 description: Assigned surveyor to sign as (sign-on-behalf permission only; defaults to the most recent visit's surveyor)
  *     responses:
  *       200:
  *         description: Document signed and its PDF re-rendered with the signature stamp
@@ -60,7 +60,7 @@ router.get('/:docType/:id', getSignatureStatus);
  *       409:
  *         description: The document is already signed
  *   delete:
- *     summary: Revoke a document's electronic signature (admin or uqms-admin)
+ *     summary: Revoke a document's electronic signature (revoke-signature permission)
  *     tags: [E-Signatures]
  *     security:
  *       - bearerAuth: []

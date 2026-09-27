@@ -1,10 +1,12 @@
 import PDFDocument from 'pdfkit';
-import path from 'path';
 import { formatDate } from '../utils/date';
+import { DOCUMENT_TEMPLATE_NAMES, getDocumentTemplate } from './documentTemplateService';
+import { FOOTER_RESERVED_HEIGHT, drawControlledFooter, drawLetterhead } from './pdfLayout';
 
 type RequestLike = {
   requestNumber: string;
   rfsDocNo?: string;
+  jobNumber?: string;
   vesselCode?: string;
   vesselName: string;
   uqmsNumber?: string;
@@ -93,8 +95,10 @@ const drawTableRow = (
   return y + height;
 };
 
-export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promise<Buffer> =>
-  new Promise<Buffer>((resolve, reject) => {
+export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promise<Buffer> => {
+  const template = await getDocumentTemplate(DOCUMENT_TEMPLATE_NAMES.requestForSurvey);
+
+  return new Promise<Buffer>((resolve, reject) => {
     const doc = new PDFDocument({
       size: 'A4',
       margins: { top: PAGE_MARGIN, bottom: PAGE_MARGIN, left: PAGE_MARGIN, right: PAGE_MARGIN },
@@ -115,59 +119,8 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
     // PAGE 1
     // ─────────────────────────────────────────────
 
-    // Header
-    let logoPath = path.join(__dirname, '../public/logo.png');
-    // Fallback for compiled dist/services/requestPdfService.js
-    if (!require('fs').existsSync(logoPath)) {
-      logoPath = path.join(__dirname, '../../src/public/logo.png');
-    }
-
-    try {
-      if (require('fs').existsSync(logoPath)) {
-        doc.image(logoPath, PAGE_MARGIN, PAGE_MARGIN - 5, { width: 50 });
-      } else {
-        console.warn('Logo image not found at', logoPath);
-      }
-    } catch (err) {
-      console.warn('Could not load logo image:', err);
-    }
-
-    doc.y = PAGE_MARGIN + 5;
-    doc
-      .font('Helvetica-Bold')
-      .fontSize(14)
-      .fillColor('#1f4e79')
-      .text('UNIVERSAL QUALITY MANAGEMENT SYSTEMS (PVT) LTD', { align: 'center' });
-
-    doc.moveDown(0.3);
-    doc
-      .font('Helvetica')
-      .fontSize(10)
-      .fillColor('#000000')
-      .text('No: 08, Chandralekha Mawatha, Colombo 08, Sri Lanka.', { align: 'center' });
-
-    if (doc.y < PAGE_MARGIN + 55) {
-      doc.y = PAGE_MARGIN + 55;
-    }
-    doc.moveDown(0.4);
-    const ruleY = doc.y;
-    doc
-      .moveTo(innerLeft, ruleY)
-      .lineTo(innerLeft + pageWidth, ruleY)
-      .strokeColor('#cccccc')
-      .lineWidth(0.5)
-      .stroke()
-      .strokeColor('#000000')
-      .lineWidth(1);
-    doc.moveDown(0.7);
-
-    // Title
-    doc
-      .font('Helvetica-Bold')
-      .fontSize(13)
-      .fillColor('#000000')
-      .text('REQUEST FOR SURVEY', { align: 'center' });
-    doc.moveDown(0.7);
+    // Letterhead
+    doc.y = drawLetterhead(doc, { title: 'REQUEST FOR SURVEY', template, margin: PAGE_MARGIN });
 
     // Date/Info boxes — drawn at absolute position, top-right corner
     const boxLabelW = 55;
@@ -187,7 +140,17 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
 
     currentY += 20;
 
-    // 2. Date Box
+    // 2. Job Number Box
+    doc.rect(startX, currentY, boxLabelW, 20).stroke();
+    doc.rect(startX + boxLabelW, currentY, boxValW, 20).stroke();
+    doc.font('Helvetica-Bold').fontSize(8.5)
+      .text('Job No.', startX + 4, currentY + 5.5, { width: boxLabelW - 8, lineBreak: false });
+    doc.font('Helvetica').fontSize(8.5)
+      .text(request.jobNumber || '-', startX + boxLabelW + 4, currentY + 5.5, { width: boxValW - 8, lineBreak: false });
+
+    currentY += 20;
+
+    // 3. Date Box
     doc.rect(startX, currentY, boxLabelW, 20).stroke();
     doc.rect(startX + boxLabelW, currentY, boxValW, 20).stroke();
     doc.font('Helvetica-Bold').fontSize(8.5)
@@ -200,7 +163,7 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
     doc.font('Helvetica').fontSize(9.5).text('Universal Quality Management System.', innerLeft, dateY + 18);
 
     // Set doc.y safely below the boxes before continuing
-    doc.y = dateY + 45;
+    doc.y = currentY + 25;
     doc.moveDown(0.6);
 
     // Intro paragraph
@@ -278,7 +241,7 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
     } else {
       surveyTypes.forEach((st, idx) => {
         // If this row would overflow the page, start a new page and re-draw the survey header
-        if (surveyY + 18 > pageContentBottom + PAGE_BOTTOM_SAFE) {
+        if (surveyY + 18 > pageContentBottom) {
           doc.addPage();
           surveyY = PAGE_MARGIN;
           // Redraw column headers on continuation page
@@ -312,7 +275,7 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
     // ── Signature boxes ──
     // If not enough room on current page for signatures (120px), add a new page
     const sigH = 120;
-    if (doc.y + sigH + 10 > doc.page.height - PAGE_MARGIN) {
+    if (doc.y + sigH + 10 > doc.page.height - PAGE_MARGIN - FOOTER_RESERVED_HEIGHT) {
       doc.addPage();
     }
 
@@ -401,37 +364,8 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
       if (idx < terms.length - 1) doc.moveDown(0.6);
     });
 
-    // ─────────────────────────────────────────────
-    // Page footers — MUST stay within page bounds.
-    // Use height - PAGE_MARGIN - 12 so PDFKit never
-    // triggers an automatic new page.
-    // ─────────────────────────────────────────────
-    const totalPages = doc.bufferedPageRange().count;
-    for (let i = 0; i < totalPages; i++) {
-      doc.switchToPage(i);
-
-      doc
-        .font('Helvetica')
-        .fontSize(8)
-        .fillColor('#000000')
-        .text(
-          'Document No: UQMS-FM-009  |  Revision: 00  |  Effective Date: [25/01/2026]  |  Approved By: Technical Committee',
-          PAGE_MARGIN,
-          doc.page.height - PAGE_MARGIN - 12,
-          { width: pageWidth, align: 'left', lineBreak: false },
-        );
-
-      doc
-        .font('Helvetica')
-        .fontSize(8)
-        .fillColor('#000000')
-        .text(
-          `Page ${i + 1} of ${totalPages}`,
-          PAGE_MARGIN,
-          doc.page.height - PAGE_MARGIN - 12,  // safely inside the page
-          { width: pageWidth, align: 'right', lineBreak: false },
-        );
-    }
+    drawControlledFooter(doc, { template, margin: PAGE_MARGIN });
 
     doc.end();
   });
+};

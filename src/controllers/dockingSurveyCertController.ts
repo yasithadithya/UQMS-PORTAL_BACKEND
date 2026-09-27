@@ -61,7 +61,7 @@ export const createDockingSurveyCert = async (req: Request, res: Response): Prom
       sternTubeClearancePortPS, sternTubeClearancePortTB, sternTubeClearanceStbdPS, sternTubeClearanceStbdTB,
       aBracketClearancePortPS, aBracketClearancePortTB, aBracketClearanceStbdPS, aBracketClearanceStbdTB,
       rudderBearingPortPS, rudderBearingPortFA, rudderBearingStbdPS, rudderBearingStbdFA,
-      overboardValves, anodes, dateOfIssue
+      overboardValves, anodes, additionalRemarks, dateOfIssue
     } = req.body;
     
     const userId = (req as any).user?.id;
@@ -151,7 +151,7 @@ export const createDockingSurveyCert = async (req: Request, res: Response): Prom
       sternTubeClearancePortPS, sternTubeClearancePortTB, sternTubeClearanceStbdPS, sternTubeClearanceStbdTB,
       aBracketClearancePortPS, aBracketClearancePortTB, aBracketClearanceStbdPS, aBracketClearanceStbdTB,
       rudderBearingPortPS, rudderBearingPortFA, rudderBearingStbdPS, rudderBearingStbdFA,
-      overboardValves, anodes,
+      overboardValves, anodes, additionalRemarks,
       dateOfIssue: dateOfIssue || new Date(),
       issuedBy: userId,
       createdBy: userId,

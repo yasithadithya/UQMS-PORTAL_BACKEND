@@ -73,7 +73,7 @@ const invalidateLinkedSurveyReportPdf = async (surveyReportId: unknown): Promise
  */
 export const createSCCCOS = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { vesselId, surveyReportId, surveyBookingId, surveyFindings, dateOfIssue, typeOfSurvey, nominatedDeparturePoint, surveyorName } = req.body;
+    const { vesselId, surveyReportId, surveyBookingId, surveyFindings, dateOfIssue, typeOfSurvey, nominatedDeparturePoint, surveyorName, additionalRemarks } = req.body;
     const userId = (req as any).user?.id;
 
     // Validate references
@@ -176,6 +176,7 @@ export const createSCCCOS = async (req: Request, res: Response): Promise<void> =
       typeOfSurvey,
       nominatedDeparturePoint,
       surveyorName,
+      additionalRemarks,
       dateOfIssue: dateOfIssue || new Date(),
       issuedBy: userId,
       createdBy: userId,
@@ -383,7 +384,7 @@ export const deleteSCCCOS = async (req: Request, res: Response): Promise<void> =
  */
 export const getSCCCOSPreviewPdf = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { vesselId, surveyReportId, surveyBookingId, surveyFindings, nominatedDeparturePoint, typeOfSurvey, dateOfIssue, surveyorName } = req.body;
+    const { vesselId, surveyReportId, surveyBookingId, surveyFindings, nominatedDeparturePoint, typeOfSurvey, dateOfIssue, surveyorName, additionalRemarks } = req.body;
 
     // Validate references
     if (!vesselId || !mongoose.isValidObjectId(vesselId)) {
@@ -423,6 +424,7 @@ export const getSCCCOSPreviewPdf = async (req: Request, res: Response): Promise<
       nominatedDeparturePoint: nominatedDeparturePoint || 'Following respective Ports: Colombo, Galle, Hambantota, Trincomalee',
       typeOfSurvey: typeOfSurvey || 'SSC Initial Survey',
       surveyorName,
+      additionalRemarks,
       dateOfIssue: dateOfIssue || new Date(),
       issuedBy: (req as any).user,
     };

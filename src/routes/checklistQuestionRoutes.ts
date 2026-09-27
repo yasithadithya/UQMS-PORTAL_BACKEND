@@ -7,6 +7,7 @@ import {
   deleteChecklistQuestion,
 } from '../controllers/checklistQuestionController';
 import authMiddleware from '../middleware/auth';
+import { requirePermission } from '../middleware/permission';
 
 const router = Router();
 
@@ -161,7 +162,7 @@ router.use(authMiddleware);
  *       500:
  *         description: Internal server error
  */
-router.post('/', createChecklistQuestion);
+router.post('/', requirePermission('admin.master-data', 'create'), createChecklistQuestion);
 
 /**
  * @swagger
@@ -346,7 +347,7 @@ router.get('/:id', getChecklistQuestionById);
  *       500:
  *         description: Internal server error
  */
-router.put('/:id', updateChecklistQuestion);
+router.put('/:id', requirePermission('admin.master-data', 'update'), updateChecklistQuestion);
 
 /**
  * @swagger
@@ -375,6 +376,6 @@ router.put('/:id', updateChecklistQuestion);
  *       500:
  *         description: Internal server error
  */
-router.delete('/:id', deleteChecklistQuestion);
+router.delete('/:id', requirePermission('admin.master-data', 'delete'), deleteChecklistQuestion);
 
 export default router;

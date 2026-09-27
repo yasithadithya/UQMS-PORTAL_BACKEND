@@ -7,7 +7,10 @@ import {
   deleteRole,
 } from '../controllers/roleController';
 import authMiddleware from '../middleware/auth';
-import adminAuthMiddleware from '../middleware/adminAuth';
+import { requireAny, requirePermission } from '../middleware/permission';
+
+// The user form needs the role list, so User Management can read roles too.
+const canReadRoles = requireAny(['admin.roles', 'admin.users'], ['read']);
 
 const router = Router();
 
@@ -54,7 +57,7 @@ router.use(authMiddleware);
  *       401:
  *         description: Unauthorized
  */
-router.post('/', adminAuthMiddleware, createRole);
+router.post('/', requirePermission('admin.roles', 'create'), createRole);
 
 /**
  * @swagger
@@ -84,7 +87,7 @@ router.post('/', adminAuthMiddleware, createRole);
  *       401:
  *         description: Unauthorized
  */
-router.get('/', getAllRoles);
+router.get('/', canReadRoles, getAllRoles);
 
 /**
  * @swagger
@@ -119,7 +122,7 @@ router.get('/', getAllRoles);
  *       401:
  *         description: Unauthorized
  */
-router.get('/:id', getRoleById);
+router.get('/:id', canReadRoles, getRoleById);
 
 /**
  * @swagger
@@ -170,7 +173,7 @@ router.get('/:id', getRoleById);
  *       401:
  *         description: Unauthorized
  */
-router.put('/:id', adminAuthMiddleware, updateRole);
+router.put('/:id', requirePermission('admin.roles', 'update'), updateRole);
 
 /**
  * @swagger
@@ -198,6 +201,6 @@ router.put('/:id', adminAuthMiddleware, updateRole);
  *       401:
  *         description: Unauthorized
  */
-router.delete('/:id', adminAuthMiddleware, deleteRole);
+router.delete('/:id', requirePermission('admin.roles', 'delete'), deleteRole);
 
 export default router;

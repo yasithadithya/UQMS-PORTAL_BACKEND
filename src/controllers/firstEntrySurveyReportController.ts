@@ -5,6 +5,8 @@ import FirstEntrySurveyBookingModel from '../models/FirstEntrySurveyBooking';
 import RequestModel from '../models/Request';
 import { generateFullReport } from './firstEntryFullReportController';
 import { paginate } from '../utils/pagination';
+import { AuthRequest } from '../middleware/auth';
+import { rejectUnlessCan } from '../middleware/permission';
 
 // Helper function to extract and pre-populate report details from a booking
 const getPrePopulatedData = async (bookingId: string): Promise<any> => {
@@ -128,6 +130,9 @@ export const createFirstEntrySurveyReport = async (req: Request, res: Response):
       return;
     }
 
+    // Creating a report in any status other than Draft is an approval.
+    if (req.body.status && req.body.status !== 'Draft' && (await rejectUnlessCan(req as AuthRequest, res, 'marine.reports', 'approve'))) return;
+
     // Get pre-populated fields from booking and requests
     const prePopulatedData = await getPrePopulatedData(bookingId);
 
@@ -250,6 +255,12 @@ export const updateFirstEntrySurveyReport = async (req: Request, res: Response):
     const updateData = { ...req.body };
     if (userId) {
       updateData.updatedBy = userId;
+    }
+
+    // Changing the report status (approving or un-approving) needs the approve permission.
+    if (updateData.status !== undefined) {
+      const existing = await FirstEntrySurveyReportModel.findById(id).select('status');
+      if (existing && existing.status !== updateData.status && (await rejectUnlessCan(req as AuthRequest, res, 'marine.reports', 'approve'))) return;
     }
 
     // Find and update the report

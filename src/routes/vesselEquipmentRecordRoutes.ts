@@ -4,6 +4,10 @@ import {
   upsertEquipmentRecord,
 } from '../controllers/vesselEquipmentRecordController';
 import authMiddleware from '../middleware/auth';
+import { requireAny } from '../middleware/permission';
+
+// The equipment record is filled from the survey report screens and from the final survey report (Part C).
+const EQUIPMENT_MODULES = ['marine.reports', 'marine.certificates'];
 
 const router = Router();
 
@@ -36,7 +40,7 @@ router.use(authMiddleware);
  *       401:
  *         description: Unauthorized
  */
-router.get('/report/:surveyReportId', getEquipmentRecordBySurveyReportId);
+router.get('/report/:surveyReportId', requireAny(EQUIPMENT_MODULES, ['read']), getEquipmentRecordBySurveyReportId);
 
 /**
  * @swagger
@@ -94,6 +98,6 @@ router.get('/report/:surveyReportId', getEquipmentRecordBySurveyReportId);
  *       401:
  *         description: Unauthorized
  */
-router.post('/report/:surveyReportId', upsertEquipmentRecord);
+router.post('/report/:surveyReportId', requireAny(EQUIPMENT_MODULES, ['create', 'update']), upsertEquipmentRecord);
 
 export default router;

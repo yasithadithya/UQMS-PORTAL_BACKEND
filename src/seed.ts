@@ -70,6 +70,20 @@ const seedData = async () => {
     );
     console.log('Created document number config: rfsDocNo (RFS-####)');
 
+    await DocumentNumber.findOneAndUpdate(
+      { name: 'jobNumber' },
+      {
+        $setOnInsert: {
+          name: 'jobNumber',
+          prefix: 'JOB-',
+          digits: 4,
+          lastNumber: 0,
+        },
+      },
+      { upsert: true, new: true }
+    );
+    console.log('Created document number config: jobNumber (JOB-####)');
+
     console.log('\n🎉 Seed completed successfully!\n');
     process.exit(0);
   } catch (error) {

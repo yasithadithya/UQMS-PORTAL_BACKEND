@@ -16,6 +16,7 @@ export interface ISCCCOS extends Document {
   typeOfSurvey?: string;
   nominatedDeparturePoint?: string;
   surveyorName?: string;
+  additionalRemarks?: string;
   dateOfIssue: Date;
   issuedBy: mongoose.Types.ObjectId;
   pdf?: IStoredPdf;
@@ -80,6 +81,11 @@ const scccosSchema: Schema = new Schema(
     surveyorName: {
       type: String,
       trim: true
+    },
+    additionalRemarks: {
+      type: String,
+      trim: true,
+      default: ''
     },
     dateOfIssue: {
       type: Date,

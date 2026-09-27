@@ -34,6 +34,7 @@ const buildLookup = <T extends Record<string, any>>(rows: T[], fields: string[])
  * POST /api/public/survey-requests
  *
  * Creates a Request from the public website's Request-a-Survey form.
+ * The request is stored as pending review and only becomes a job once accepted.
  *
  * The website sends human-readable names ("Cargo Vessels", "Annual survey")
  * rather than ObjectIds, because it has no authenticated access to the
@@ -58,8 +59,9 @@ export const createPublicSurveyRequest = async (req: Request, res: Response): Pr
       surveyTypes,
     } = req.body ?? {};
 
-    // Anything the caller may not set: createdAt, status, requestNumber,
-    // rfsDocNo, source and createdBy are deliberately ignored.
+    // Anything the caller may not set: createdAt, status, requestNumber, rfsDocNo,
+    // jobNumber, approvalStatus, source and createdBy are deliberately ignored.
+    // A PO number is no longer collected from the website and is ignored if sent.
 
     if (!isNonEmptyString(sector)) {
       res.status(400).json({ success: false, message: 'Sector is required.' });
@@ -177,6 +179,8 @@ export const createPublicSurveyRequest = async (req: Request, res: Response): Pr
       surveyTypes: uniqueSurveyIds,
       status: 'active',
       source: 'web',
+      // Staff accept or reject it from the dashboard; the job number is assigned on acceptance.
+      approvalStatus: 'pending',
     });
 
     await newRequest.save();
