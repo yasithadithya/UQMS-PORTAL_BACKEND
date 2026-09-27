@@ -14,7 +14,8 @@
     "seed:vessel-codes": "ts-node src/seedVesselCodes.ts",
     "seed:rec-equip-ques": "ts-node src/seedRecEquipQues.ts",
     "seed:hr": "ts-node src/seedHr.ts",
-    "seed:document-templates": "ts-node src/seedDocumentTemplates.ts"
+    "seed:document-templates": "ts-node src/seedDocumentTemplates.ts",
+    "seed:fee-items": "ts-node src/seedFeeItems.ts"
   },
   "keywords": [],
   "author": "",

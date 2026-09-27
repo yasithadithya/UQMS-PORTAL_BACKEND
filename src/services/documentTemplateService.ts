@@ -6,6 +6,7 @@ export const DOCUMENT_TEMPLATE_NAMES = {
   dockingStatement: 'Docking Statement',
   surveyReport: 'Record of Equipment & Survey Report',
   scccos: 'Small Craft Code Certificate of Survey',
+  quotation: 'Quotation',
 } as const;
 
 export type DocumentTemplateName = (typeof DOCUMENT_TEMPLATE_NAMES)[keyof typeof DOCUMENT_TEMPLATE_NAMES];
@@ -47,6 +48,13 @@ export const DEFAULT_DOCUMENT_TEMPLATES: DocumentTemplateData[] = [
   {
     documentName: DOCUMENT_TEMPLATE_NAMES.scccos,
     documentNumber: 'UQMS-FM-019',
+    revision: '00',
+    effectiveDate: new Date('2026-01-25'),
+    approvedBy: 'Technical Committee',
+  },
+  {
+    documentName: DOCUMENT_TEMPLATE_NAMES.quotation,
+    documentNumber: 'UQMS-FM-020',
     revision: '00',
     effectiveDate: new Date('2026-01-25'),
     approvedBy: 'Technical Committee',

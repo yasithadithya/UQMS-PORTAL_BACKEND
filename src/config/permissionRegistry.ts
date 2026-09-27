@@ -74,6 +74,16 @@ export const SYSTEM_MODULES: SystemModuleDef[] = [
   { key: 'hr.training', name: 'Training', description: 'Training programs, sessions and enrollments', parentKey: 'hr', navigable: false, actions: CRUD, inheritFrom: 'hr', inheritRequires: 'update', order: 6 },
   { key: 'hr.announcements', name: 'Announcements', description: 'Company announcements', parentKey: 'hr', navigable: false, actions: CRUD, inheritFrom: 'hr', inheritRequires: 'update', order: 7 },
 
+  { key: 'finance', name: 'Finance', description: 'Finance Module', parentKey: null, navigable: true, actions: READ },
+  {
+    key: 'finance.quotations', name: 'Quotations', description: 'Client quotations for requests and jobs (approve = accept or reject)',
+    parentKey: 'finance', navigable: false, actions: [...CRUD, 'approve'], order: 1,
+  },
+  {
+    key: 'finance.fee-structure', name: 'Fee Structure', description: 'Standard survey fees and additional charges',
+    parentKey: 'finance', navigable: false, actions: CRUD, order: 2,
+  },
+
   { key: 'admin', name: 'Admin', description: 'Admin Module', parentKey: null, navigable: true, actions: READ },
   { key: 'admin.users', name: 'User Management', description: 'Manage system users', parentKey: 'admin', navigable: false, actions: CRUD, order: 1 },
   { key: 'admin.roles', name: 'Role Management', description: 'Manage roles and permissions', parentKey: 'admin', navigable: false, actions: CRUD, order: 2 },
@@ -92,3 +102,4 @@ export const INITIAL_ROLE_GRANTS: { roleName: string; moduleKey: string; actions
 
 export const MARINE_KEYS = ['marine.entries', 'marine.bookings', 'marine.reports', 'marine.certificates'];
 export const HR_KEYS = SYSTEM_MODULES.filter((m) => m.parentKey === 'hr').map((m) => m.key);
+export const FINANCE_KEYS = SYSTEM_MODULES.filter((m) => m.parentKey === 'finance').map((m) => m.key);

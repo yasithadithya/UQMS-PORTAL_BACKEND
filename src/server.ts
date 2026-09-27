@@ -26,6 +26,7 @@ import surveyReportRoutes from './routes/surveyReportRoutes';
 import documentTemplateRoutes from './routes/documentTemplateRoutes';
 import dockingSurveyCertRoutes from './routes/dockingSurveyCertRoutes';
 import eSignatureRoutes from './routes/eSignatureRoutes';
+import financeRoutes from './routes/financeRoutes';
 import publicRoutes from './routes/publicRoutes';
 import hrRoutes from './HR/routes';
 import { syncSystemModules } from './config/seedModules';
@@ -75,6 +76,7 @@ app.use('/api/document-templates', documentTemplateRoutes);
 app.use('/api/docking-survey', dockingSurveyCertRoutes);
 app.use('/api/e-signatures', eSignatureRoutes);
 app.use('/api/hr', hrRoutes);
+app.use('/api/finance', financeRoutes);
 
 // Public intake (API-key authenticated, called by the public website)
 app.use('/api/public', publicRoutes);

@@ -227,46 +227,47 @@ export const createDockingSurveyPdfBuffer = async (
       doc.text(title, innerLeft, currentY);
       currentY += 15;
 
+      // Size the label column to fit its text so labels never run under the value columns.
+      const valW = 100;
+      const cellPad = 5;
+      const rows = [[row1, val11, val12], ...(row2 ? [[row2, val21, val22]] : [])];
+      const widestLabel = Math.max(...rows.map(([label]) => doc.widthOfString(label)));
+      const labelW = Math.min(Math.max(120, widestLabel + cellPad * 2), pageWidth - valW * 2);
+      const col1X = innerLeft + labelW;
+      const col2X = col1X + valW;
+      const tableRight = col2X + valW;
+
       const cTableTop = currentY;
       // headers
-      doc.rect(innerLeft + 120, currentY, 100, 20).fill('#e5e7eb');
-      doc.rect(innerLeft + 220, currentY, 100, 20).fill('#e5e7eb');
+      doc.rect(col1X, currentY, valW * 2, 20).fill('#e5e7eb');
       doc.fillColor('#111827');
-      
-      doc.text(headers[0], innerLeft + 120, currentY + 5, { width: 100, align: 'center' });
-      doc.text(headers[1], innerLeft + 220, currentY + 5, { width: 100, align: 'center' });
-      
+
+      doc.text(headers[0], col1X, currentY + 5, { width: valW, align: 'center' });
+      doc.text(headers[1], col2X, currentY + 5, { width: valW, align: 'center' });
+
       currentY += 20;
-      doc.text(row1, innerLeft + 5, currentY + 5);
-      doc.text(val11 || '-', innerLeft + 120, currentY + 5, { width: 100, align: 'center' });
-      doc.text(val12 || '-', innerLeft + 220, currentY + 5, { width: 100, align: 'center' });
-      
-      currentY += 20;
-      if (row2) {
-        doc.text(row2, innerLeft + 5, currentY + 5);
-        doc.text(val21 || '-', innerLeft + 120, currentY + 5, { width: 100, align: 'center' });
-        doc.text(val22 || '-', innerLeft + 220, currentY + 5, { width: 100, align: 'center' });
-        currentY += 20;
-      }
-      
+      const rowLines = [currentY];
+      rows.forEach(([label, v1, v2]) => {
+        const rowH = Math.max(20, doc.heightOfString(label, { width: labelW - cellPad * 2 }) + cellPad * 2);
+        doc.text(label, innerLeft + cellPad, currentY + cellPad, { width: labelW - cellPad * 2 });
+        doc.text(v1 || '-', col1X, currentY + cellPad, { width: valW, align: 'center' });
+        doc.text(v2 || '-', col2X, currentY + cellPad, { width: valW, align: 'center' });
+        currentY += rowH;
+        rowLines.push(currentY);
+      });
+
       const cTableBottom = currentY;
-      
+
       // Lines
       doc.lineWidth(1).strokeColor('#d1d5db');
       // Horiz
-      doc.moveTo(innerLeft + 120, cTableTop).lineTo(innerLeft + 320, cTableTop).stroke();
-      doc.moveTo(innerLeft, cTableTop + 20).lineTo(innerLeft + 320, cTableTop + 20).stroke();
-      doc.moveTo(innerLeft, cTableTop + 40).lineTo(innerLeft + 320, cTableTop + 40).stroke();
-      if (row2) {
-        doc.moveTo(innerLeft, cTableTop + 60).lineTo(innerLeft + 320, cTableTop + 60).stroke();
-      }
-      
+      doc.moveTo(col1X, cTableTop).lineTo(tableRight, cTableTop).stroke();
+      rowLines.forEach((y) => doc.moveTo(innerLeft, y).lineTo(tableRight, y).stroke());
+
       // Vert
       doc.moveTo(innerLeft, cTableTop + 20).lineTo(innerLeft, cTableBottom).stroke();
-      doc.moveTo(innerLeft + 120, cTableTop).lineTo(innerLeft + 120, cTableBottom).stroke();
-      doc.moveTo(innerLeft + 220, cTableTop).lineTo(innerLeft + 220, cTableBottom).stroke();
-      doc.moveTo(innerLeft + 320, cTableTop).lineTo(innerLeft + 320, cTableBottom).stroke();
-      
+      [col1X, col2X, tableRight].forEach((x) => doc.moveTo(x, cTableTop).lineTo(x, cTableBottom).stroke());
+
       currentY += 20;
     };
 
