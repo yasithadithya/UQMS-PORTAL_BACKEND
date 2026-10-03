@@ -42,6 +42,10 @@ const readFeeItemBody = (body: any, partial: boolean): { error: string } | { val
     if (!FEE_UNITS.includes(body.unit)) return { error: `Unit must be one of: ${FEE_UNITS.join(', ')}.` };
     values.unit = body.unit;
   }
+  if (has('vesselCodes')) {
+    if (!Array.isArray(body.vesselCodes)) return { error: 'Vessel codes must be a list.' };
+    values.vesselCodes = Array.from(new Set(body.vesselCodes.filter(isNonEmptyString).map((code: string) => code.trim())));
+  }
   if (has('notes')) values.notes = typeof body.notes === 'string' ? body.notes.trim() : undefined;
   if (has('isActive')) values.isActive = Boolean(body.isActive);
   if (has('order')) {
@@ -54,7 +58,11 @@ const readFeeItemBody = (body: any, partial: boolean): { error: string } | { val
 // Get all fee items, grouped by category then by order
 export const getFeeItems = async (req: Request, res: Response): Promise<void> => {
   try {
-    const query = req.query.active === 'true' ? { isActive: true } : {};
+    const query: Record<string, unknown> = req.query.active === 'true' ? { isActive: true } : {};
+    // A vessel code narrows the list to fees for that code plus fees that apply to every code.
+    if (isNonEmptyString(req.query.vesselCode)) {
+      query.$or = [{ vesselCodes: req.query.vesselCode.trim() }, { vesselCodes: { $size: 0 } }, { vesselCodes: { $exists: false } }];
+    }
     const feeItems = await FeeItem.find(query).sort({ order: 1, name: 1 }).lean();
     feeItems.sort((a, b) => (CATEGORY_ORDER[a.category] ?? 9) - (CATEGORY_ORDER[b.category] ?? 9));
     res.status(200).json({ success: true, count: feeItems.length, data: feeItems });

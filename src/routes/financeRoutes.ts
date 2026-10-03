@@ -8,6 +8,9 @@ import {
   getQuotationPdf,
   getQuotations,
   getQuotationsByRequest,
+  sendQuotationToClient,
+  signQuotation,
+  unsignQuotation,
   updateQuotation,
   updateQuotationStatus,
 } from '../controllers/quotationController';
@@ -330,5 +333,41 @@ router.patch('/quotations/:id/status', requireAny([QUOTATIONS], ['update', 'appr
  *           application/pdf: {}
  */
 router.get('/quotations/:id/pdf', requirePermission(QUOTATIONS, 'read'), getQuotationPdf);
+
+/**
+ * @swagger
+ * /api/finance/quotations/{id}/sign:
+ *   post:
+ *     summary: E-sign the quotation as the person who prepared it (removed again on any edit)
+ *     tags: [Finance]
+ *     security:
+ *       - bearerAuth: []
+ *   delete:
+ *     summary: Remove the preparer's e-signature
+ *     tags: [Finance]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post('/quotations/:id/sign', requirePermission(QUOTATIONS, 'update'), signQuotation);
+router.delete('/quotations/:id/sign', requirePermission(QUOTATIONS, 'update'), unsignQuotation);
+
+/**
+ * @swagger
+ * /api/finance/quotations/{id}/send:
+ *   post:
+ *     summary: Email the RFS and quotation PDFs to the client email on the survey request
+ *     description: A draft quotation is marked sent.
+ *     tags: [Finance]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               message: { type: string, description: Optional note added to the email }
+ */
+router.post('/quotations/:id/send', requirePermission(QUOTATIONS, 'update'), sendQuotationToClient);
 
 export default router;

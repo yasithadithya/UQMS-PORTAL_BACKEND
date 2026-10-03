@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { isSigned, rejectUnsignedPublicPdf, sendAnnotatedPublicPdf, sendDeliverablePdf } from '../services/deliverableAccess';
 import mongoose from 'mongoose';
 import QRCode from 'qrcode';
 import SCCCOSModel from '../models/SCCCOS';
@@ -438,9 +439,8 @@ export const getSCCCOSPreviewPdf = async (req: Request, res: Response): Promise<
 
     const { buffer: pdfBuffer } = await createScccosPdfBuffer(previewData, qrBuffer);
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'inline; filename="scccos-preview.pdf"');
-    res.send(pdfBuffer);
+    // Unsaved drafts are never signed, so previews always carry the PREVIEW watermark.
+    await sendDeliverablePdf(req, res, { buffer: pdfBuffer, filename: 'scccos-preview.pdf', signed: false });
   } catch (error: any) {
     res.status(500).json({
       success: false,
@@ -461,7 +461,7 @@ export const getSCCCOSFinalPdf = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    const certificate = await SCCCOSModel.findById(id).select('certificateNumber pdf');
+    const certificate = await SCCCOSModel.findById(id).select('certificateNumber pdf eSignature');
     if (!certificate) {
       res.status(404).json({ success: false, message: 'SCCCOS Certificate not found.' });
       return;
@@ -473,9 +473,12 @@ export const getSCCCOSFinalPdf = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="certificate-${certificate.certificateNumber}.pdf"`);
-    res.send(pdfBuffer);
+    await sendDeliverablePdf(req, res, {
+      buffer: pdfBuffer,
+      filename: `certificate-${certificate.certificateNumber}.pdf`,
+      signed: isSigned(certificate),
+      annotationsFor: { docType: 'scccos', docId: id },
+    });
   } catch (error: any) {
     res.status(500).json({
       success: false,
@@ -496,11 +499,16 @@ export const getPublicSCCCOSPdf = async (req: Request, res: Response): Promise<v
       return;
     }
 
-    const certificate = await SCCCOSModel.findById(id).select('pdf');
+    const certificate = await SCCCOSModel.findById(id).select('pdf eSignature');
     if (!certificate) {
       res.status(404).send('SCCCOS Certificate not found.');
       return;
     }
+    if (!isSigned(certificate)) {
+      rejectUnsignedPublicPdf(res);
+      return;
+    }
+    if (await sendAnnotatedPublicPdf(res, 'scccos', id, () => readStoredPdf(certificate.pdf, () => renderAndStoreScccosPdf(req, id)))) return;
 
     const presignedUrl = await getStoredPdfUrl(certificate.pdf, () => renderAndStoreScccosPdf(req, id));
     if (!presignedUrl) {

@@ -4,9 +4,12 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import mongoose from 'mongoose';
 import path from 'path';
-import nodemailer from 'nodemailer';
-import RequestModel from '../models/Request';
+import { createMailTransport } from '../services/mailService';
+import RequestModel, { IRequest, REQUEST_DOCUMENT_TYPES, isRequestDocumentType } from '../models/Request';
 import RequestDocumentModel from '../models/RequestDocument';
+import type { AuthRequest } from '../middleware/auth';
+import { userCan } from '../utils/permissions';
+import { diffFields, recordAudit } from '../services/auditService';
 import VesselType from '../models/VesselType';
 import AreaOfOperation from '../models/AreaOfOperation';
 import SurveyType from '../models/SurveyType';
@@ -67,7 +70,48 @@ const sanitizeSegment = (value: string): string =>
     .replace(/-+/g, '-')
     .replace(/^-+|-+$/g, '');
 
-const buildDocumentKey = (
+/** Fields compared when auditing a Technical Committee edit of a locked request. */
+const AUDITED_REQUEST_FIELDS = [
+  'vesselCode', 'uqmsNumber', 'imoNumber', 'mmsiNumber', 'vesselName', 'companyName', 'contactPersonName',
+  'contactPersonNumber', 'registerdAddress', 'invoicingAddress', 'companyEmail', 'sector', 'status',
+  'vesselType', 'areaOfOperation', 'surveyTypes', 'createdAt',
+];
+
+const LOCKED_MESSAGE = 'Only active requests can be edited. A Technical Committee override is required to change this request.';
+
+/**
+ * Requests can normally only be edited while active. Users holding `override` on New Request
+ * (the Technical Committee) may still edit them; the caller must audit those changes.
+ */
+const resolveEditAccess = async (req: Request, request: IRequest): Promise<'open' | 'override' | 'locked'> => {
+  if (request.status === 'active') return 'open';
+  return (await userCan(req as AuthRequest, 'new-request', 'override')) ? 'override' : 'locked';
+};
+
+const overrideReason = (req: Request): string | undefined => {
+  const reason = req.body?.overrideReason;
+  return isNonEmptyString(reason) ? toTrimmedString(reason) : undefined;
+};
+
+/** Parses a multipart/JSON list field (`a`, `["a","b"]` or an array) into strings. */
+export const parseStringList = (value: unknown): string[] | undefined => {
+  if (Array.isArray(value)) return value.map((item) => String(item));
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed.map((item) => String(item));
+      } catch {
+        // fall through to a single value
+      }
+    }
+    return [value];
+  }
+  return undefined;
+};
+
+export const buildDocumentKey = (
   requestNumber: string,
   documentName: string,
   originalname: string,
@@ -310,6 +354,17 @@ export const createRequest = async (req: Request, res: Response): Promise<void> 
     });
 
     await newRequest.save();
+
+    // Survey requests normally come from the website; creating one in the ERP is a Technical
+    // Committee override (enforced on the route) and is always audited.
+    await recordAudit(req as AuthRequest, {
+      action: 'request.create.override',
+      entityType: 'request',
+      entityId: newRequest._id,
+      entityRef: newRequest.requestNumber,
+      reason: overrideReason(req),
+      changes: [{ field: 'jobNumber', to: newRequest.jobNumber }, { field: 'vesselName', to: newRequest.vesselName }],
+    });
 
     const populatedRequest = await RequestModel.findById(newRequest._id)
       .populate('vesselType')
@@ -610,10 +665,12 @@ export const updateRequest = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    if (request.status !== 'active') {
-      res.status(400).json({ success: false, message: 'Only active requests can be edited.' });
+    const access = await resolveEditAccess(req, request);
+    if (access === 'locked') {
+      res.status(400).json({ success: false, message: LOCKED_MESSAGE });
       return;
     }
+    const before = access === 'override' ? request.toObject() : null;
 
     if (vesselType !== undefined) {
       const vesselDoc = await VesselType.findById(vesselType);
@@ -691,6 +748,17 @@ export const updateRequest = async (req: Request, res: Response): Promise<void> 
 
     await request.save();
 
+    if (before) {
+      await recordAudit(req as AuthRequest, {
+        action: 'request.update.override',
+        entityType: 'request',
+        entityId: request._id,
+        entityRef: request.requestNumber,
+        reason: overrideReason(req),
+        changes: diffFields(before, request.toObject(), AUDITED_REQUEST_FIELDS),
+      });
+    }
+
     const populatedRequest = await RequestModel.findById(request._id)
       .populate('vesselType')
       .populate('areaOfOperation')
@@ -721,8 +789,9 @@ export const addRequestDocuments = async (req: Request, res: Response): Promise<
       return;
     }
 
-    if (request.status !== 'active') {
-      res.status(400).json({ success: false, message: 'Only active requests can be edited.' });
+    const access = await resolveEditAccess(req, request);
+    if (access === 'locked') {
+      res.status(400).json({ success: false, message: LOCKED_MESSAGE });
       return;
     }
 
@@ -733,9 +802,15 @@ export const addRequestDocuments = async (req: Request, res: Response): Promise<
     }
 
     const documentNames = parseDocumentNames(req.body.documentNames ?? req.body.documentName);
+    const documentTypes = parseStringList(req.body.documentTypes ?? req.body.documentType);
+    if (documentTypes?.some((type) => type && !isRequestDocumentType(type))) {
+      res.status(400).json({ success: false, message: 'Unknown document type.' });
+      return;
+    }
 
     const documentsToAdd = [] as Array<{
       name: string;
+      documentType?: string;
       key: string;
       url?: string;
       contentType?: string;
@@ -752,9 +827,13 @@ export const addRequestDocuments = async (req: Request, res: Response): Promise<
       }
 
       const providedName = documentNames?.[index];
+      const providedType = documentTypes?.[index];
+      const documentType = isRequestDocumentType(providedType) ? providedType : undefined;
       const name = isNonEmptyString(providedName)
         ? toTrimmedString(providedName)
-        : getFallbackDocumentName(file.originalname);
+        : documentType && documentType !== 'other'
+          ? REQUEST_DOCUMENT_TYPES[documentType]
+          : getFallbackDocumentName(file.originalname);
 
       const key = buildDocumentKey(request.requestNumber, name, file.originalname, file.mimetype);
 
@@ -767,6 +846,7 @@ export const addRequestDocuments = async (req: Request, res: Response): Promise<
 
       documentsToAdd.push({
         name,
+        documentType,
         key: uploadResult.key,
         url: uploadResult.url,
         contentType: file.mimetype,
@@ -780,6 +860,17 @@ export const addRequestDocuments = async (req: Request, res: Response): Promise<
     }
     request.set('documents', [...request.documents, ...documentsToAdd]);
     await request.save();
+
+    if (access === 'override') {
+      await recordAudit(req as AuthRequest, {
+        action: 'request.update.override',
+        entityType: 'request',
+        entityId: request._id,
+        entityRef: request.requestNumber,
+        reason: overrideReason(req),
+        changes: documentsToAdd.map((doc) => ({ field: 'documents', to: `Added ${doc.name}` })),
+      });
+    }
 
     const populatedRequest = await RequestModel.findById(request._id)
       .populate('vesselType')
@@ -811,8 +902,9 @@ export const updateRequestDocument = async (req: Request, res: Response): Promis
       return;
     }
 
-    if (request.status !== 'active') {
-      res.status(400).json({ success: false, message: 'Only active requests can be edited.' });
+    const access = await resolveEditAccess(req, request);
+    if (access === 'locked') {
+      res.status(400).json({ success: false, message: LOCKED_MESSAGE });
       return;
     }
 
@@ -822,11 +914,21 @@ export const updateRequestDocument = async (req: Request, res: Response): Promis
       res.status(404).json({ success: false, message: 'Document not found.' });
       return;
     }
+    const previousName = document.name;
+
+    const typeInput = req.body.documentType;
+    if (typeInput !== undefined && typeInput !== '' && !isRequestDocumentType(typeInput)) {
+      res.status(400).json({ success: false, message: 'Unknown document type.' });
+      return;
+    }
+    if (isRequestDocumentType(typeInput)) {
+      document.documentType = typeInput;
+    }
 
     const nameInput = typeof req.body.name === 'string' ? req.body.name : req.body.documentName;
     const file = (req as Request & { file?: Express.Multer.File }).file;
 
-    if (!file && nameInput === undefined) {
+    if (!file && nameInput === undefined && !isRequestDocumentType(typeInput)) {
       res.status(400).json({ success: false, message: 'Nothing to update.' });
       return;
     }
@@ -877,6 +979,17 @@ export const updateRequestDocument = async (req: Request, res: Response): Promis
 
     await request.save();
 
+    if (access === 'override') {
+      await recordAudit(req as AuthRequest, {
+        action: 'request.update.override',
+        entityType: 'request',
+        entityId: request._id,
+        entityRef: request.requestNumber,
+        reason: overrideReason(req),
+        changes: [{ field: 'documents', from: previousName, to: file ? `${document.name} (file replaced)` : document.name }],
+      });
+    }
+
     const populatedRequest = await RequestModel.findById(request._id)
       .populate('vesselType')
       .populate('areaOfOperation')
@@ -907,8 +1020,9 @@ export const deleteRequestDocument = async (req: Request, res: Response): Promis
       return;
     }
 
-    if (request.status !== 'active') {
-      res.status(400).json({ success: false, message: 'Only active requests can be edited.' });
+    const access = await resolveEditAccess(req, request);
+    if (access === 'locked') {
+      res.status(400).json({ success: false, message: LOCKED_MESSAGE });
       return;
     }
 
@@ -917,6 +1031,17 @@ export const deleteRequestDocument = async (req: Request, res: Response): Promis
     if (!document) {
       res.status(404).json({ success: false, message: 'Document not found.' });
       return;
+    }
+
+    if (access === 'override') {
+      await recordAudit(req as AuthRequest, {
+        action: 'request.update.override',
+        entityType: 'request',
+        entityId: request._id,
+        entityRef: request.requestNumber,
+        reason: overrideReason(req),
+        changes: [{ field: 'documents', from: document.name, to: 'Deleted' }],
+      });
     }
 
     if (document.key) {
@@ -1203,18 +1328,7 @@ export const printAndSendRequestSurveyPdf = async (req: Request, res: Response):
     });
 
     // Send the email to the client using transporter configuration
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'mail.uqms.net',
-      port: Number(process.env.SMTP_PORT) || 587,
-      secure: process.env.SMTP_PORT === '465',
-      auth: {
-        user: process.env.SENDER_EMAIL,
-        pass: process.env.SENDER_EMAIL_PASSWORD,
-      },
-      tls: {
-        rejectUnauthorized: false
-      }
-    });
+    const transporter = createMailTransport();
 
     const mailOptions = {
       from: process.env.SENDER_EMAIL,

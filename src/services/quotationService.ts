@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import FirstEntry from '../models/FirstEntry';
-import Quotation, { IQuotationLineItem } from '../models/Quotation';
+import Quotation, { DISCOUNT_TYPES, DiscountType, IQuotationDiscount, IQuotationLineItem } from '../models/Quotation';
 import { FEE_CURRENCIES, FeeCurrency } from '../models/FeeItem';
 import { getNextDocumentNumber } from './documentNumberService';
 
@@ -29,11 +29,28 @@ const round2 = (value: number): number => Math.round((value + Number.EPSILON) * 
 
 const toNumber = (value: unknown): number => (typeof value === 'number' ? value : Number(value));
 
+/** Most extra columns a quotation table can have, so the PDF table stays readable. */
+export const MAX_EXTRA_COLUMNS = 3;
+
+/** Validates the labels of user-added table columns. */
+export const cleanExtraColumns = (value: unknown): string[] => {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) throw new QuotationError(400, 'Extra columns must be a list of column names.');
+  const columns = value.map((item) => (typeof item === 'string' ? item.trim() : ''));
+  if (columns.some((label) => !label)) throw new QuotationError(400, 'Every extra column needs a name.');
+  if (columns.length > MAX_EXTRA_COLUMNS) throw new QuotationError(400, `A quotation can have at most ${MAX_EXTRA_COLUMNS} extra columns.`);
+  return columns;
+};
+
 /**
- * Validates the submitted lines and computes each amount in LKR plus the total.
+ * Validates the submitted lines and computes each amount in LKR plus the subtotal.
  * USD lines are converted with the exchange rate; amounts are rounded to 2 decimals.
  */
-export const buildLineItems = (rawLines: unknown, exchangeRateInput: unknown): { lineItems: IQuotationLineItem[]; totalLkr: number; exchangeRate: number } => {
+export const buildLineItems = (
+  rawLines: unknown,
+  exchangeRateInput: unknown,
+  extraColumnCount = 0
+): { lineItems: IQuotationLineItem[]; totalLkr: number; exchangeRate: number } => {
   const exchangeRate = toNumber(exchangeRateInput);
   if (!Number.isFinite(exchangeRate) || exchangeRate <= 0) {
     throw new QuotationError(400, 'Conversion rate must be a number greater than 0.');
@@ -55,7 +72,10 @@ export const buildLineItems = (rawLines: unknown, exchangeRateInput: unknown): {
     if (!Number.isFinite(quantity) || quantity <= 0) throw new QuotationError(400, `Line ${line}: quantity must be greater than 0.`);
 
     const amount = rate * quantity * (currency === 'USD' ? exchangeRate : 1);
+    const rawExtra: unknown[] = Array.isArray(raw?.extra) ? raw.extra : [];
+    const extra = Array.from({ length: extraColumnCount }, (_, i) => (typeof rawExtra[i] === 'string' ? (rawExtra[i] as string).trim() : ''));
     return {
+      extra,
       feeItem: raw?.feeItem && mongoose.isValidObjectId(raw.feeItem) ? raw.feeItem : undefined,
       description,
       currency,
@@ -68,6 +88,34 @@ export const buildLineItems = (rawLines: unknown, exchangeRateInput: unknown): {
   const totalLkr = round2(lineItems.reduce((sum, item) => sum + item.amountLkr, 0));
   return { lineItems, totalLkr, exchangeRate };
 };
+
+/**
+ * Validates a discount and works out its LKR amount against the subtotal.
+ * An absent or zero discount returns { discount: undefined, discountLkr: 0 }.
+ */
+export const buildDiscount = (raw: unknown, subtotalLkr: number): { discount?: IQuotationDiscount; discountLkr: number } => {
+  if (raw === undefined || raw === null || raw === '') return { discount: undefined, discountLkr: 0 };
+  const input = raw as { type?: unknown; value?: unknown; description?: unknown };
+  const type = input.type as DiscountType;
+  const value = toNumber(input.value);
+  if (!DISCOUNT_TYPES.includes(type)) throw new QuotationError(400, 'Discount type must be percent or amount.');
+  if (!Number.isFinite(value) || value < 0) throw new QuotationError(400, 'Discount must be 0 or more.');
+  if (value === 0) return { discount: undefined, discountLkr: 0 };
+  if (type === 'percent' && value > 100) throw new QuotationError(400, 'A percentage discount cannot exceed 100%.');
+
+  const discountLkr = round2(type === 'percent' ? (subtotalLkr * value) / 100 : value);
+  if (discountLkr > subtotalLkr) throw new QuotationError(400, 'The discount cannot be more than the subtotal.');
+
+  const description = typeof input.description === 'string' && input.description.trim() ? input.description.trim() : undefined;
+  return { discount: { type, value, description }, discountLkr };
+};
+
+/** Comparable form of a discount, for detecting changes. */
+export const discountKey = (discount?: IQuotationDiscount | null): string =>
+  discount && discount.value > 0 ? `${discount.type}:${discount.value}` : 'none';
+
+export const describeDiscount = (discount?: IQuotationDiscount | null): string =>
+  !discount || discount.value === 0 ? 'None' : discount.type === 'percent' ? `${discount.value}%` : `LKR ${discount.value}`;
 
 /** Trims a list of text lines and drops the empty ones. */
 export const cleanTextList = (value: unknown): string[] =>

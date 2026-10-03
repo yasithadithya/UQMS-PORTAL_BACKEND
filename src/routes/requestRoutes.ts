@@ -125,7 +125,8 @@ router.use(authMiddleware);
  *       401:
  *         description: Unauthorized
  */
-router.post('/', requirePermission('new-request', 'create'), createRequest);
+// Survey requests normally arrive from the website; creating one here is a Technical Committee override.
+router.post('/', requirePermission('new-request', 'override'), createRequest);
 
 /**
  * @swagger
