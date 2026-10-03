@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { isSigned, rejectUnsignedPublicPdf, sendAnnotatedPublicPdf, sendDeliverablePdf } from '../services/deliverableAccess';
 import mongoose from 'mongoose';
 import QRCode from 'qrcode';
 import SurveyReportModel from '../models/SurveyReport';
@@ -521,7 +522,7 @@ export const generateSurveyReportPdf = async (req: Request, res: Response): Prom
       return;
     }
 
-    const report = await SurveyReportModel.findById(id).select('pdf');
+    const report = await SurveyReportModel.findById(id).select('pdf eSignature');
     if (!report) {
       res.status(404).json({ success: false, message: 'Survey Report not found.' });
       return;
@@ -533,9 +534,7 @@ export const generateSurveyReportPdf = async (req: Request, res: Response): Prom
       return;
     }
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=survey_report_${id}.pdf`);
-    res.send(pdfBuffer);
+    await sendDeliverablePdf(req, res, { buffer: pdfBuffer, filename: `survey_report_${id}.pdf`, signed: isSigned(report), annotationsFor: { docType: 'survey-report', docId: id } });
   } catch (error: any) {
     res.status(500).json({
       success: false,
@@ -556,11 +555,16 @@ export const getPublicSurveyReportPdf = async (req: Request, res: Response): Pro
       return;
     }
 
-    const report = await SurveyReportModel.findById(id).select('pdf');
+    const report = await SurveyReportModel.findById(id).select('pdf eSignature');
     if (!report) {
       res.status(404).send('Survey Report not found.');
       return;
     }
+    if (!isSigned(report)) {
+      rejectUnsignedPublicPdf(res);
+      return;
+    }
+    if (await sendAnnotatedPublicPdf(res, 'survey-report', id, () => readStoredPdf(report.pdf, () => renderAndStoreSurveyReportPdf(req, id)))) return;
 
     const presignedUrl = await getStoredPdfUrl(report.pdf, () => renderAndStoreSurveyReportPdf(req, id));
     if (!presignedUrl) {

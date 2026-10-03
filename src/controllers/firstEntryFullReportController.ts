@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { isSigned, rejectUnsignedPublicPdf, sendAnnotatedPublicPdf, sendDeliverablePdf } from '../services/deliverableAccess';
 import mongoose from 'mongoose';
 import FirstEntryFullReport from '../models/FirstEntryFullReport';
 import FirstEntrySurveyReport from '../models/FirstEntrySurveyReport';
@@ -706,9 +707,8 @@ export const getDailyReportPdfPreview = async (req: Request, res: Response): Pro
     // Generate PDF Buffer
     const { buffer: pdfBuffer } = await createDailyReportPdfBuffer(report, qrBuffer);
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'inline; filename="daily-report-preview.pdf"');
-    res.send(pdfBuffer);
+    // Unsaved drafts are never signed, so previews always carry the PREVIEW watermark.
+    await sendDeliverablePdf(req, res, { buffer: pdfBuffer, filename: 'daily-report-preview.pdf', signed: false });
   } catch (error: any) {
     res.status(500).json({
       success: false,
@@ -729,7 +729,7 @@ export const getDailyReportPdf = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    const report = await FirstEntryFullReport.findById(id).select('dailyReportPdfKey dailyReportPdfBucket dailyReportPdfFilename');
+    const report = await FirstEntryFullReport.findById(id).select('dailyReportPdfKey dailyReportPdfBucket dailyReportPdfFilename eSignature');
     if (!report) {
       res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
       return;
@@ -741,9 +741,12 @@ export const getDailyReportPdf = async (req: Request, res: Response): Promise<vo
 
     const pdfBuffer = await downloadFromR2(report.dailyReportPdfKey, report.dailyReportPdfBucket);
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="${report.dailyReportPdfFilename || 'daily-visit-report.pdf'}"`);
-    res.send(pdfBuffer);
+    await sendDeliverablePdf(req, res, {
+      buffer: pdfBuffer,
+      filename: report.dailyReportPdfFilename || 'daily-visit-report.pdf',
+      signed: isSigned(report),
+      annotationsFor: { docType: 'daily-report', docId: String(id) },
+    });
   } catch (error: any) {
     res.status(500).json({
       success: false,
@@ -774,6 +777,12 @@ export const getPublicDailyReportPdf = async (req: Request, res: Response): Prom
       res.status(404).send('Daily visit report PDF has not been generated yet.');
       return;
     }
+    if (!isSigned(report)) {
+      rejectUnsignedPublicPdf(res);
+      return;
+    }
+    const pdfKey = report.dailyReportPdfKey;
+    if (await sendAnnotatedPublicPdf(res, 'daily-report', String(id), () => downloadFromR2(pdfKey, report.dailyReportPdfBucket))) return;
 
     const presignedUrl = await getPresignedGetUrl(report.dailyReportPdfKey, report.dailyReportPdfBucket);
 

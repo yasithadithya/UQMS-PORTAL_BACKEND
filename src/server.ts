@@ -28,6 +28,8 @@ import dockingSurveyCertRoutes from './routes/dockingSurveyCertRoutes';
 import eSignatureRoutes from './routes/eSignatureRoutes';
 import financeRoutes from './routes/financeRoutes';
 import publicRoutes from './routes/publicRoutes';
+import auditLogRoutes from './routes/auditLogRoutes';
+import documentAnnotationRoutes from './routes/documentAnnotationRoutes';
 import hrRoutes from './HR/routes';
 import { syncSystemModules } from './config/seedModules';
 import { formatDate } from './utils/date';
@@ -77,6 +79,8 @@ app.use('/api/docking-survey', dockingSurveyCertRoutes);
 app.use('/api/e-signatures', eSignatureRoutes);
 app.use('/api/hr', hrRoutes);
 app.use('/api/finance', financeRoutes);
+app.use('/api/audit-logs', auditLogRoutes);
+app.use('/api/document-annotations', documentAnnotationRoutes);
 
 // Public intake (API-key authenticated, called by the public website)
 app.use('/api/public', publicRoutes);

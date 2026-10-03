@@ -7,7 +7,12 @@
 
 export const CRUD_ACTIONS = ['create', 'read', 'update', 'delete'] as const;
 
-export const ACTIONS = [...CRUD_ACTIONS, 'approve', 'sign-on-behalf', 'revoke-signature'] as const;
+/**
+ * `override` lets Technical Committee users bypass workflow locks (create survey requests in the ERP,
+ * edit requests after the RFS is printed); every use is written to the audit log.
+ * `discount` gates editing quotation discounts.
+ */
+export const ACTIONS = [...CRUD_ACTIONS, 'approve', 'sign-on-behalf', 'revoke-signature', 'override', 'discount'] as const;
 
 export type PermissionAction = (typeof ACTIONS)[number];
 
@@ -54,7 +59,10 @@ export const SYSTEM_MODULES: SystemModuleDef[] = [
     parentKey: 'marine.first-entry', navigable: false, actions: SIGNING, inheritFrom: 'marine.first-entry', order: 4,
   },
 
-  { key: 'new-request', name: 'New Request', description: 'Survey request intake', parentKey: null, navigable: true, actions: CRUD },
+  {
+    key: 'new-request', name: 'New Request', description: 'Survey request intake (override = create requests in the ERP and edit locked requests)',
+    parentKey: null, navigable: true, actions: [...CRUD, 'override'],
+  },
 
   { key: 'hr', name: 'HR', description: 'Human Resources Module', parentKey: null, navigable: true, actions: READ },
   {
@@ -76,8 +84,8 @@ export const SYSTEM_MODULES: SystemModuleDef[] = [
 
   { key: 'finance', name: 'Finance', description: 'Finance Module', parentKey: null, navigable: true, actions: READ },
   {
-    key: 'finance.quotations', name: 'Quotations', description: 'Client quotations for requests and jobs (approve = accept or reject)',
-    parentKey: 'finance', navigable: false, actions: [...CRUD, 'approve'], order: 1,
+    key: 'finance.quotations', name: 'Quotations', description: 'Client quotations for requests and jobs (approve = accept or reject, discount = edit discounts)',
+    parentKey: 'finance', navigable: false, actions: [...CRUD, 'approve', 'discount'], order: 1,
   },
   {
     key: 'finance.fee-structure', name: 'Fee Structure', description: 'Standard survey fees and additional charges',
@@ -92,6 +100,7 @@ export const SYSTEM_MODULES: SystemModuleDef[] = [
     key: 'admin.master-data', name: 'Master Data', description: 'Checklist questions, vessel codes, equipment questions and document templates',
     parentKey: 'admin', navigable: false, actions: CRUD, order: 4,
   },
+  { key: 'admin.audit-log', name: 'Audit Log', description: 'History of override and controlled changes', parentKey: 'admin', navigable: false, actions: READ, order: 5 },
 ];
 
 /** Roles (by name) that receive extra actions when the module is first created. Replaces the old hard-coded e-signature bypass list. */

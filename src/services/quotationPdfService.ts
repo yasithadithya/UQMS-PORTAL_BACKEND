@@ -2,7 +2,10 @@ import PDFDocument from 'pdfkit';
 import { formatDate } from '../utils/date';
 import { DOCUMENT_TEMPLATE_NAMES, getDocumentTemplate } from './documentTemplateService';
 import { FOOTER_RESERVED_HEIGHT, drawControlledFooter, drawLetterhead } from './pdfLayout';
-import type { IQuotationClient, IQuotationLineItem } from '../models/Quotation';
+import type { IQuotationClient, IQuotationDiscount, IQuotationLineItem } from '../models/Quotation';
+import type { IESignature } from '../models/ESignature';
+import { resolveSealPath } from '../config/eSignature';
+import { formatSigningDate } from './eSignatureStamp';
 
 type QuotationLike = {
   quotationNumber: string;
@@ -18,6 +21,11 @@ type QuotationLike = {
   paymentTerms: string[];
   preparedByName?: string;
   preparedByDesignation?: string;
+  extraColumns?: string[];
+  subtotalLkr?: number;
+  discount?: IQuotationDiscount;
+  discountLkr?: number;
+  preparedBySignature?: IESignature;
 };
 
 /** Printed on every quotation so the client can pay the advance. */
@@ -124,10 +132,16 @@ export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promis
     }
     y += 18;
 
-    // Column layout shared by the reference row and the line table
-    const cols = { sn: 45, description: 215, rate: 70, conversion: 80, amount: 105 };
+    // Column layout shared by the reference row and the line table. User-added columns sit
+    // between Description and Rate and take their width from the description.
+    const extraColumns = quotation.extraColumns ?? [];
+    const extraTotal = extraColumns.length ? Math.min(extraColumns.length * 55, 120) : 0;
+    const extraWidth = extraColumns.length ? extraTotal / extraColumns.length : 0;
+    const cols = { sn: 45, description: 215 - extraTotal, rate: 70, conversion: 80, amount: 105 };
+    const extraCells = (values: string[], bold = false): Cell[] =>
+      extraColumns.map((_, i) => ({ text: values[i] ?? '', width: extraWidth, align: 'center' as const, bold }));
     const refCells = (bold: boolean, texts: [string, string, string]): Cell[] => [
-      { text: texts[0], width: cols.sn + cols.description, align: 'center', bold, fill: bold ? HEADER_TINT : undefined },
+      { text: texts[0], width: cols.sn + cols.description + extraTotal, align: 'center', bold, fill: bold ? HEADER_TINT : undefined },
       { text: texts[1], width: cols.rate + cols.conversion, align: 'center', bold, fill: bold ? HEADER_TINT : undefined },
       { text: texts[2], width: cols.amount, align: 'center', bold, fill: bold ? HEADER_TINT : undefined },
     ];
@@ -137,6 +151,7 @@ export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promis
     const tableHeader = (): Cell[] => [
       { text: 'SN', width: cols.sn, align: 'center', bold: true },
       { text: 'DESCRIPTION', width: cols.description, align: 'center', bold: true },
+      ...extraCells(extraColumns.map((label) => label.toUpperCase()), true),
       { text: 'RATE', width: cols.rate, align: 'center', bold: true },
       { text: 'CONVERSION RATE', width: cols.conversion, align: 'center', bold: true },
       { text: 'AMOUNT (LKR)', width: cols.amount, align: 'center', bold: true },
@@ -146,28 +161,53 @@ export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promis
     quotation.lineItems.forEach((item, index) => {
       const sn = String(index + 1).padStart(2, '0');
       const qty = item.quantity !== 1 ? ` × ${rateText(item.quantity)}` : '';
+      const extras = item.extra ?? [];
       const cells: Cell[] =
         item.currency === 'USD'
           ? [
               { text: sn, width: cols.sn, align: 'center' },
               { text: item.description, width: cols.description },
+              ...extraCells(extras),
               { text: `USD ${rateText(item.rate)}${qty}`, width: cols.rate, align: 'center' },
               { text: rateText(quotation.exchangeRate), width: cols.conversion, align: 'center' },
               { text: money(item.amountLkr), width: cols.amount, align: 'right' },
             ]
-          : [
-              { text: sn, width: cols.sn, align: 'center' },
-              {
-                text: qty ? `${item.description} (LKR ${money(item.rate)}${qty})` : item.description,
-                width: cols.description + cols.rate + cols.conversion,
-              },
-              { text: money(item.amountLkr), width: cols.amount, align: 'right' },
-            ];
+          : extraColumns.length
+            ? [
+                { text: sn, width: cols.sn, align: 'center' },
+                { text: item.description, width: cols.description },
+                ...extraCells(extras),
+                { text: qty ? `LKR ${money(item.rate)}${qty}` : '', width: cols.rate + cols.conversion, align: 'center' },
+                { text: money(item.amountLkr), width: cols.amount, align: 'right' },
+              ]
+            : [
+                { text: sn, width: cols.sn, align: 'center' },
+                {
+                  text: qty ? `${item.description} (LKR ${money(item.rate)}${qty})` : item.description,
+                  width: cols.description + cols.rate + cols.conversion,
+                },
+                { text: money(item.amountLkr), width: cols.amount, align: 'right' },
+              ];
 
       const nextY = ensureSpace(y, 34);
       if (nextY !== y) y = drawRow(doc, left, nextY, tableHeader(), 30);
       y = drawRow(doc, left, y, cells, 34);
     });
+
+    const discountLkr = quotation.discountLkr ?? 0;
+    if (discountLkr > 0 && quotation.discount) {
+      const subtotal = quotation.subtotalLkr ?? quotation.totalLkr + discountLkr;
+      const label = quotation.discount.type === 'percent' ? `Discount (${rateText(quotation.discount.value)}%)` : 'Discount';
+      y = ensureSpace(y, 60);
+      y = drawRow(doc, left, y, [
+        { text: 'Subtotal', width: width - cols.amount, align: 'center' },
+        { text: money(subtotal), width: cols.amount, align: 'right' },
+      ], 22);
+      y = drawRow(doc, left, y, [
+        { text: quotation.discount.description ? `${label} - ${quotation.discount.description}` : label, width: width - cols.amount, align: 'center' },
+        { text: `(${money(discountLkr)})`, width: cols.amount, align: 'right' },
+      ], 22);
+    }
 
     y = ensureSpace(y, 30);
     y = drawRow(doc, left, y, [
@@ -221,6 +261,33 @@ export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promis
     // Sits above the account details box, so it can use the full width.
     doc.font('Helvetica-Oblique').fontSize(7.5).fillColor('#555555').text(`For ${COMPANY_NAME}`, left, y, { width, lineBreak: false });
     let signY = y + 58;
+    const signature = quotation.preparedBySignature;
+    if (signature?.signedAt) {
+      // Compact e-signature above the line: seal, signer and date.
+      const sealPath = resolveSealPath();
+      const sealSize = 36;
+      if (sealPath) {
+        try {
+          doc.image(sealPath, left, signY - sealSize - 4, { fit: [sealSize, sealSize] });
+        } catch (err) {
+          console.warn('Could not draw e-signature seal image:', err);
+        }
+      }
+      const textX = left + (sealPath ? sealSize + 6 : 0);
+      const textWidth = signWidth - (textX - left);
+      // Each line shrinks to fit on one line rather than wrapping into the signature line.
+      const fittedLine = (text: string, lineY: number) => {
+        let size = 7.5;
+        doc.font('Helvetica-Oblique').fontSize(size);
+        while (size > 5 && doc.widthOfString(text) > textWidth) doc.fontSize((size -= 0.25));
+        doc.text(text, textX, lineY, { width: textWidth, lineBreak: false });
+      };
+      doc.fillColor('#1f2937');
+      fittedLine(`Electronically signed by: ${signature.signedByName}`, signY - 36);
+      fittedLine(`Signing date: ${formatSigningDate(new Date(signature.signedAt))} (dd/mm/yyyy)`, signY - 26);
+      fittedLine(`In accordance with ${signature.circularRef}`, signY - 16);
+      doc.fillColor('#000000');
+    }
     doc.moveTo(left, signY).lineTo(left + 150, signY).lineWidth(0.5).dash(2, { space: 2 }).strokeColor('#999999').stroke().undash();
     signY += 6;
     doc.font('Helvetica-Bold').fontSize(10).fillColor('#000000').text(quotation.preparedByName || ' ', left, signY, { width: signWidth });

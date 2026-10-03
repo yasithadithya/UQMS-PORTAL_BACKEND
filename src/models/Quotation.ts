@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { FEE_CURRENCIES, FeeCurrency } from './FeeItem';
+import { IESignature, eSignatureSchema } from './ESignature';
 
 export const QUOTATION_STATUSES = ['draft', 'sent', 'accepted', 'rejected', 'superseded'] as const;
 export type QuotationStatus = (typeof QUOTATION_STATUSES)[number];
@@ -15,6 +16,19 @@ export interface IQuotationLineItem {
   quantity: number;
   /** rate × quantity, converted with the quotation's exchange rate for USD lines. */
   amountLkr: number;
+  /** Values for the quotation's extra columns, in the same order as `extraColumns`. */
+  extra: string[];
+}
+
+export const DISCOUNT_TYPES = ['percent', 'amount'] as const;
+export type DiscountType = (typeof DISCOUNT_TYPES)[number];
+
+/** Discount on the subtotal; only users with the `discount` action may set or change it. */
+export interface IQuotationDiscount {
+  type: DiscountType;
+  /** Percentage (0–100) or an LKR amount. */
+  value: number;
+  description?: string;
 }
 
 export interface IQuotationClient {
@@ -40,15 +54,29 @@ export interface IQuotation extends Document {
   quotationDate: Date;
   title: string;
   vesselName: string;
+  /** Vessel code the quotation is priced for (SSC, IVCC, LCC, LYC); picks the applicable fees. */
+  vesselCode?: string;
   client: IQuotationClient;
+  /** Labels of user-added table columns, shown between Description and Rate. */
+  extraColumns: string[];
   /** LKR per 1 USD. */
   exchangeRate: number;
   lineItems: IQuotationLineItem[];
+  /** Sum of the lines before discount. Missing on quotations created before discounts existed. */
+  subtotalLkr?: number;
+  discount?: IQuotationDiscount;
+  discountLkr: number;
+  /** subtotalLkr − discountLkr. */
   totalLkr: number;
   notes: string[];
   paymentTerms: string[];
   preparedByName?: string;
   preparedByDesignation?: string;
+  /** Electronic signature of the person who prepared the quotation; cleared when the quotation is edited. */
+  preparedBySignature?: IESignature;
+  /** When and to whom the quotation (with the RFS) was last emailed. */
+  emailedAt?: Date;
+  emailedTo?: string;
   status: QuotationStatus;
   statusReason?: string;
   statusChangedAt?: Date;
@@ -92,6 +120,19 @@ const lineItemSchema = new Schema(
       required: true,
       min: 0,
     },
+    extra: {
+      type: [String],
+      default: [],
+    },
+  },
+  { _id: false }
+);
+
+const discountSchema = new Schema(
+  {
+    type: { type: String, enum: DISCOUNT_TYPES, required: true },
+    value: { type: Number, required: true, min: 0 },
+    description: { type: String, trim: true },
   },
   { _id: false }
 );
@@ -144,6 +185,14 @@ const quotationSchema: Schema = new Schema(
       type: String,
       trim: true,
     },
+    vesselCode: {
+      type: String,
+      trim: true,
+    },
+    extraColumns: {
+      type: [{ type: String, trim: true }],
+      default: [],
+    },
     client: {
       companyName: { type: String, required: [true, 'Client company name is required'], trim: true },
       address: { type: String, trim: true },
@@ -161,6 +210,19 @@ const quotationSchema: Schema = new Schema(
         validator: (items: unknown[]) => Array.isArray(items) && items.length > 0,
         message: 'At least one line item is required',
       },
+    },
+    subtotalLkr: {
+      type: Number,
+      min: 0,
+    },
+    discount: {
+      type: discountSchema,
+      required: false,
+    },
+    discountLkr: {
+      type: Number,
+      min: 0,
+      default: 0,
     },
     totalLkr: {
       type: Number,
@@ -180,6 +242,17 @@ const quotationSchema: Schema = new Schema(
       trim: true,
     },
     preparedByDesignation: {
+      type: String,
+      trim: true,
+    },
+    preparedBySignature: {
+      type: eSignatureSchema,
+      required: false,
+    },
+    emailedAt: {
+      type: Date,
+    },
+    emailedTo: {
       type: String,
       trim: true,
     },
