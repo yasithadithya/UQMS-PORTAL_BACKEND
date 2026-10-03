@@ -8,6 +8,8 @@ import FirstEntrySurveyReportModel from '../models/FirstEntrySurveyReport';
 import FirstEntrySurveyBookingModel from '../models/FirstEntrySurveyBooking';
 import DocumentNumberModel from '../models/DocumentNumber';
 import SurveyReportModel from '../models/SurveyReport';
+import UserModel from '../models/User';
+import { convertFullNameToInitials } from './surveyReportController';
 import { getNextDocumentNumber } from '../services/documentNumberService';
 import { createScccosPdfBuffer } from '../services/scccosPdfService';
 import {
@@ -70,12 +72,24 @@ const invalidateLinkedSurveyReportPdf = async (surveyReportId: unknown): Promise
 };
 
 /**
+ * The certificate's surveyor is always the logged-in user, never a name sent by the client.
+ */
+const resolveSurveyorName = async (req: Request): Promise<string> => {
+  const userId = (req as any).user?.id;
+  if (!userId) return '';
+  const user = await UserModel.findById(userId).select('nameWithInitials fullName username');
+  if (!user) return '';
+  return user.nameWithInitials || convertFullNameToInitials(user.fullName) || user.username || '';
+};
+
+/**
  * Create a new SCCCOS Certificate
  */
 export const createSCCCOS = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { vesselId, surveyReportId, surveyBookingId, surveyFindings, dateOfIssue, typeOfSurvey, nominatedDeparturePoint, surveyorName, additionalRemarks } = req.body;
+    const { vesselId, surveyReportId, surveyBookingId, surveyFindings, dateOfIssue, typeOfSurvey, nominatedDeparturePoint, additionalRemarks } = req.body;
     const userId = (req as any).user?.id;
+    const surveyorName = await resolveSurveyorName(req);
 
     // Validate references
     if (!vesselId || !mongoose.isValidObjectId(vesselId)) {
@@ -303,6 +317,7 @@ export const updateSCCCOS = async (req: Request, res: Response): Promise<void> =
     delete updateData.certificateNumber;
     delete updateData.pdf;
     delete updateData.eSignature;
+    delete updateData.surveyorName;
 
     const savedCertificate = await SCCCOSModel.findByIdAndUpdate(
       id,
@@ -385,7 +400,8 @@ export const deleteSCCCOS = async (req: Request, res: Response): Promise<void> =
  */
 export const getSCCCOSPreviewPdf = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { vesselId, surveyReportId, surveyBookingId, surveyFindings, nominatedDeparturePoint, typeOfSurvey, dateOfIssue, surveyorName, additionalRemarks } = req.body;
+    const { vesselId, surveyReportId, surveyBookingId, surveyFindings, nominatedDeparturePoint, typeOfSurvey, dateOfIssue, additionalRemarks } = req.body;
+    const surveyorName = await resolveSurveyorName(req);
 
     // Validate references
     if (!vesselId || !mongoose.isValidObjectId(vesselId)) {
