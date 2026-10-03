@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { isSigned, rejectUnsignedPublicPdf, sendAnnotatedPublicPdf, sendDeliverablePdf } from '../services/deliverableAccess';
 import mongoose from 'mongoose';
 import QRCode from 'qrcode';
 import DockingSurveyCertModel from '../models/DockingSurveyCert';
@@ -358,9 +359,8 @@ export const getDockingSurveyPreviewPdf = async (req: Request, res: Response): P
 
     const { buffer: pdfBuffer } = await createDockingSurveyPdfBuffer(previewData, qrBuffer);
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'inline; filename="docking-survey-preview.pdf"');
-    res.send(pdfBuffer);
+    // Unsaved drafts are never signed, so previews always carry the PREVIEW watermark.
+    await sendDeliverablePdf(req, res, { buffer: pdfBuffer, filename: 'docking-survey-preview.pdf', signed: false });
   } catch (error: any) {
     res.status(500).json({
       success: false,
@@ -378,7 +378,7 @@ export const getDockingSurveyFinalPdf = async (req: Request, res: Response): Pro
       return;
     }
 
-    const certificate = await DockingSurveyCertModel.findById(id).select('certificateNumber pdf');
+    const certificate = await DockingSurveyCertModel.findById(id).select('certificateNumber pdf eSignature');
     if (!certificate) {
       res.status(404).json({ success: false, message: 'Docking Survey Certificate not found.' });
       return;
@@ -390,9 +390,12 @@ export const getDockingSurveyFinalPdf = async (req: Request, res: Response): Pro
       return;
     }
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="docking-survey-${certificate.certificateNumber}.pdf"`);
-    res.send(pdfBuffer);
+    await sendDeliverablePdf(req, res, {
+      buffer: pdfBuffer,
+      filename: `docking-survey-${certificate.certificateNumber}.pdf`,
+      signed: isSigned(certificate),
+      annotationsFor: { docType: 'docking-cert', docId: id },
+    });
   } catch (error: any) {
     res.status(500).json({
       success: false,
@@ -413,11 +416,16 @@ export const getPublicDockingSurveyPdf = async (req: Request, res: Response): Pr
       return;
     }
 
-    const certificate = await DockingSurveyCertModel.findById(id).select('pdf');
+    const certificate = await DockingSurveyCertModel.findById(id).select('pdf eSignature');
     if (!certificate) {
       res.status(404).send('Docking Survey Certificate not found.');
       return;
     }
+    if (!isSigned(certificate)) {
+      rejectUnsignedPublicPdf(res);
+      return;
+    }
+    if (await sendAnnotatedPublicPdf(res, 'docking-cert', id, () => readStoredPdf(certificate.pdf, () => renderAndStoreDockingSurveyPdf(req, id)))) return;
 
     const presignedUrl = await getStoredPdfUrl(certificate.pdf, () => renderAndStoreDockingSurveyPdf(req, id));
     if (!presignedUrl) {

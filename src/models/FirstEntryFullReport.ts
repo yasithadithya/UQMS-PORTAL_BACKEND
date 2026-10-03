@@ -200,9 +200,11 @@ const firstEntryFullReportSchema: Schema = new Schema(
       type: String,
       trim: true
     },
+    // Public bucket URL; never returned by queries so an unsigned report cannot be fetched around the preview-only rule.
     dailyReportPdfUrl: {
       type: String,
-      trim: true
+      trim: true,
+      select: false
     },
     dailyReportPdfBucket: {
       type: String,

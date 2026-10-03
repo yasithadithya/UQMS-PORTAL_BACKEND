@@ -1,9 +1,11 @@
 import { Request, Response } from 'express';
-import RequestModel from '../models/Request';
+import RequestModel, { REQUEST_DOCUMENT_TYPES, documentTypeFromField } from '../models/Request';
 import VesselType from '../models/VesselType';
 import AreaOfOperation from '../models/AreaOfOperation';
 import SurveyType from '../models/SurveyType';
 import { allocateRequestNumbers } from '../services/requestNumberService';
+import { uploadToR2 } from '../services/r2Storage';
+import { buildDocumentKey, parseStringList } from './requestController';
 
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === 'string' && value.trim().length > 0;
@@ -95,12 +97,14 @@ export const createPublicSurveyRequest = async (req: Request, res: Response): Pr
       }
     }
 
-    if (!Array.isArray(surveyTypes) || surveyTypes.length === 0) {
+    // Multipart submissions carry surveyTypes as repeated fields or a JSON array string.
+    const surveyTypeList = parseStringList(surveyTypes);
+    if (!surveyTypeList || surveyTypeList.length === 0) {
       res.status(400).json({ success: false, message: 'At least one survey type is required.' });
       return;
     }
 
-    const requestedSurveyNames = surveyTypes.filter(isNonEmptyString).map(toTrimmedString);
+    const requestedSurveyNames = surveyTypeList.filter(isNonEmptyString).map(toTrimmedString);
     if (requestedSurveyNames.length === 0) {
       res.status(400).json({ success: false, message: 'At least one survey type is required.' });
       return;
@@ -185,6 +189,38 @@ export const createPublicSurveyRequest = async (req: Request, res: Response): Pr
 
     await newRequest.save();
 
+    // Attachments are uploaded after the request is saved so a storage failure never loses the
+    // request itself; staff can ask the client for any file that failed.
+    const files = ((req as Request & { files?: Express.Multer.File[] }).files ?? []).filter((file) =>
+      documentTypeFromField(file.fieldname)
+    );
+    const failedAttachments: string[] = [];
+    if (files.length > 0) {
+      const documents: Record<string, unknown>[] = [];
+      for (const file of files) {
+        const documentType = documentTypeFromField(file.fieldname)!;
+        const name = REQUEST_DOCUMENT_TYPES[documentType];
+        try {
+          const uploaded = await uploadToR2({
+            key: buildDocumentKey(newRequest.requestNumber, name, file.originalname, file.mimetype),
+            body: file.buffer,
+            contentType: file.mimetype,
+            contentLength: file.size,
+          });
+          documents.push({
+            name, documentType, key: uploaded.key, url: uploaded.url, contentType: file.mimetype, size: file.size, uploadedAt: new Date(),
+          });
+        } catch (uploadError) {
+          console.error('[publicRequestController] Attachment upload failed:', uploadError);
+          failedAttachments.push(file.originalname);
+        }
+      }
+      if (documents.length > 0) {
+        newRequest.set('documents', documents);
+        await newRequest.save();
+      }
+    }
+
     res.status(201).json({
       success: true,
       message: 'Request created successfully.',
@@ -192,6 +228,8 @@ export const createPublicSurveyRequest = async (req: Request, res: Response): Pr
         _id: newRequest._id,
         requestNumber: newRequest.requestNumber,
         rfsDocNo: newRequest.rfsDocNo,
+        attachments: files.length - failedAttachments.length,
+        failedAttachments,
       },
     });
   } catch (error: any) {

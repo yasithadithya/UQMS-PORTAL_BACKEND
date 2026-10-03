@@ -1,5 +1,7 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
+import multer from 'multer';
 import rateLimit from 'express-rate-limit';
+import { documentTypeFromField } from '../models/Request';
 import publicApiKey from '../middleware/publicApiKey';
 import { createPublicSurveyRequest } from '../controllers/publicRequestController';
 
@@ -20,6 +22,31 @@ const publicIntakeLimiter = rateLimit({
   message: { success: false, message: 'Too many requests. Please try again later.' },
 });
 
+const maxMb = Number(process.env.UPLOAD_MAX_MB || 10);
+const maxBytes = Number.isFinite(maxMb) ? Math.floor(maxMb * 1024 * 1024) : 10 * 1024 * 1024;
+const allowedMimeTypes = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
+
+/**
+ * Supporting documents arrive as multipart files whose field name is the document type
+ * (bill-of-sale, certificate-of-registry, ga-plan, non-convention-request, other).
+ * JSON bodies (no files) are still accepted.
+ */
+const intakeUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: maxBytes, files: 12 },
+  fileFilter: (_req, file, cb) => {
+    if (!documentTypeFromField(file.fieldname)) {
+      cb(new Error(`Unknown document field "${file.fieldname}".`));
+      return;
+    }
+    if (!allowedMimeTypes.has(file.mimetype)) {
+      cb(new Error('Invalid file type. Only PDF and images are allowed.'));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
 /**
  * @swagger
  * /api/public/survey-requests:
@@ -35,6 +62,13 @@ const publicIntakeLimiter = rateLimit({
  *     requestBody:
  *       required: true
  *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             description: >
+ *               Same fields as the JSON body (surveyTypes as repeated fields or a JSON array string),
+ *               plus optional files named bill-of-sale, certificate-of-registry, ga-plan,
+ *               non-convention-request or other.
  *         application/json:
  *           schema:
  *             type: object
@@ -76,6 +110,18 @@ const publicIntakeLimiter = rateLimit({
  *       503:
  *         description: Public intake is not configured on the server
  */
-router.post('/survey-requests', publicIntakeLimiter, publicApiKey, createPublicSurveyRequest);
+router.post('/survey-requests', publicIntakeLimiter, publicApiKey, intakeUpload.any(), createPublicSurveyRequest);
+
+router.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+  if (err instanceof multer.MulterError) {
+    res.status(400).json({ success: false, message: err.code === 'LIMIT_FILE_SIZE' ? `Each file must be ${maxMb} MB or smaller.` : err.message });
+    return;
+  }
+  if (err instanceof Error) {
+    res.status(400).json({ success: false, message: err.message });
+    return;
+  }
+  next(err);
+});
 
 export default router;

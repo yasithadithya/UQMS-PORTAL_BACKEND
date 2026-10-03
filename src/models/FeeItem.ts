@@ -19,6 +19,8 @@ export interface IFeeItem extends Document {
   rate: number;
   unit: FeeUnit;
   notes?: string;
+  /** Vessel codes (e.g. SSC, IVCC, LCC, LYC) this fee applies to; empty = every vessel code. */
+  vesselCodes: string[];
   isActive: boolean;
   order: number;
   createdAt: Date;
@@ -60,6 +62,10 @@ const feeItemSchema: Schema = new Schema(
     notes: {
       type: String,
       trim: true,
+    },
+    vesselCodes: {
+      type: [{ type: String, trim: true }],
+      default: [],
     },
     isActive: {
       type: Boolean,

@@ -32,8 +32,23 @@ export interface IRequest extends Document {
   updatedAt: Date;
 }
 
+/** Supporting documents a client attaches to a survey request. */
+export const REQUEST_DOCUMENT_TYPES = {
+  'bill-of-sale': 'Bill of Sale / Proof of Ownership',
+  'certificate-of-registry': 'Certificate of Registry',
+  'ga-plan': 'General Arrangement Plan (GA)',
+  'non-convention-request': 'Survey Request for Non-Convention Vessels',
+  other: 'Other',
+} as const;
+
+export type RequestDocumentType = keyof typeof REQUEST_DOCUMENT_TYPES;
+
+export const isRequestDocumentType = (value: unknown): value is RequestDocumentType =>
+  typeof value === 'string' && Object.prototype.hasOwnProperty.call(REQUEST_DOCUMENT_TYPES, value);
+
 export interface IRequestDocument extends Document {
   name: string;
+  documentType?: RequestDocumentType;
   key: string;
   url?: string;
   contentType?: string;
@@ -47,6 +62,10 @@ const requestDocumentSchema = new Schema(
       type: String,
       required: [true, 'Document name is required'],
       trim: true,
+    },
+    documentType: {
+      type: String,
+      enum: Object.keys(REQUEST_DOCUMENT_TYPES),
     },
     key: {
       type: String,
@@ -221,3 +240,9 @@ requestSchema.path('createdAt').immutable(false);
 const Request = mongoose.model<IRequest>('Request', requestSchema);
 
 export default Request;
+
+/** Upload field names may be indexed ("ga-plan[0]"); returns the document type they carry, if any. */
+export const documentTypeFromField = (fieldname: string): RequestDocumentType | undefined => {
+  const base = fieldname.replace(/\[\d*\]$/, '');
+  return isRequestDocumentType(base) ? base : undefined;
+};
