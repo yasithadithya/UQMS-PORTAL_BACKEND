@@ -128,7 +128,10 @@ export const getQuotations = async (req: AuthRequest, res: Response): Promise<vo
     const query: Record<string, unknown> = {};
     const { search, status, request } = req.query;
 
-    if (typeof status === 'string' && QUOTATION_STATUSES.includes(status as QuotationStatus)) query.status = status;
+    // 'approved' is a draft with an internal approval; plain 'draft' leaves those out.
+    if (status === 'approved') Object.assign(query, { status: 'draft', approval: { $exists: true } });
+    else if (status === 'draft') Object.assign(query, { status: 'draft', approval: { $exists: false } });
+    else if (typeof status === 'string' && QUOTATION_STATUSES.includes(status as QuotationStatus)) query.status = status;
     if (typeof request === 'string' && mongoose.isValidObjectId(request)) query.request = request;
     if (typeof search === 'string' && search.trim()) {
       const pattern = new RegExp(escapeRegex(search.trim()), 'i');
