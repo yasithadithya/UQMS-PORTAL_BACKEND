@@ -275,13 +275,13 @@ export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promis
     const signWidth = width - bankWidth - 20;
 
     // Sits above the account details box, so it can use the full width.
-    doc.font('Helvetica-Oblique').fontSize(7.5).fillColor('#555555').text(`For ${COMPANY_NAME}`, left, y, { width, lineBreak: false });
+    doc.font('Helvetica-Oblique').fontSize(7.5).fillColor('#555555').text(`Prepared By`, left, y, { width, lineBreak: false });
     // An approved quotation needs no signature, so the name sits right under the company line.
     const signY = approval ? y + 22 : y + 64;
     doc.font('Helvetica-Bold').fontSize(10).fillColor('#000000').text(quotation.preparedByName || ' ', left, signY, { width: signWidth });
     doc.font('Helvetica').fontSize(9.5);
     if (quotation.preparedByDesignation) doc.text(quotation.preparedByDesignation, left, doc.y + 2, { width: signWidth });
-    doc.text('UQMS (PVT) LTD', left, doc.y + 2, { width: signWidth });
+    // doc.text('UQMS (PVT) LTD', left, doc.y + 2, { width: signWidth });
 
     const labelWidth = 100;
     let bankY = y + 30;
