@@ -22,7 +22,6 @@ import { createQuotationPdfBuffer } from '../services/quotationPdfService';
 import { createRequestSurveyPdfBuffer } from '../services/requestPdfService';
 import { createMailTransport, senderAddress } from '../services/mailService';
 import { recordAudit } from '../services/auditService';
-import { E_SIGNATURE_CIRCULAR_REF, E_SIGNATURE_COMPANY_NAME } from '../config/eSignature';
 
 const QUOTATIONS_KEY = 'finance.quotations';
 
@@ -334,8 +333,8 @@ export const updateQuotation = async (req: AuthRequest, res: Response): Promise<
 
     quotation.set({ ...fields, vesselCode, vesselName: fields.vesselName ?? quotation.vesselName, updatedBy: req.user?.id });
     if (!fields.discount) quotation.set('discount', undefined);
-    // The preparer signed what was there before; any edit needs a fresh signature.
-    quotation.set('preparedBySignature', undefined);
+    // The approval covered what was there before; any edit needs a fresh approval.
+    quotation.set('approval', undefined);
     await quotation.save();
     await auditDiscountChange(req, quotation, previousDiscount, fields.discount);
 
@@ -479,11 +478,18 @@ const loadOpenQuotation = async (req: AuthRequest, res: Response) => {
   return quotation;
 };
 
-/** The signed-in user e-signs the quotation as the person who prepared it. */
-export const signQuotation = async (req: AuthRequest, res: Response): Promise<void> => {
+/**
+ * The signed-in user approves the quotation. An approved quotation prints as system generated,
+ * so it needs no signature. Editing the quotation clears the approval.
+ */
+export const approveQuotation = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const quotation = await loadOpenQuotation(req, res);
     if (!quotation) return;
+    if (quotation.approval?.approvedAt) {
+      res.status(409).json({ success: false, message: `Quotation ${quotation.quotationNumber} is already approved.` });
+      return;
+    }
 
     const user = await User.findById(req.user?.id).select('fullName username').lean();
     if (!user) {
@@ -491,39 +497,47 @@ export const signQuotation = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
-    const signedByName = user.fullName || user.username;
+    const approvedByName = user.fullName || user.username;
     quotation.set({
-      preparedBySignature: {
-        signedBy: user._id,
-        signedByName,
-        companyName: E_SIGNATURE_COMPANY_NAME,
-        location: '',
-        circularRef: E_SIGNATURE_CIRCULAR_REF,
-        signedAt: new Date(),
-      },
-      preparedByName: signedByName,
-      preparedByDesignation: optionalText(req.body?.designation) ?? quotation.preparedByDesignation,
+      approval: { approvedBy: user._id, approvedByName, approvedAt: new Date() },
       updatedBy: req.user?.id,
     });
     await quotation.save();
+    await recordAudit(req, {
+      action: 'quotation.approve',
+      entityType: 'quotation',
+      entityId: quotation._id,
+      entityRef: quotation.quotationNumber,
+      changes: [{ field: 'approval', from: 'Not approved', to: `Approved by ${approvedByName}` }],
+    });
 
-    res.status(200).json({ success: true, message: `Quotation ${quotation.quotationNumber} signed.`, data: quotation });
+    res.status(200).json({ success: true, message: `Quotation ${quotation.quotationNumber} approved.`, data: quotation });
   } catch (error: any) {
-    sendError(res, error, 'Error signing quotation.');
+    sendError(res, error, 'Error approving quotation.');
   }
 };
 
-export const unsignQuotation = async (req: AuthRequest, res: Response): Promise<void> => {
+export const revokeQuotationApproval = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const quotation = await loadOpenQuotation(req, res);
     if (!quotation) return;
 
-    quotation.set('preparedBySignature', undefined);
+    const previous = quotation.approval?.approvedByName;
+    quotation.set('approval', undefined);
     quotation.set('updatedBy', req.user?.id);
     await quotation.save();
-    res.status(200).json({ success: true, message: 'Signature removed.', data: quotation });
+    if (previous) {
+      await recordAudit(req, {
+        action: 'quotation.approval.revoke',
+        entityType: 'quotation',
+        entityId: quotation._id,
+        entityRef: quotation.quotationNumber,
+        changes: [{ field: 'approval', from: `Approved by ${previous}`, to: 'Not approved' }],
+      });
+    }
+    res.status(200).json({ success: true, message: 'Approval revoked.', data: quotation });
   } catch (error: any) {
-    sendError(res, error, 'Error removing the signature.');
+    sendError(res, error, 'Error revoking the approval.');
   }
 };
 
