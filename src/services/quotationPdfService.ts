@@ -1,11 +1,7 @@
 import PDFDocument from 'pdfkit';
 import { formatDate } from '../utils/date';
-import { DOCUMENT_TEMPLATE_NAMES, getDocumentTemplate } from './documentTemplateService';
-import { FOOTER_RESERVED_HEIGHT, drawControlledFooter, drawLetterhead } from './pdfLayout';
-import type { IQuotationClient, IQuotationDiscount, IQuotationLineItem } from '../models/Quotation';
-import type { IESignature } from '../models/ESignature';
-import { resolveSealPath } from '../config/eSignature';
-import { formatSigningDate } from './eSignatureStamp';
+import { FOOTER_RESERVED_HEIGHT, drawCompanyLetterhead, drawPageNumberFooter } from './pdfLayout';
+import type { IQuotationApproval, IQuotationClient, IQuotationDiscount, IQuotationLineItem } from '../models/Quotation';
 
 type QuotationLike = {
   quotationNumber: string;
@@ -25,8 +21,12 @@ type QuotationLike = {
   subtotalLkr?: number;
   discount?: IQuotationDiscount;
   discountLkr?: number;
-  preparedBySignature?: IESignature;
+  approval?: IQuotationApproval;
 };
+
+/** Printed on approved quotations in place of a handwritten signature. */
+export const SYSTEM_GENERATED_NOTICE =
+  'This is a system-generated quotation approved electronically through the UQMS Portal. No signature is required.';
 
 /** Printed on every quotation so the client can pay the advance. */
 export const QUOTATION_BANK_DETAILS: [string, string][] = [
@@ -80,9 +80,13 @@ const drawRow = (doc: PDFKit.PDFDocument, x: number, y: number, cells: Cell[], m
   return y + height;
 };
 
-export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promise<Buffer> => {
-  const template = await getDocumentTemplate(DOCUMENT_TEMPLATE_NAMES.quotation);
+/** Draws a small right-pointing arrowhead bullet (➢) with its left edge at x, centred on a text line at y. */
+const drawArrowBullet = (doc: PDFKit.PDFDocument, x: number, y: number) => {
+  const mid = y + 5;
+  doc.save().polygon([x, mid - 4], [x + 8, mid], [x, mid + 4], [x + 2.5, mid]).fill('#000000').restore();
+};
 
+export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promise<Buffer> => {
   return new Promise<Buffer>((resolve, reject) => {
     const doc = new PDFDocument({
       size: 'A4',
@@ -106,15 +110,15 @@ export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promis
       return PAGE_MARGIN;
     };
 
-    let y = drawLetterhead(doc, { title: 'QUOTATION', template, margin: PAGE_MARGIN });
+    let y = drawCompanyLetterhead(doc, { margin: PAGE_MARGIN });
 
     // Title box
     const titleWidth = width * 0.84;
     const titleX = left + (width - titleWidth) / 2;
-    doc.save().lineWidth(0.75).rect(titleX, y, titleWidth, 30).fillAndStroke(HEADER_TINT, BORDER).restore();
-    doc.font('Helvetica-Bold').fontSize(11).fillColor('#000000')
-      .text(quotation.title.toUpperCase(), titleX + 8, y + 10, { width: titleWidth - 16, align: 'center', lineBreak: false, ellipsis: true });
-    y += 48;
+    doc.save().lineWidth(0.75).rect(titleX, y, titleWidth, 34).fillAndStroke(HEADER_TINT, BORDER).restore();
+    doc.font('Helvetica').fontSize(11).fillColor('#000000')
+      .text(quotation.title.toUpperCase(), titleX + 8, y + 12, { width: titleWidth - 16, align: 'center', lineBreak: false, ellipsis: true });
+    y += 62;
 
     // Client block
     const clientLines = [quotation.client.companyName, quotation.client.address]
@@ -152,7 +156,7 @@ export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promis
       { text: 'SN', width: cols.sn, align: 'center', bold: true },
       { text: 'DESCRIPTION', width: cols.description, align: 'center', bold: true },
       ...extraCells(extraColumns.map((label) => label.toUpperCase()), true),
-      { text: 'RATE', width: cols.rate, align: 'center', bold: true },
+      { text: 'USD RATE', width: cols.rate, align: 'center', bold: true },
       { text: 'CONVERSION RATE', width: cols.conversion, align: 'center', bold: true },
       { text: 'AMOUNT (LKR)', width: cols.amount, align: 'center', bold: true },
     ];
@@ -168,7 +172,7 @@ export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promis
               { text: sn, width: cols.sn, align: 'center' },
               { text: item.description, width: cols.description },
               ...extraCells(extras),
-              { text: `USD ${rateText(item.rate)}${qty}`, width: cols.rate, align: 'center' },
+              { text: `${rateText(item.rate)}${qty}`, width: cols.rate, align: 'center' },
               { text: rateText(quotation.exchangeRate), width: cols.conversion, align: 'center' },
               { text: money(item.amountLkr), width: cols.amount, align: 'right' },
             ]
@@ -216,43 +220,55 @@ export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promis
     ], 30);
     y += 24;
 
-    // Notes and payment terms
-    const listX = left + 24;
-    const listWidth = width - 48;
+    // Notes, then payment terms numbered on from the notes ("5. Payment Terms:") with arrow bullets.
+    const noteX = left + 48;
+    const listX = left + 72;
+    const numberWidth = 20;
+    const textX = listX + numberWidth;
+    const textWidth = left + width - 24 - textX;
+    const lineGap = 5;
     if (quotation.notes.length > 0) {
       y = ensureSpace(y, 40);
-      doc.font('Helvetica-Bold').fontSize(10).fillColor('#000000').text('Note:', left, y);
-      y = doc.y + 8;
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('#000000').text('Note:', noteX, y);
+      y = doc.y + 12;
       quotation.notes.forEach((note, index) => {
-        doc.font('Helvetica').fontSize(9.5);
-        const h = doc.heightOfString(note, { width: listWidth - 18, lineGap: 3 });
+        doc.font('Helvetica').fontSize(10);
+        const h = doc.heightOfString(note, { width: textWidth, lineGap });
         y = ensureSpace(y, h + 6);
-        doc.text(`${index + 1}.`, listX, y, { width: 18 });
-        doc.text(note, listX + 18, y, { width: listWidth - 18, lineGap: 3 });
+        doc.text(`${index + 1}.`, listX, y, { width: numberWidth });
+        doc.text(note, textX, y, { width: textWidth, lineGap });
         y = doc.y + 6;
       });
-      y += 8;
+      y += 4;
     }
 
     if (quotation.paymentTerms.length > 0) {
-      y = ensureSpace(y, 40);
-      doc.font('Helvetica-Bold').fontSize(10).text('Payment Terms:', left, y);
-      y = doc.y + 8;
+      y = ensureSpace(y, 50);
+      const numbered = quotation.notes.length > 0;
+      doc.font('Helvetica').fontSize(10).fillColor('#000000');
+      if (numbered) doc.text(`${quotation.notes.length + 1}.`, listX, y, { width: numberWidth });
+      doc.text('Payment Terms:', numbered ? textX : noteX, y);
+      y = doc.y + 14;
+      const bulletX = textX + 34;
+      const termX = bulletX + 20;
+      const termWidth = left + width - 24 - termX;
       quotation.paymentTerms.forEach((term) => {
-        doc.font('Helvetica').fontSize(9.5);
-        const h = doc.heightOfString(term, { width: listWidth - 18, lineGap: 3 });
-        y = ensureSpace(y, h + 6);
-        doc.text('•', listX + 4, y, { width: 14 });
-        doc.text(term, listX + 18, y, { width: listWidth - 18, lineGap: 3 });
-        y = doc.y + 6;
+        doc.font('Helvetica').fontSize(10);
+        const h = doc.heightOfString(term, { width: termWidth, lineGap });
+        y = ensureSpace(y, h + 8);
+        drawArrowBullet(doc, bulletX, y);
+        doc.text(term, termX, y, { width: termWidth, lineGap });
+        y = doc.y + 8;
       });
       y += 8;
     }
 
-    // Sign-off on the left, account details on the right
+    // Sign-off on the left, account details on the right. An approved quotation carries a
+    // system-generated notice below instead of a signature.
+    const approval = quotation.approval?.approvedAt ? quotation.approval : undefined;
     const bankRowHeight = 18;
     const bankHeight = bankRowHeight * (QUOTATION_BANK_DETAILS.length + 1);
-    y = ensureSpace(y + 16, Math.max(bankHeight, 110));
+    y = ensureSpace(y + 16, bankHeight + 30 + (approval ? 40 : 0));
 
     const bankWidth = 290;
     const bankX = left + width - bankWidth;
@@ -260,36 +276,8 @@ export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promis
 
     // Sits above the account details box, so it can use the full width.
     doc.font('Helvetica-Oblique').fontSize(7.5).fillColor('#555555').text(`For ${COMPANY_NAME}`, left, y, { width, lineBreak: false });
-    let signY = y + 58;
-    const signature = quotation.preparedBySignature;
-    if (signature?.signedAt) {
-      // Compact e-signature above the line: seal, signer and date.
-      const sealPath = resolveSealPath();
-      const sealSize = 36;
-      if (sealPath) {
-        try {
-          doc.image(sealPath, left, signY - sealSize - 4, { fit: [sealSize, sealSize] });
-        } catch (err) {
-          console.warn('Could not draw e-signature seal image:', err);
-        }
-      }
-      const textX = left + (sealPath ? sealSize + 6 : 0);
-      const textWidth = signWidth - (textX - left);
-      // Each line shrinks to fit on one line rather than wrapping into the signature line.
-      const fittedLine = (text: string, lineY: number) => {
-        let size = 7.5;
-        doc.font('Helvetica-Oblique').fontSize(size);
-        while (size > 5 && doc.widthOfString(text) > textWidth) doc.fontSize((size -= 0.25));
-        doc.text(text, textX, lineY, { width: textWidth, lineBreak: false });
-      };
-      doc.fillColor('#1f2937');
-      fittedLine(`Electronically signed by: ${signature.signedByName}`, signY - 36);
-      fittedLine(`Signing date: ${formatSigningDate(new Date(signature.signedAt))} (dd/mm/yyyy)`, signY - 26);
-      fittedLine(`In accordance with ${signature.circularRef}`, signY - 16);
-      doc.fillColor('#000000');
-    }
-    doc.moveTo(left, signY).lineTo(left + 150, signY).lineWidth(0.5).dash(2, { space: 2 }).strokeColor('#999999').stroke().undash();
-    signY += 6;
+    // An approved quotation needs no signature, so the name sits right under the company line.
+    const signY = approval ? y + 22 : y + 64;
     doc.font('Helvetica-Bold').fontSize(10).fillColor('#000000').text(quotation.preparedByName || ' ', left, signY, { width: signWidth });
     doc.font('Helvetica').fontSize(9.5);
     if (quotation.preparedByDesignation) doc.text(quotation.preparedByDesignation, left, doc.y + 2, { width: signWidth });
@@ -318,7 +306,13 @@ export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promis
       bankY += bankRowHeight;
     });
 
-    drawControlledFooter(doc, { template, margin: PAGE_MARGIN });
+    if (approval) {
+      doc.font('Helvetica-Oblique').fontSize(8.5).fillColor('#555555')
+        .text(SYSTEM_GENERATED_NOTICE, left, Math.max(bankY, doc.y) + 18, { width, align: 'center' });
+      doc.fillColor('#000000');
+    }
+
+    drawPageNumberFooter(doc, { margin: PAGE_MARGIN });
     doc.end();
   });
 };

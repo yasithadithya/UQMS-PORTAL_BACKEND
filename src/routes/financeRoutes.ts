@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { createFeeItem, deleteFeeItem, getFeeItems, updateFeeItem } from '../controllers/feeItemController';
 import {
+  approveQuotation,
   createQuotation,
   deleteQuotation,
   getQuotableRequests,
@@ -8,9 +9,8 @@ import {
   getQuotationPdf,
   getQuotations,
   getQuotationsByRequest,
+  revokeQuotationApproval,
   sendQuotationToClient,
-  signQuotation,
-  unsignQuotation,
   updateQuotation,
   updateQuotationStatus,
 } from '../controllers/quotationController';
@@ -336,20 +336,21 @@ router.get('/quotations/:id/pdf', requirePermission(QUOTATIONS, 'read'), getQuot
 
 /**
  * @swagger
- * /api/finance/quotations/{id}/sign:
+ * /api/finance/quotations/{id}/approve:
  *   post:
- *     summary: E-sign the quotation as the person who prepared it (removed again on any edit)
+ *     summary: Approve the quotation (cleared again on any edit)
+ *     description: An approved quotation prints as system generated, with no signature required.
  *     tags: [Finance]
  *     security:
  *       - bearerAuth: []
  *   delete:
- *     summary: Remove the preparer's e-signature
+ *     summary: Revoke the quotation's approval
  *     tags: [Finance]
  *     security:
  *       - bearerAuth: []
  */
-router.post('/quotations/:id/sign', requirePermission(QUOTATIONS, 'update'), signQuotation);
-router.delete('/quotations/:id/sign', requirePermission(QUOTATIONS, 'update'), unsignQuotation);
+router.post('/quotations/:id/approve', requirePermission(QUOTATIONS, 'approve'), approveQuotation);
+router.delete('/quotations/:id/approve', requirePermission(QUOTATIONS, 'approve'), revokeQuotationApproval);
 
 /**
  * @swagger

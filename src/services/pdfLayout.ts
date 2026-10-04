@@ -34,7 +34,7 @@ const LOGO_SOURCE_SIZE = 2382;
 const LOGO_CONTENT = { x: 434, y: 588, width: 1643, height: 1033 };
 
 /** Draws the logo scaled to fit the box, cropped to its visible content and centred. */
-const drawLogo = (doc: PdfDoc, x: number, y: number, width: number, height: number) => {
+export const drawLogo = (doc: PdfDoc, x: number, y: number, width: number, height: number) => {
   if (!LOGO_PATH) {
     console.warn('Logo image not found: sign_logo.png');
     return;
@@ -124,6 +124,58 @@ export const drawLetterhead = (
 
   doc.fillColor('#000000').strokeColor('#000000').lineWidth(1);
   return top + height + 16;
+};
+
+const COMPANY_BLUE = '#4472c4';
+const RULE_COLOR = '#8ea2c9';
+
+/**
+ * Draws the client-facing company letterhead (quotations): logo on the left, the company name
+ * and address beside it, and a full-width rule underneath. Returns the y position below it.
+ */
+export const drawCompanyLetterhead = (doc: PdfDoc, options: { margin: number }): number => {
+  const { margin } = options;
+  const top = margin - 10;
+  const logoWidth = 80;
+  const logoHeight = 62;
+  const textX = margin + logoWidth + 14;
+  const textWidth = doc.page.width - textX - margin;
+
+  drawLogo(doc, margin, top, logoWidth, logoHeight);
+
+  doc.font('Helvetica-Bold').fontSize(14.5).fillColor(COMPANY_BLUE)
+    .text('UNIVERSAL QUALITY MANAGEMENT SYSTEMS (PVT) LTD', textX, top + 12, { width: textWidth, align: 'center', lineBreak: false });
+  doc.font('Helvetica').fontSize(11).fillColor('#000000')
+    .text('No; 08, Chandralekha Mawatha, Colombo 08, Sri Lanka.', textX, top + 38, { width: textWidth, align: 'center', lineBreak: false });
+
+  const ruleY = top + logoHeight + 10;
+  doc.save().moveTo(0, ruleY).lineTo(doc.page.width, ruleY).lineWidth(0.75).strokeColor(RULE_COLOR).stroke().restore();
+
+  doc.fillColor('#000000').strokeColor('#000000').lineWidth(1);
+  return ruleY + 22;
+};
+
+/** Draws "Page X of Y" at the bottom right of every buffered page. Must be called after all content. */
+export const drawPageNumberFooter = (doc: PdfDoc, options: { margin: number }) => {
+  const { margin } = options;
+  const range = doc.bufferedPageRange();
+  const totalPages = range.count;
+
+  for (let i = 0; i < totalPages; i++) {
+    doc.switchToPage(range.start + i);
+    const width = doc.page.width - margin * 2;
+    const textY = doc.page.height - margin - 12;
+    // Text drawn below the bottom margin would otherwise trigger an automatic page break.
+    const bottomMargin = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
+
+    doc.font('Helvetica').fontSize(9.5).fillColor('#000000')
+      .text(`Page ${i + 1} of ${totalPages}`, margin, textY, { width: width - 40, align: 'right', lineBreak: false });
+
+    doc.page.margins.bottom = bottomMargin;
+  }
+
+  doc.fillColor('#000000');
 };
 
 /**
