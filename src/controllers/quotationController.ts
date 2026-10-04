@@ -549,6 +549,10 @@ export const sendQuotationToClient = async (req: AuthRequest, res: Response): Pr
   try {
     const quotation = await loadOpenQuotation(req, res);
     if (!quotation) return;
+    if (!quotation.approval?.approvedAt) {
+      res.status(400).json({ success: false, message: 'Approve the quotation before sending it to the client.' });
+      return;
+    }
 
     const request = await RequestModel.findById(quotation.request)
       .populate('vesselType')
