@@ -1,6 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { FEE_CURRENCIES, FeeCurrency } from './FeeItem';
-import { IESignature, eSignatureSchema } from './ESignature';
 
 export const QUOTATION_STATUSES = ['draft', 'sent', 'accepted', 'rejected', 'superseded'] as const;
 export type QuotationStatus = (typeof QUOTATION_STATUSES)[number];
@@ -29,6 +28,16 @@ export interface IQuotationDiscount {
   /** Percentage (0–100) or an LKR amount. */
   value: number;
   description?: string;
+}
+
+/**
+ * Internal approval of the quotation before it goes to the client. An approved quotation prints
+ * as system generated, with no signature needed.
+ */
+export interface IQuotationApproval {
+  approvedBy: mongoose.Types.ObjectId;
+  approvedByName: string;
+  approvedAt: Date;
 }
 
 export interface IQuotationClient {
@@ -72,8 +81,8 @@ export interface IQuotation extends Document {
   paymentTerms: string[];
   preparedByName?: string;
   preparedByDesignation?: string;
-  /** Electronic signature of the person who prepared the quotation; cleared when the quotation is edited. */
-  preparedBySignature?: IESignature;
+  /** Internal approval; cleared when the quotation is edited. */
+  approval?: IQuotationApproval;
   /** When and to whom the quotation (with the RFS) was last emailed. */
   emailedAt?: Date;
   emailedTo?: string;
@@ -133,6 +142,15 @@ const discountSchema = new Schema(
     type: { type: String, enum: DISCOUNT_TYPES, required: true },
     value: { type: Number, required: true, min: 0 },
     description: { type: String, trim: true },
+  },
+  { _id: false }
+);
+
+const approvalSchema = new Schema(
+  {
+    approvedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    approvedByName: { type: String, required: true, trim: true },
+    approvedAt: { type: Date, required: true },
   },
   { _id: false }
 );
@@ -245,8 +263,8 @@ const quotationSchema: Schema = new Schema(
       type: String,
       trim: true,
     },
-    preparedBySignature: {
-      type: eSignatureSchema,
+    approval: {
+      type: approvalSchema,
       required: false,
     },
     emailedAt: {
