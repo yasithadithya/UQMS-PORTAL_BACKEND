@@ -1,6 +1,6 @@
 import Module from '../models/Module';
 import Role from '../models/Role';
-import { SYSTEM_MODULES, INITIAL_ROLE_GRANTS } from './permissionRegistry';
+import { SYSTEM_MODULES, INITIAL_ROLE_GRANTS, PermissionAction } from './permissionRegistry';
 import { invalidateModuleCache } from '../utils/permissions';
 
 const fingerprint = (perms: { module: unknown; actions: string[] }[]) =>
@@ -58,12 +58,14 @@ export const loadModuleInfo = async (): Promise<Map<string, ModuleInfo>> => {
 /**
  * Idempotent startup sync of the system modules defined in permissionRegistry:
  * adopts existing modules by name (backfilling their key), creates missing ones, and migrates
- * role permissions onto newly created sub-modules so nobody loses access.
+ * role permissions onto newly created sub-modules and newly added actions so nobody loses access.
  */
 export const syncSystemModules = async (): Promise<void> => {
   try {
     const keyToId = new Map<string, string>();
     const created = new Set<string>();
+    /** Actions each existing module gained in this sync, by module key. */
+    const gained = new Map<string, string[]>();
 
     for (const def of SYSTEM_MODULES) {
       const parentId = def.parentKey ? keyToId.get(def.parentKey) ?? null : null;
@@ -92,6 +94,11 @@ export const syncSystemModules = async (): Promise<void> => {
       mod.parentId = (parentId as any) ?? null;
       mod.isSystem = true;
       mod.navigable = def.navigable;
+      if (!created.has(def.key)) {
+        const previous = mod.actions || [];
+        const added = def.actions.filter((a) => !previous.includes(a));
+        if (added.length > 0) gained.set(def.key, added);
+      }
       mod.actions = [...def.actions];
       if (!mod.description) mod.description = def.description;
       await mod.save();
@@ -113,6 +120,17 @@ export const syncSystemModules = async (): Promise<void> => {
         if (!source) continue;
         if (def.inheritRequires && !source.actions.includes(def.inheritRequires)) continue;
         perms.push({ module: keyToId.get(def.key)!, actions: source.actions.filter((a) => (def.actions as string[]).includes(a)) });
+      }
+
+      for (const def of SYSTEM_MODULES) {
+        const added = gained.get(def.key);
+        if (!added || !def.newActionsFrom) continue;
+        const entry = perms.find((p) => p.module === keyToId.get(def.key));
+        if (!entry) continue;
+        for (const action of added) {
+          const source = def.newActionsFrom[action as PermissionAction];
+          if (source && entry.actions.includes(source) && !entry.actions.includes(action)) entry.actions.push(action);
+        }
       }
 
       for (const grant of INITIAL_ROLE_GRANTS) {
