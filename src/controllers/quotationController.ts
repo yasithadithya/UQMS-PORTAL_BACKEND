@@ -348,7 +348,7 @@ export const updateQuotation = async (req: AuthRequest, res: Response): Promise<
 };
 
 /**
- * Moves a quotation to sent, accepted or rejected. Accepting needs the approve action, supersedes
+ * Moves a quotation to sent, accepted or rejected. Accepting or rejecting needs the accept action; accepting supersedes
  * the request's other open quotations and marks its First Entry as quoted.
  */
 export const updateQuotationStatus = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -365,7 +365,7 @@ export const updateQuotationStatus = async (req: AuthRequest, res: Response): Pr
       res.status(400).json({ success: false, message: 'Status must be sent, accepted or rejected.' });
       return;
     }
-    if (await rejectUnlessCan(req, res, QUOTATIONS_KEY, status === 'sent' ? 'update' : 'approve')) return;
+    if (await rejectUnlessCan(req, res, QUOTATIONS_KEY, status === 'sent' ? 'update' : 'accept')) return;
 
     const quotation = await Quotation.findById(id);
     if (!quotation) {

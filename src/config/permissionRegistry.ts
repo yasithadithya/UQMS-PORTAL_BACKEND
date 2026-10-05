@@ -11,8 +11,9 @@ export const CRUD_ACTIONS = ['create', 'read', 'update', 'delete'] as const;
  * `override` lets Technical Committee users bypass workflow locks (create survey requests in the ERP,
  * edit requests after the RFS is printed); every use is written to the audit log.
  * `discount` gates editing quotation discounts.
+ * `accept` records the client's response to a quotation (accepted or rejected), separate from internal `approve`.
  */
-export const ACTIONS = [...CRUD_ACTIONS, 'approve', 'sign-on-behalf', 'revoke-signature', 'override', 'discount'] as const;
+export const ACTIONS = [...CRUD_ACTIONS, 'approve', 'accept', 'sign-on-behalf', 'revoke-signature', 'override', 'discount'] as const;
 
 export type PermissionAction = (typeof ACTIONS)[number];
 
@@ -31,6 +32,11 @@ export interface SystemModuleDef {
   inheritFrom?: string;
   /** Only inherit from roles that hold this action on `inheritFrom`. */
   inheritRequires?: PermissionAction;
+  /**
+   * Migration: when an existing module first gains an action listed here, every role holding the
+   * mapped source action on it receives the new action too (e.g. split one action into two).
+   */
+  newActionsFrom?: Partial<Record<PermissionAction, PermissionAction>>;
   order?: number;
 }
 
@@ -84,8 +90,8 @@ export const SYSTEM_MODULES: SystemModuleDef[] = [
 
   { key: 'finance', name: 'Finance', description: 'Finance Module', parentKey: null, navigable: true, actions: READ },
   {
-    key: 'finance.quotations', name: 'Quotations', description: 'Client quotations for requests and jobs (approve = accept or reject, discount = edit discounts)',
-    parentKey: 'finance', navigable: false, actions: [...CRUD, 'approve', 'discount'], order: 1,
+    key: 'finance.quotations', name: 'Quotations', description: 'Client quotations for requests and jobs (approve = internal approval, accept = record client accept or reject, discount = edit discounts)',
+    parentKey: 'finance', navigable: false, actions: [...CRUD, 'approve', 'accept', 'discount'], newActionsFrom: { accept: 'approve' }, order: 1,
   },
   {
     key: 'finance.fee-structure', name: 'Fee Structure', description: 'Standard survey fees and additional charges',
