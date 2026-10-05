@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import type { TokenRole } from '../utils/permissions';
+import { setContextUser } from './requestContext';
 
 // Extend Express Request to include user data
 export interface AuthRequest extends Request {
@@ -40,6 +41,7 @@ const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction): vo
     };
 
     req.user = decoded;
+    setContextUser(decoded);
     next();
   } catch (error) {
     res.status(401).json({

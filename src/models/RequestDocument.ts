@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+import { auditPlugin } from '../plugins/auditPlugin';
 export interface IRequestSurveyDocument extends Document {
   requestId: mongoose.Types.ObjectId;
   requestNumber: string;
@@ -78,6 +79,8 @@ const requestDocumentSchema: Schema = new Schema(
     timestamps: true,
   }
 );
+
+requestDocumentSchema.plugin(auditPlugin, { entityType: 'request-document' });
 
 const RequestDocument = mongoose.model<IRequestSurveyDocument>('RequestDocument', requestDocumentSchema);
 

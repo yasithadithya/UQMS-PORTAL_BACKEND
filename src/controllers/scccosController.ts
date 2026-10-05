@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { isSigned, rejectUnsignedPublicPdf, sendAnnotatedPublicPdf, sendDeliverablePdf } from '../services/deliverableAccess';
+import { isSigned, recordPublicView, rejectUnsignedPublicPdf, sendAnnotatedPublicPdf, sendDeliverablePdf } from '../services/deliverableAccess';
 import mongoose from 'mongoose';
 import QRCode from 'qrcode';
 import SCCCOSModel from '../models/SCCCOS';
@@ -524,6 +524,7 @@ export const getPublicSCCCOSPdf = async (req: Request, res: Response): Promise<v
       rejectUnsignedPublicPdf(res);
       return;
     }
+    await recordPublicView('scccos', id);
     if (await sendAnnotatedPublicPdf(res, 'scccos', id, () => readStoredPdf(certificate.pdf, () => renderAndStoreScccosPdf(req, id)))) return;
 
     const presignedUrl = await getStoredPdfUrl(certificate.pdf, () => renderAndStoreScccosPdf(req, id));

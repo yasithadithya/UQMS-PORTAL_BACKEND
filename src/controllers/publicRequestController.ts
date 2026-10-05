@@ -6,6 +6,7 @@ import SurveyType from '../models/SurveyType';
 import { allocateRequestNumbers } from '../services/requestNumberService';
 import { uploadToR2 } from '../services/r2Storage';
 import { buildDocumentKey, parseStringList } from './requestController';
+import { setContextSystem } from '../middleware/requestContext';
 
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === 'string' && value.trim().length > 0;
@@ -187,6 +188,9 @@ export const createPublicSurveyRequest = async (req: Request, res: Response): Pr
       approvalStatus: 'pending',
     });
 
+    // No signed-in user: the public website (API key) is the actor.
+    setContextSystem('website');
+    newRequest.$locals.audit = { action: 'request.public.create', metadata: { contact: newRequest.companyEmail } };
     await newRequest.save();
 
     // Attachments are uploaded after the request is saved so a storage failure never loses the
@@ -217,6 +221,7 @@ export const createPublicSurveyRequest = async (req: Request, res: Response): Pr
       }
       if (documents.length > 0) {
         newRequest.set('documents', documents);
+        newRequest.$locals.audit = { action: 'request.document.add', metadata: { files: files.map((f) => f.originalname), failed: failedAttachments } };
         await newRequest.save();
       }
     }

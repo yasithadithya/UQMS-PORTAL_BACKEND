@@ -2,6 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 import { IStoredPdf, storedPdfSchema } from './StoredPdf';
 import { IESignature, eSignatureSchema } from './ESignature';
 
+import { auditPlugin } from '../plugins/auditPlugin';
 export interface IPaintDetail {
   coatNumber: string;
   productName: string;
@@ -155,6 +156,8 @@ const dockingSurveyCertSchema: Schema = new Schema(
     timestamps: true
   }
 );
+
+dockingSurveyCertSchema.plugin(auditPlugin, { entityType: 'docking-cert' });
 
 const DockingSurveyCert = mongoose.model<IDockingSurveyCert>('DockingSurveyCert', dockingSurveyCertSchema);
 

@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+import { auditPlugin } from '../plugins/auditPlugin';
 export interface IScheduleIIDocument extends Document {
   name: string;
   key: string;
@@ -85,6 +86,8 @@ const scheduleIISchema: Schema = new Schema(
     timestamps: true,
   }
 );
+
+scheduleIISchema.plugin(auditPlugin, { entityType: 'schedule-ii' });
 
 const ScheduleII = mongoose.model<IScheduleII>('ScheduleII', scheduleIISchema);
 

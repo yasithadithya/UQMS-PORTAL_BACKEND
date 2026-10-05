@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+import { auditPlugin } from '../plugins/auditPlugin';
 // Sub-interface for the surveys grid array
 export interface ISurveyReportCategory {
   surveyCategory: string; // Pre-populated from surveysRequested in the booking
@@ -120,6 +121,8 @@ const firstEntrySurveyReportSchema: Schema = new Schema(
     timestamps: true,
   }
 );
+
+firstEntrySurveyReportSchema.plugin(auditPlugin, { entityType: 'first-entry-survey-report' });
 
 const FirstEntrySurveyReport = mongoose.model<IFirstEntrySurveyReport>('FirstEntrySurveyReport', firstEntrySurveyReportSchema);
 

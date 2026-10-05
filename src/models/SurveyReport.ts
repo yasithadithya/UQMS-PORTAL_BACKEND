@@ -2,6 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 import { IStoredPdf, storedPdfSchema } from './StoredPdf';
 import { IESignature, eSignatureSchema } from './ESignature';
 
+import { auditPlugin } from '../plugins/auditPlugin';
 export interface ISurveyReport extends Document {
   vesselId: mongoose.Types.ObjectId;
   firstEntrySurveyReportId: mongoose.Types.ObjectId;
@@ -229,6 +230,8 @@ const surveyReportSchema: Schema = new Schema(
     timestamps: true,
   }
 );
+
+surveyReportSchema.plugin(auditPlugin, { entityType: 'survey-report' });
 
 const SurveyReport = mongoose.model<ISurveyReport>('SurveyReport', surveyReportSchema);
 

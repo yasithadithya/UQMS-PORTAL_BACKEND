@@ -3,6 +3,8 @@ import path from 'path';
 import crypto from 'crypto';
 import { uploadToR2 } from '../services/r2Storage';
 import { getIstDateParts } from '../utils/date';
+import { audit } from '../services/auditService';
+import type { AuthRequest } from '../middleware/auth';
 
 const allowedMimeTypes = new Set([
   'application/pdf',
@@ -84,6 +86,12 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
       contentType: file.mimetype,
       contentLength: file.size,
     });
+    await audit.event({
+      action: 'document.upload',
+      entityType: 'file',
+      entityRef: file.originalname,
+      metadata: { key: uploadResult.key, contentType: file.mimetype, size: file.size, folder: prefix },
+    }, req as AuthRequest);
 
     res.status(201).json({
       success: true,

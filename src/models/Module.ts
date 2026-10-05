@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { ACTIONS, CRUD_ACTIONS } from '../config/permissionRegistry';
 
+import { auditPlugin } from '../plugins/auditPlugin';
 export interface IModule extends Document {
   name: string;
   description?: string;
@@ -62,6 +63,8 @@ const moduleSchema: Schema = new Schema(
     timestamps: true,
   }
 );
+
+moduleSchema.plugin(auditPlugin, { entityType: 'module' });
 
 const Module = mongoose.model<IModule>('Module', moduleSchema);
 

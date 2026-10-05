@@ -224,11 +224,14 @@ export const createScheduleII = async (req: Request, res: Response): Promise<voi
       if (vessel && !vessel.uqmsNumber) {
         const uqmsNumber = await getNextDocumentNumber('UQMS');
         vessel.uqmsNumber = uqmsNumber;
+        vessel.$locals.audit = { action: 'vessel.uqms-number.assign', metadata: { scheduleII: String(newScheduleII._id) } };
         await vessel.save();
 
         // Update the associated request's status to 'success'
         if (firstEntryExists.request) {
-          await RequestModel.findByIdAndUpdate(firstEntryExists.request, { status: 'success' });
+          await RequestModel.findByIdAndUpdate(firstEntryExists.request, { status: 'success' }, {
+            audit: { action: 'request.status', reason: 'Schedule II created; UQMS number assigned.' },
+          });
         }
       }
     } catch (err: any) {
@@ -388,6 +391,10 @@ export const sendScheduleIIEmail = async (req: Request, res: Response): Promise<
     await transporter.sendMail(mailOptions);
 
     schedule.emailSent = true;
+    schedule.$locals.audit = {
+      action: 'document.email',
+      metadata: { to: mailOptions.to, subject: mailOptions.subject, files: attachments.map((a) => a.filename), vessel: vesselName },
+    };
     await schedule.save();
 
     res.status(200).json({ success: true, message: 'Email sent successfully.' });

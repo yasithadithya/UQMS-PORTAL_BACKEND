@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+import { auditPlugin } from '../plugins/auditPlugin';
 export interface IVesselType extends Document {
   group: string;
   name: string;
@@ -25,6 +26,8 @@ const vesselTypeSchema: Schema = new Schema(
     timestamps: true,
   }
 );
+
+vesselTypeSchema.plugin(auditPlugin, { entityType: 'vessel-type' });
 
 const VesselType = mongoose.model<IVesselType>('VesselType', vesselTypeSchema);
 

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { isSigned, rejectUnsignedPublicPdf, sendAnnotatedPublicPdf, sendDeliverablePdf } from '../services/deliverableAccess';
+import { isSigned, recordPublicView, rejectUnsignedPublicPdf, sendAnnotatedPublicPdf, sendDeliverablePdf } from '../services/deliverableAccess';
 import mongoose from 'mongoose';
 import FirstEntryFullReport from '../models/FirstEntryFullReport';
 import FirstEntrySurveyReport from '../models/FirstEntrySurveyReport';
@@ -639,6 +639,7 @@ export const generateDailyReportPdf = async (req: Request, res: Response): Promi
       report.updatedBy = (req as any).user.id;
     }
 
+    report.$locals.audit = { action: 'document.generate', metadata: { file: report.dailyReportPdfFilename, document: 'Daily visit report' } };
     await report.save();
 
     const populatedReport = await FirstEntryFullReport.findById(report._id)
@@ -708,7 +709,7 @@ export const getDailyReportPdfPreview = async (req: Request, res: Response): Pro
     const { buffer: pdfBuffer } = await createDailyReportPdfBuffer(report, qrBuffer);
 
     // Unsaved drafts are never signed, so previews always carry the PREVIEW watermark.
-    await sendDeliverablePdf(req, res, { buffer: pdfBuffer, filename: 'daily-report-preview.pdf', signed: false });
+    await sendDeliverablePdf(req, res, { buffer: pdfBuffer, filename: 'daily-report-preview.pdf', signed: false, record: { docType: 'daily-report', docId: String(id) } });
   } catch (error: any) {
     res.status(500).json({
       success: false,
@@ -782,6 +783,7 @@ export const getPublicDailyReportPdf = async (req: Request, res: Response): Prom
       return;
     }
     const pdfKey = report.dailyReportPdfKey;
+    await recordPublicView('daily-report', String(id));
     if (await sendAnnotatedPublicPdf(res, 'daily-report', String(id), () => downloadFromR2(pdfKey, report.dailyReportPdfBucket))) return;
 
     const presignedUrl = await getPresignedGetUrl(report.dailyReportPdfKey, report.dailyReportPdfBucket);
@@ -829,6 +831,7 @@ export const addGeneralRemark = async (req: Request, res: Response): Promise<voi
     report.remarks = report.remarks || [];
     report.remarks.push(newRemark as any);
 
+    report.$locals.audit = { action: 'remark.create', metadata: { remark: newRemark.text } };
     await report.save();
 
     const updatedReport = await FirstEntryFullReport.findById(id)
@@ -889,6 +892,7 @@ export const editGeneralRemark = async (req: Request, res: Response): Promise<vo
     remark.text = text.trim();
     remark.updatedAt = new Date();
 
+    report.$locals.audit = { action: 'remark.update' };
     await report.save();
 
     const updatedReport = await FirstEntryFullReport.findById(id)
@@ -938,6 +942,7 @@ export const toggleCloseGeneralRemark = async (req: Request, res: Response): Pro
     remark.isClosed = !remark.isClosed;
     remark.updatedAt = new Date();
 
+    report.$locals.audit = { action: remark.isClosed ? 'remark.close' : 'remark.reopen', metadata: { remark: remark.text } };
     await report.save();
 
     const updatedReport = await FirstEntryFullReport.findById(id)
@@ -1005,6 +1010,7 @@ export const addRemarkComment = async (req: Request, res: Response): Promise<voi
     remark.comments = remark.comments || [];
     remark.comments.push(newComment as any);
 
+    report.$locals.audit = { action: 'comment.add', metadata: { remark: remark.text, comment: newComment.text } };
     await report.save();
 
     const updatedReport = await FirstEntryFullReport.findById(id)
@@ -1071,6 +1077,7 @@ export const editRemarkComment = async (req: Request, res: Response): Promise<vo
     comment.text = text.trim();
     comment.updatedAt = new Date();
 
+    report.$locals.audit = { action: 'comment.update', metadata: { remark: remark.text } };
     await report.save();
 
     const updatedReport = await FirstEntryFullReport.findById(id)

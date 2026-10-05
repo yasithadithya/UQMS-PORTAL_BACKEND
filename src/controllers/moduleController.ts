@@ -173,7 +173,7 @@ export const updateModule = async (req: Request, res: Response): Promise<void> =
       await Role.updateMany(
         { 'permissions.module': mod._id },
         { $pull: { 'permissions.$[p].actions': { $nin: mod.actions } } },
-        { arrayFilters: [{ 'p.module': mod._id }] }
+        { arrayFilters: [{ 'p.module': mod._id }], audit: { action: 'module.permissions.cascade', metadata: { module: mod.key || mod.name } } }
       );
     }
 
@@ -212,7 +212,11 @@ export const deleteModule = async (req: Request, res: Response): Promise<void> =
     }
 
     // Remove the deleted module from every role's permissions so no dangling references remain.
-    await Role.updateMany({}, { $pull: { permissions: { module: mod._id } } });
+    await Role.updateMany(
+      {},
+      { $pull: { permissions: { module: mod._id } } },
+      { audit: { action: 'module.permissions.cascade', metadata: { module: mod.key || mod.name, deleted: true } } }
+    );
     invalidateModuleCache();
 
     res.status(200).json({ success: true, message: 'Module deleted successfully.' });

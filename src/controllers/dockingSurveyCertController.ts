@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { isSigned, rejectUnsignedPublicPdf, sendAnnotatedPublicPdf, sendDeliverablePdf } from '../services/deliverableAccess';
+import { isSigned, recordPublicView, rejectUnsignedPublicPdf, sendAnnotatedPublicPdf, sendDeliverablePdf } from '../services/deliverableAccess';
 import mongoose from 'mongoose';
 import QRCode from 'qrcode';
 import DockingSurveyCertModel from '../models/DockingSurveyCert';
@@ -425,6 +425,7 @@ export const getPublicDockingSurveyPdf = async (req: Request, res: Response): Pr
       rejectUnsignedPublicPdf(res);
       return;
     }
+    await recordPublicView('docking-cert', id);
     if (await sendAnnotatedPublicPdf(res, 'docking-cert', id, () => readStoredPdf(certificate.pdf, () => renderAndStoreDockingSurveyPdf(req, id)))) return;
 
     const presignedUrl = await getStoredPdfUrl(certificate.pdf, () => renderAndStoreDockingSurveyPdf(req, id));

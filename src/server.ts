@@ -33,6 +33,7 @@ import documentAnnotationRoutes from './routes/documentAnnotationRoutes';
 import hrRoutes from './HR/routes';
 import { syncSystemModules } from './config/seedModules';
 import { formatDate } from './utils/date';
+import { requestContext, runAsSystem } from './middleware/requestContext';
 
 // Load environment variables
 dotenv.config();
@@ -40,10 +41,15 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Behind a reverse proxy the client IP arrives in X-Forwarded-For; the audit log records it.
+app.set('trust proxy', process.env.TRUST_PROXY ?? 'loopback, linklocal, uniquelocal');
+
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+// Who/where context for the audit trail (must come after the body parsers).
+app.use(requestContext);
 
 // Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
@@ -106,7 +112,7 @@ const startServer = async () => {
     process.exit(1);
   }
   await connectDB();
-  await syncSystemModules();
+  await runAsSystem('permission-sync', syncSystemModules);
 
   app.listen(PORT, () => {
     console.log(`\n🚀 Server running on http://localhost:${PORT}`);
