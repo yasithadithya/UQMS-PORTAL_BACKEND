@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { isSigned, rejectUnsignedPublicPdf, sendAnnotatedPublicPdf, sendDeliverablePdf } from '../services/deliverableAccess';
+import { isSigned, recordPublicView, rejectUnsignedPublicPdf, sendAnnotatedPublicPdf, sendDeliverablePdf } from '../services/deliverableAccess';
 import mongoose from 'mongoose';
 import QRCode from 'qrcode';
 import SurveyReportModel from '../models/SurveyReport';
@@ -564,6 +564,7 @@ export const getPublicSurveyReportPdf = async (req: Request, res: Response): Pro
       rejectUnsignedPublicPdf(res);
       return;
     }
+    await recordPublicView('survey-report', id);
     if (await sendAnnotatedPublicPdf(res, 'survey-report', id, () => readStoredPdf(report.pdf, () => renderAndStoreSurveyReportPdf(req, id)))) return;
 
     const presignedUrl = await getStoredPdfUrl(report.pdf, () => renderAndStoreSurveyReportPdf(req, id));

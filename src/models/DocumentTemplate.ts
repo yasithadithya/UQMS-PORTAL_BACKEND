@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+import { auditPlugin } from '../plugins/auditPlugin';
 export interface IDocumentTemplate extends Document {
   documentName: string;
   documentNumber: string;
@@ -42,6 +43,8 @@ const documentTemplateSchema: Schema = new Schema(
     timestamps: true,
   }
 );
+
+documentTemplateSchema.plugin(auditPlugin, { entityType: 'document-template' });
 
 const DocumentTemplate = mongoose.model<IDocumentTemplate>('DocumentTemplate', documentTemplateSchema);
 

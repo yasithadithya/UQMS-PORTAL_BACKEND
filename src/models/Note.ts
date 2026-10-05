@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+import { auditPlugin } from '../plugins/auditPlugin';
 export interface INoteItem {
     noteCategory: string; // e.g. 'Additional Information' or 'Statutory Conditions'
     noteCode: string;
@@ -78,6 +79,8 @@ const noteSchema: Schema = new Schema(
         timestamps: true
     }
 );
+
+noteSchema.plugin(auditPlugin, { entityType: 'note' });
 
 const Note = mongoose.model<INote>('Note', noteSchema);
 

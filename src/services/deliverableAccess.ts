@@ -2,6 +2,9 @@ import { Request, Response } from 'express';
 import { PDFDocument, StandardFonts, degrees, rgb } from 'pdf-lib';
 import type { IESignature } from '../models/ESignature';
 import { applyAnnotations, getAnnotationItems } from './annotationService';
+import { audit } from './auditService';
+import { setContextSystem } from '../middleware/requestContext';
+import type { AuthRequest } from '../middleware/auth';
 
 /**
  * Deliverable control: until the responsible surveyor signs a deliverable it can only be
@@ -49,7 +52,8 @@ export const withAnnotations = async (buffer: Buffer, docType: string, docId: st
 
 /**
  * Sends a deliverable PDF to an authenticated user, applying the preview/download rules.
- * `annotationsFor` names the document whose saved annotations are drawn on the PDF.
+ * `annotationsFor` names the document whose saved annotations are drawn on the PDF; it (or
+ * `record`) also names the document the view or download is recorded against in the audit log.
  */
 export const sendDeliverablePdf = async (
   req: Request,
@@ -59,12 +63,29 @@ export const sendDeliverablePdf = async (
     filename,
     signed,
     annotationsFor,
-  }: { buffer: Buffer; filename: string; signed: boolean; annotationsFor?: { docType: string; docId: string } }
+    record,
+  }: {
+    buffer: Buffer;
+    filename: string;
+    signed: boolean;
+    annotationsFor?: { docType: string; docId: string };
+    record?: { docType: string; docId: string };
+  }
 ): Promise<void> => {
   const download = wantsDownload(req);
   if (!signed && download) {
     res.status(403).json({ success: false, message: PREVIEW_ONLY_MESSAGE });
     return;
+  }
+
+  const target = record ?? annotationsFor;
+  if (target) {
+    await audit.event({
+      action: signed && download ? 'document.download' : 'document.view',
+      entityType: target.docType,
+      entityId: target.docId,
+      metadata: { file: filename, ...(signed ? {} : { preview: true }) },
+    }, req as AuthRequest);
   }
 
   let body = buffer;
@@ -103,4 +124,10 @@ export const sendAnnotatedPublicPdf = async (
   res.setHeader('Content-Disposition', 'inline');
   res.send(await applyAnnotations(buffer, items));
   return true;
+};
+
+/** Records that a deliverable was opened through its public QR link (no signed-in user). */
+export const recordPublicView = (docType: string, docId: string): Promise<void> => {
+  setContextSystem('public QR link');
+  return audit.event({ action: 'document.view', entityType: docType, entityId: docId, metadata: { via: 'public QR link' } });
 };

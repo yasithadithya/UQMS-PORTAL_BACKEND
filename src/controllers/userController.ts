@@ -237,6 +237,10 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
     if (dob !== undefined) user.dob = dob ? new Date(dob) : null;
     if (empNumber !== undefined) user.empNumber = empNumber;
 
+    user.$locals.audit = {
+      action: roleChanged ? 'user.role.change' : password ? 'user.password.change' : isSelf ? 'user.profile.update' : undefined,
+      metadata: isSelf ? { self: true } : undefined,
+    };
     await user.save();
 
     // Return updated user without password

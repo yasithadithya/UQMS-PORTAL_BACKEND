@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+import { auditPlugin } from '../plugins/auditPlugin';
 export interface IRecEquipQues extends Document {
   codeRefNo: string;
   description: string;
@@ -24,6 +25,8 @@ const recEquipQuesSchema: Schema = new Schema(
     timestamps: true,
   }
 );
+
+recEquipQuesSchema.plugin(auditPlugin, { entityType: 'rec-equip-ques' });
 
 const RecEquipQues = mongoose.model<IRecEquipQues>('RecEquipQues', recEquipQuesSchema);
 

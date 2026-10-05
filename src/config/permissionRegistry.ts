@@ -12,8 +12,9 @@ export const CRUD_ACTIONS = ['create', 'read', 'update', 'delete'] as const;
  * edit requests after the RFS is printed); every use is written to the audit log.
  * `discount` gates editing quotation discounts.
  * `accept` records the client's response to a quotation (accepted or rejected), separate from internal `approve`.
+ * `export` allows downloading data in bulk (e.g. the audit log as CSV).
  */
-export const ACTIONS = [...CRUD_ACTIONS, 'approve', 'accept', 'sign-on-behalf', 'revoke-signature', 'override', 'discount'] as const;
+export const ACTIONS = [...CRUD_ACTIONS, 'approve', 'accept', 'sign-on-behalf', 'revoke-signature', 'override', 'discount', 'export'] as const;
 
 export type PermissionAction = (typeof ACTIONS)[number];
 
@@ -106,7 +107,7 @@ export const SYSTEM_MODULES: SystemModuleDef[] = [
     key: 'admin.master-data', name: 'Master Data', description: 'Checklist questions, vessel codes, equipment questions and document templates',
     parentKey: 'admin', navigable: false, actions: CRUD, order: 4,
   },
-  { key: 'admin.audit-log', name: 'Audit Log', description: 'History of override and controlled changes', parentKey: 'admin', navigable: false, actions: READ, order: 5 },
+  { key: 'admin.audit-log', name: 'Audit Log', description: 'Full history of who changed what, sign-ins and document activity (export = download as CSV)', parentKey: 'admin', navigable: false, actions: ['read', 'export'], order: 5 },
 ];
 
 /** Roles (by name) that receive extra actions when the module is first created. Replaces the old hard-coded e-signature bypass list. */

@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+import { auditPlugin } from '../plugins/auditPlugin';
 export interface IChecklistQuestion extends Document {
   item: string;
   description?: string;
@@ -66,6 +67,8 @@ const checklistQuestionSchema: Schema = new Schema(
     timestamps: true,
   }
 );
+
+checklistQuestionSchema.plugin(auditPlugin, { entityType: 'checklist-question' });
 
 const ChecklistQuestion = mongoose.model<IChecklistQuestion>('ChecklistQuestion', checklistQuestionSchema);
 

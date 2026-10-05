@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { ACTIONS } from '../config/permissionRegistry';
 
+import { auditPlugin } from '../plugins/auditPlugin';
 export interface IRolePermission {
   module: mongoose.Types.ObjectId;
   actions: string[];
@@ -41,6 +42,8 @@ const roleSchema: Schema = new Schema(
     timestamps: true,
   }
 );
+
+roleSchema.plugin(auditPlugin, { entityType: 'role' });
 
 const Role = mongoose.model<IRole>('Role', roleSchema);
 

@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+import { auditPlugin } from '../plugins/auditPlugin';
 export interface IFirstEntry extends Document {
   request: mongoose.Types.ObjectId;
   vessel: mongoose.Types.ObjectId;
@@ -54,6 +55,8 @@ const firstEntrySchema: Schema = new Schema(
     timestamps: true,
   }
 );
+
+firstEntrySchema.plugin(auditPlugin, { entityType: 'first-entry' });
 
 const FirstEntry = mongoose.model<IFirstEntry>('FirstEntry', firstEntrySchema);
 
