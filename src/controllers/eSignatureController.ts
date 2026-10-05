@@ -205,7 +205,8 @@ export const signDocument = async (req: Request, res: Response): Promise<void> =
     // Conditional update so two concurrent signings cannot both succeed.
     const result = await handler.model.updateOne(
       { _id: id, 'eSignature.signedAt': { $exists: false } },
-      { $set: { eSignature, updatedBy: userId } }
+      { $set: { eSignature, updatedBy: userId } },
+      { audit: { action: signer.isSelf ? 'document.sign' : 'document.sign.on-behalf', metadata: { signer: signer.name, location } } }
     );
     if (result.modifiedCount === 0) {
       res.status(409).json({ success: false, message: 'This document has already been signed.' });
@@ -216,7 +217,9 @@ export const signDocument = async (req: Request, res: Response): Promise<void> =
       await handler.regeneratePdf(req, id);
     } catch (renderError) {
       // Without the stamped PDF the signature is not visible anywhere, so undo it.
-      await handler.model.updateOne({ _id: id }, { $unset: { eSignature: 1 } });
+      await handler.model.updateOne({ _id: id }, { $unset: { eSignature: 1 } }, {
+        audit: { action: 'document.sign.revoke', reason: 'The signed PDF could not be generated, so the signature was undone automatically.' },
+      });
       throw renderError;
     }
 
@@ -251,7 +254,10 @@ export const revokeSignature = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    await handler.model.updateOne({ _id: id }, { $unset: { eSignature: 1 }, $set: { updatedBy: userId } });
+    const reason = typeof req.body?.reason === 'string' && req.body.reason.trim() ? req.body.reason.trim() : undefined;
+    await handler.model.updateOne({ _id: id }, { $unset: { eSignature: 1 }, $set: { updatedBy: userId } }, {
+      audit: { action: 'document.sign.revoke', reason, metadata: { previousSigner: (doc as any).eSignature?.signedByName } },
+    });
     await handler.regeneratePdf(req, id);
 
     const unsignedDoc = await handler.model.findById(id);

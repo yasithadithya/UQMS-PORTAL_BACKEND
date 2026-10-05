@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { FEE_CURRENCIES, FeeCurrency } from './FeeItem';
 
+import { auditPlugin } from '../plugins/auditPlugin';
 export const QUOTATION_STATUSES = ['draft', 'sent', 'accepted', 'rejected', 'superseded'] as const;
 export type QuotationStatus = (typeof QUOTATION_STATUSES)[number];
 
@@ -310,6 +311,8 @@ const quotationSchema: Schema = new Schema(
 );
 
 quotationSchema.index({ request: 1, revision: 1 }, { unique: true });
+
+quotationSchema.plugin(auditPlugin, { entityType: 'quotation' });
 
 const Quotation = mongoose.model<IQuotation>('Quotation', quotationSchema);
 

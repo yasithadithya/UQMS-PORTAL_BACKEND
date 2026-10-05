@@ -9,7 +9,7 @@ import RequestModel, { IRequest, REQUEST_DOCUMENT_TYPES, isRequestDocumentType }
 import RequestDocumentModel from '../models/RequestDocument';
 import type { AuthRequest } from '../middleware/auth';
 import { userCan } from '../utils/permissions';
-import { diffFields, recordAudit } from '../services/auditService';
+import { audit, AuditTag, refOf } from '../services/auditService';
 import VesselType from '../models/VesselType';
 import AreaOfOperation from '../models/AreaOfOperation';
 import SurveyType from '../models/SurveyType';
@@ -70,13 +70,6 @@ const sanitizeSegment = (value: string): string =>
     .replace(/-+/g, '-')
     .replace(/^-+|-+$/g, '');
 
-/** Fields compared when auditing a Technical Committee edit of a locked request. */
-const AUDITED_REQUEST_FIELDS = [
-  'vesselCode', 'uqmsNumber', 'imoNumber', 'mmsiNumber', 'vesselName', 'companyName', 'contactPersonName',
-  'contactPersonNumber', 'registerdAddress', 'invoicingAddress', 'companyEmail', 'sector', 'status',
-  'vesselType', 'areaOfOperation', 'surveyTypes', 'createdAt',
-];
-
 const LOCKED_MESSAGE = 'Only active requests can be edited. A Technical Committee override is required to change this request.';
 
 /**
@@ -92,6 +85,16 @@ const overrideReason = (req: Request): string | undefined => {
   const reason = req.body?.overrideReason;
   return isNonEmptyString(reason) ? toTrimmedString(reason) : undefined;
 };
+
+/** Records a document event (view, generate, email) against the request. */
+const requestEvent = (req: Request, request: { _id: unknown }, action: string, metadata?: Record<string, unknown>) =>
+  audit.event({ action, entityType: 'request', entityId: request._id, entityRef: refOf('request', request), metadata }, req as AuthRequest);
+
+/** Audit tag for a request save: overrides are always labelled as such, with the reason given. */
+const requestTag = (req: Request, access: 'open' | 'override', action?: string, metadata?: Record<string, unknown>): AuditTag =>
+  access === 'override'
+    ? { action: 'request.update.override', reason: overrideReason(req), metadata: { ...metadata, ...(action ? { change: action } : {}) } }
+    : { action, metadata };
 
 /** Parses a multipart/JSON list field (`a`, `["a","b"]` or an array) into strings. */
 export const parseStringList = (value: unknown): string[] | undefined => {
@@ -353,18 +356,10 @@ export const createRequest = async (req: Request, res: Response): Promise<void> 
       updatedBy: (req as any).user?.id,
     });
 
-    await newRequest.save();
-
     // Survey requests normally come from the website; creating one in the ERP is a Technical
     // Committee override (enforced on the route) and is always audited.
-    await recordAudit(req as AuthRequest, {
-      action: 'request.create.override',
-      entityType: 'request',
-      entityId: newRequest._id,
-      entityRef: newRequest.requestNumber,
-      reason: overrideReason(req),
-      changes: [{ field: 'jobNumber', to: newRequest.jobNumber }, { field: 'vesselName', to: newRequest.vesselName }],
-    });
+    newRequest.$locals.audit = { action: 'request.create.override', reason: overrideReason(req) };
+    await newRequest.save();
 
     const populatedRequest = await RequestModel.findById(newRequest._id)
       .populate('vesselType')
@@ -467,7 +462,7 @@ const reviewWebRequest = async (
   const reviewed = await RequestModel.findOneAndUpdate(
     { _id: request._id, approvalStatus: 'pending' },
     { $set: update },
-    { new: true }
+    { new: true, audit: { action: decision === 'accepted' ? 'request.accept' : 'request.reject', reason: isNonEmptyString(req.body?.reason) ? toTrimmedString(req.body.reason) : undefined } }
   );
   if (!reviewed) {
     res.status(409).json({ success: false, message: 'This request has already been reviewed.' });
@@ -670,7 +665,6 @@ export const updateRequest = async (req: Request, res: Response): Promise<void> 
       res.status(400).json({ success: false, message: LOCKED_MESSAGE });
       return;
     }
-    const before = access === 'override' ? request.toObject() : null;
 
     if (vesselType !== undefined) {
       const vesselDoc = await VesselType.findById(vesselType);
@@ -746,18 +740,8 @@ export const updateRequest = async (req: Request, res: Response): Promise<void> 
       request.updatedBy = (req as any).user.id;
     }
 
+    if (access === 'override') request.$locals.audit = requestTag(req, access);
     await request.save();
-
-    if (before) {
-      await recordAudit(req as AuthRequest, {
-        action: 'request.update.override',
-        entityType: 'request',
-        entityId: request._id,
-        entityRef: request.requestNumber,
-        reason: overrideReason(req),
-        changes: diffFields(before, request.toObject(), AUDITED_REQUEST_FIELDS),
-      });
-    }
 
     const populatedRequest = await RequestModel.findById(request._id)
       .populate('vesselType')
@@ -859,18 +843,8 @@ export const addRequestDocuments = async (req: Request, res: Response): Promise<
       request.updatedBy = (req as any).user.id;
     }
     request.set('documents', [...request.documents, ...documentsToAdd]);
+    request.$locals.audit = requestTag(req, access, 'request.document.add', { files: documentsToAdd.map((doc) => doc.name) });
     await request.save();
-
-    if (access === 'override') {
-      await recordAudit(req as AuthRequest, {
-        action: 'request.update.override',
-        entityType: 'request',
-        entityId: request._id,
-        entityRef: request.requestNumber,
-        reason: overrideReason(req),
-        changes: documentsToAdd.map((doc) => ({ field: 'documents', to: `Added ${doc.name}` })),
-      });
-    }
 
     const populatedRequest = await RequestModel.findById(request._id)
       .populate('vesselType')
@@ -977,18 +951,10 @@ export const updateRequestDocument = async (req: Request, res: Response): Promis
       request.updatedBy = (req as any).user.id;
     }
 
+    request.$locals.audit = requestTag(req, access, 'request.document.replace', {
+      file: document.name, previousName, fileReplaced: !!file,
+    });
     await request.save();
-
-    if (access === 'override') {
-      await recordAudit(req as AuthRequest, {
-        action: 'request.update.override',
-        entityType: 'request',
-        entityId: request._id,
-        entityRef: request.requestNumber,
-        reason: overrideReason(req),
-        changes: [{ field: 'documents', from: previousName, to: file ? `${document.name} (file replaced)` : document.name }],
-      });
-    }
 
     const populatedRequest = await RequestModel.findById(request._id)
       .populate('vesselType')
@@ -1033,17 +999,6 @@ export const deleteRequestDocument = async (req: Request, res: Response): Promis
       return;
     }
 
-    if (access === 'override') {
-      await recordAudit(req as AuthRequest, {
-        action: 'request.update.override',
-        entityType: 'request',
-        entityId: request._id,
-        entityRef: request.requestNumber,
-        reason: overrideReason(req),
-        changes: [{ field: 'documents', from: document.name, to: 'Deleted' }],
-      });
-    }
-
     if (document.key) {
       try {
         await deleteFromR2(document.key);
@@ -1056,6 +1011,7 @@ export const deleteRequestDocument = async (req: Request, res: Response): Promis
     }
 
     request.documents = request.documents.filter((item) => item._id?.toString() !== documentId);
+    request.$locals.audit = requestTag(req, access, 'request.document.delete', { file: document.name });
     await request.save();
 
     const populatedRequest = await RequestModel.findById(request._id)
@@ -1148,13 +1104,14 @@ export const generateRequestSurveyPdf = async (req: Request, res: Response): Pro
         etag: uploadResult.etag,
         generatedAt: new Date(),
       },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, new: true, setDefaultsOnInsert: true, audit: false }
     );
 
     const url = await getRequestSurveyPdfUrl({
       bucket: uploadResult.bucket,
       key: uploadResult.key,
     });
+    await requestEvent(req, request, 'document.generate', { file: filename, document: 'Request for Survey' });
 
     res.status(201).json({
       success: true,
@@ -1199,6 +1156,7 @@ export const getRequestSurveyPdf = async (req: Request, res: Response): Promise<
     }
 
     const url = await getRequestSurveyPdfUrl(storedDocument.toObject());
+    await requestEvent(req, request, 'document.view', { file: storedDocument.filename, document: 'Request for Survey' });
     res.status(200).json({
       success: true,
       data: {
@@ -1249,6 +1207,7 @@ export const getRequestSurveyPreview = async (req: Request, res: Response): Prom
     }
 
     const pdfBuffer = await createRequestSurveyPdfBuffer(request.toObject());
+    await requestEvent(req, request, 'document.view', { document: 'Request for Survey', preview: true });
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'inline; filename="survey-preview.pdf"');
@@ -1319,7 +1278,7 @@ export const printAndSendRequestSurveyPdf = async (req: Request, res: Response):
         etag: uploadResult.etag,
         generatedAt: new Date(),
       },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, new: true, setDefaultsOnInsert: true, audit: false }
     );
 
     const url = await getRequestSurveyPdfUrl({
@@ -1345,6 +1304,7 @@ export const printAndSendRequestSurveyPdf = async (req: Request, res: Response):
     };
 
     await transporter.sendMail(mailOptions);
+    await requestEvent(req, request, 'document.email', { to: mailOptions.to, subject: mailOptions.subject, file: filename, document: 'Request for Survey' });
 
     res.status(201).json({
       success: true,
@@ -1417,6 +1377,7 @@ export const uploadSignedPdf = async (req: Request, res: Response): Promise<void
       request.updatedBy = (req as any).user.id;
     }
 
+    request.$locals.audit = { action: 'request.signed-pdf.upload', metadata: { file: file.originalname, size: file.size } };
     await request.save();
 
     if (previousKey) {
@@ -1464,12 +1425,14 @@ export const deleteSignedPdf = async (req: Request, res: Response): Promise<void
 
     const key = request.signedPdf.key;
 
+    const removedName = request.signedPdf.name;
     request.signedPdf = undefined;
 
     if ((req as any).user?.id) {
       request.updatedBy = (req as any).user.id;
     }
 
+    request.$locals.audit = { action: 'request.signed-pdf.remove', metadata: { file: removedName } };
     await request.save();
 
     try {

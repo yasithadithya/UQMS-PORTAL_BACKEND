@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+import { auditPlugin } from '../plugins/auditPlugin';
 export interface IRequest extends Document {
   requestNumber: string;
   rfsDocNo?: string;
@@ -236,6 +237,8 @@ const requestSchema: Schema = new Schema(
 );
 
 requestSchema.path('createdAt').immutable(false);
+
+requestSchema.plugin(auditPlugin, { entityType: 'request' });
 
 const Request = mongoose.model<IRequest>('Request', requestSchema);
 

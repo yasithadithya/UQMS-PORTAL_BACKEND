@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+import { auditPlugin } from '../plugins/auditPlugin';
 // Interface for the Surveyor & Fee details specific to a single visit
 export interface ISurveyorAssignment {
     surveyorId?: mongoose.Types.ObjectId; // References User/Surveyor model
@@ -133,6 +134,8 @@ const firstEntrySurveyBookingSchema: Schema = new Schema(
         timestamps: true,
     }
 );
+
+firstEntrySurveyBookingSchema.plugin(auditPlugin, { entityType: 'booking' });
 
 const FirstEntrySurveyBooking = mongoose.model<IFirstEntrySurveyBooking>('FirstEntrySurveyBooking', firstEntrySurveyBookingSchema);
 

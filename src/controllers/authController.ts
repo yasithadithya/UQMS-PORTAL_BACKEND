@@ -1,7 +1,20 @@
 import { Request, Response } from 'express';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import User from '../models/User';
-import { getJwtSecret } from '../middleware/auth';
+import { AuthRequest, getJwtSecret } from '../middleware/auth';
+import { audit } from '../services/auditService';
+
+const failedLogin = (identifier: string, reason: string, user?: { _id: unknown; email?: string; role?: unknown }) =>
+  audit.event({
+    action: 'auth.login.failed',
+    entityType: 'auth',
+    entityId: user?._id,
+    entityRef: String(identifier).slice(0, 100),
+    outcome: 'failure',
+    reason,
+    actor: user ? { id: String(user._id), email: user.email, role: user.role } : {},
+    metadata: { identifier: String(identifier).slice(0, 100) },
+  });
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -22,6 +35,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }).populate('role');
 
     if (!user) {
+      await failedLogin(login, 'Unknown username or email');
       res.status(401).json({
         success: false,
         message: 'User not found.',
@@ -33,6 +47,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const isMatch = await user.comparePassword(password);
 
     if (!isMatch) {
+      await failedLogin(login, 'Wrong password', user);
       res.status(401).json({
         success: false,
         message: 'Invalid credentials.',
@@ -57,6 +72,15 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       signOptions
     );
 
+    await audit.event({
+      action: 'auth.login',
+      entityType: 'auth',
+      entityId: user._id,
+      entityRef: user.username,
+      actor: { id: String(user._id), email: user.email, role: user.role },
+      metadata: { identifier: String(login).slice(0, 100) },
+    });
+
     res.status(200).json({
       success: true,
       message: 'Login successful.',
@@ -75,4 +99,10 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       error: error.message,
     });
   }
+};
+
+/** Records a sign-out. The token itself is discarded by the client. */
+export const logout = async (req: AuthRequest, res: Response): Promise<void> => {
+  await audit.event({ action: 'auth.logout', entityType: 'auth', entityId: req.user?.id, entityRef: req.user?.email }, req);
+  res.status(200).json({ success: true, message: 'Signed out.' });
 };

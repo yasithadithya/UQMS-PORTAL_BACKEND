@@ -21,7 +21,7 @@ import {
 import { createQuotationPdfBuffer } from '../services/quotationPdfService';
 import { createRequestSurveyPdfBuffer } from '../services/requestPdfService';
 import { createMailTransport, senderAddress } from '../services/mailService';
-import { recordAudit } from '../services/auditService';
+import { audit } from '../services/auditService';
 
 const QUOTATIONS_KEY = 'finance.quotations';
 
@@ -66,14 +66,14 @@ const rejectDiscountChange = async (
   return rejectUnlessCan(req, res, QUOTATIONS_KEY, 'discount');
 };
 
-const auditDiscountChange = async (
-  req: AuthRequest,
+/** Records a discount that differs from the revised quotation's (edits are tagged on the save instead). */
+const auditRevisionDiscount = async (
   quotation: { _id: unknown; quotationNumber: string },
   previous: IQuotationDiscount | undefined | null,
   next: IQuotationDiscount | undefined
 ): Promise<void> => {
   if (discountKey(previous) === discountKey(next)) return;
-  await recordAudit(req, {
+  await audit.event({
     action: 'quotation.discount',
     entityType: 'quotation',
     entityId: quotation._id,
@@ -82,6 +82,8 @@ const auditDiscountChange = async (
     changes: [{ field: 'discount', from: describeDiscount(previous), to: describeDiscount(next) }],
   });
 };
+
+const supersededTag = (by: string) => ({ audit: { action: 'quotation.superseded', metadata: { supersededBy: by } } });
 
 /** The editable fields shared by create and update; throws QuotationError on invalid input. */
 const readQuotationBody = (body: any) => {
@@ -128,7 +130,10 @@ export const getQuotations = async (req: AuthRequest, res: Response): Promise<vo
     const query: Record<string, unknown> = {};
     const { search, status, request } = req.query;
 
-    if (typeof status === 'string' && QUOTATION_STATUSES.includes(status as QuotationStatus)) query.status = status;
+    // 'approved' is a draft with an internal approval; plain 'draft' leaves those out.
+    if (status === 'approved') Object.assign(query, { status: 'draft', approval: { $exists: true } });
+    else if (status === 'draft') Object.assign(query, { status: 'draft', approval: { $exists: false } });
+    else if (typeof status === 'string' && QUOTATION_STATUSES.includes(status as QuotationStatus)) query.status = status;
     if (typeof request === 'string' && mongoose.isValidObjectId(request)) query.request = request;
     if (typeof search === 'string' && search.trim()) {
       const pattern = new RegExp(escapeRegex(search.trim()), 'i');
@@ -290,12 +295,13 @@ export const createQuotation = async (req: AuthRequest, res: Response): Promise<
       }
     }
 
-    await auditDiscountChange(req, quotation, revisedDiscount, fields.discount);
+    await auditRevisionDiscount(quotation, revisedDiscount, fields.discount);
 
     if (quotation.revision > 0) {
       await Quotation.updateMany(
         { request: requestId, _id: { $ne: quotation._id }, status: { $in: OPEN_QUOTATION_STATUSES } },
-        { $set: { status: 'superseded', statusChangedAt: new Date(), statusChangedBy: userId } }
+        { $set: { status: 'superseded', statusChangedAt: new Date(), statusChangedBy: userId } },
+        supersededTag(quotation.quotationNumber)
       );
     }
 
@@ -335,8 +341,14 @@ export const updateQuotation = async (req: AuthRequest, res: Response): Promise<
     if (!fields.discount) quotation.set('discount', undefined);
     // The approval covered what was there before; any edit needs a fresh approval.
     quotation.set('approval', undefined);
+    if (discountKey(previousDiscount) !== discountKey(fields.discount)) {
+      quotation.$locals.audit = {
+        action: 'quotation.discount',
+        reason: optionalText(fields.discount?.description),
+        metadata: { discount: { from: describeDiscount(previousDiscount), to: describeDiscount(fields.discount) } },
+      };
+    }
     await quotation.save();
-    await auditDiscountChange(req, quotation, previousDiscount, fields.discount);
 
     res.status(200).json({ success: true, message: 'Quotation updated successfully.', data: quotation });
   } catch (error: any) {
@@ -345,7 +357,7 @@ export const updateQuotation = async (req: AuthRequest, res: Response): Promise<
 };
 
 /**
- * Moves a quotation to sent, accepted or rejected. Accepting needs the approve action, supersedes
+ * Moves a quotation to sent, accepted or rejected. Accepting or rejecting needs the accept action; accepting supersedes
  * the request's other open quotations and marks its First Entry as quoted.
  */
 export const updateQuotationStatus = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -362,7 +374,7 @@ export const updateQuotationStatus = async (req: AuthRequest, res: Response): Pr
       res.status(400).json({ success: false, message: 'Status must be sent, accepted or rejected.' });
       return;
     }
-    if (await rejectUnlessCan(req, res, QUOTATIONS_KEY, status === 'sent' ? 'update' : 'approve')) return;
+    if (await rejectUnlessCan(req, res, QUOTATIONS_KEY, status === 'sent' ? 'update' : 'accept')) return;
 
     const quotation = await Quotation.findById(id);
     if (!quotation) {
@@ -390,12 +402,14 @@ export const updateQuotationStatus = async (req: AuthRequest, res: Response): Pr
 
     const now = new Date();
     quotation.set({ status, statusReason: status === 'rejected' ? statusReason : undefined, statusChangedAt: now, statusChangedBy: userId, updatedBy: userId });
+    quotation.$locals.audit = { action: 'quotation.status', reason: statusReason };
     await quotation.save();
 
     if (status === 'accepted') {
       await Quotation.updateMany(
         { request: quotation.request, _id: { $ne: quotation._id }, status: { $in: OPEN_QUOTATION_STATUSES } },
-        { $set: { status: 'superseded', statusChangedAt: now, statusChangedBy: userId } }
+        { $set: { status: 'superseded', statusChangedAt: now, statusChangedBy: userId } },
+        supersededTag(quotation.quotationNumber)
       );
       await syncFirstEntryQuotation(quotation.request, quotation.quotationNumber);
     }
@@ -452,6 +466,13 @@ export const getQuotationPdf = async (req: AuthRequest, res: Response): Promise<
 
     const buffer = await createQuotationPdfBuffer(quotation);
     const filename = `${quotation.quotationNumber.replace(/[^\w-]+/g, '_')}.pdf`;
+    await audit.event({
+      action: 'document.download',
+      entityType: 'quotation',
+      entityId: quotation._id,
+      entityRef: quotation.quotationNumber,
+      metadata: { file: filename },
+    }, req);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     res.send(buffer);
@@ -502,14 +523,8 @@ export const approveQuotation = async (req: AuthRequest, res: Response): Promise
       approval: { approvedBy: user._id, approvedByName, approvedAt: new Date() },
       updatedBy: req.user?.id,
     });
+    quotation.$locals.audit = { action: 'quotation.approve' };
     await quotation.save();
-    await recordAudit(req, {
-      action: 'quotation.approve',
-      entityType: 'quotation',
-      entityId: quotation._id,
-      entityRef: quotation.quotationNumber,
-      changes: [{ field: 'approval', from: 'Not approved', to: `Approved by ${approvedByName}` }],
-    });
 
     res.status(200).json({ success: true, message: `Quotation ${quotation.quotationNumber} approved.`, data: quotation });
   } catch (error: any) {
@@ -525,16 +540,8 @@ export const revokeQuotationApproval = async (req: AuthRequest, res: Response): 
     const previous = quotation.approval?.approvedByName;
     quotation.set('approval', undefined);
     quotation.set('updatedBy', req.user?.id);
+    if (previous) quotation.$locals.audit = { action: 'quotation.approval.revoke', metadata: { previouslyApprovedBy: previous } };
     await quotation.save();
-    if (previous) {
-      await recordAudit(req, {
-        action: 'quotation.approval.revoke',
-        entityType: 'quotation',
-        entityId: quotation._id,
-        entityRef: quotation.quotationNumber,
-        changes: [{ field: 'approval', from: `Approved by ${previous}`, to: 'Not approved' }],
-      });
-    }
     res.status(200).json({ success: true, message: 'Approval revoked.', data: quotation });
   } catch (error: any) {
     sendError(res, error, 'Error revoking the approval.');
@@ -549,6 +556,10 @@ export const sendQuotationToClient = async (req: AuthRequest, res: Response): Pr
   try {
     const quotation = await loadOpenQuotation(req, res);
     if (!quotation) return;
+    if (!quotation.approval?.approvedAt) {
+      res.status(400).json({ success: false, message: 'Approve the quotation before sending it to the client.' });
+      return;
+    }
 
     const request = await RequestModel.findById(quotation.request)
       .populate('vesselType')
@@ -597,6 +608,10 @@ export const sendQuotationToClient = async (req: AuthRequest, res: Response): Pr
     if (quotation.status === 'draft') {
       quotation.set({ status: 'sent', statusChangedAt: now, statusChangedBy: req.user?.id });
     }
+    quotation.$locals.audit = {
+      action: 'quotation.email',
+      metadata: { to, subject: `Quotation ${quotation.quotationNumber}`, attachments: ['RFS', 'Quotation'], message: message ?? undefined },
+    };
     await quotation.save();
 
     res.status(200).json({ success: true, message: `Quotation and RFS sent to ${to}.`, data: quotation });

@@ -2,6 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 import { IStoredPdf, storedPdfSchema } from './StoredPdf';
 import { IESignature, eSignatureSchema } from './ESignature';
 
+import { auditPlugin } from '../plugins/auditPlugin';
 export interface ISurveyFindingItem {
   category: string; // e.g. 'Hull', 'Machinery', 'Life Saving Appliances LSA', 'Fire Fighting Appliances FFA', 'Navigation Equipment', 'Radio Installations'
   status: 'Satisfactory' | 'Not Satisfactory' | 'N/A';
@@ -116,6 +117,8 @@ const scccosSchema: Schema = new Schema(
     timestamps: true
   }
 );
+
+scccosSchema.plugin(auditPlugin, { entityType: 'scccos' });
 
 const SCCCOS = mongoose.model<ISCCCOS>('SCCCOS', scccosSchema);
 

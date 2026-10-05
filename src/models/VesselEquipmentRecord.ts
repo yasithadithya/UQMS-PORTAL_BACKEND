@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+import { auditPlugin } from '../plugins/auditPlugin';
 export interface IEquipmentRecordItem {
   questionId: mongoose.Types.ObjectId;
   status: 'Provided' | 'Not Provided' | 'Not Applicable';
@@ -54,6 +55,8 @@ const vesselEquipmentRecordSchema: Schema = new Schema(
     timestamps: true,
   }
 );
+
+vesselEquipmentRecordSchema.plugin(auditPlugin, { entityType: 'vessel-equipment-record' });
 
 const VesselEquipmentRecord = mongoose.model<IVesselEquipmentRecord>(
   'VesselEquipmentRecord',

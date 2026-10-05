@@ -287,7 +287,7 @@ router.delete('/quotations/:id', requirePermission(QUOTATIONS, 'delete'), delete
  *   patch:
  *     summary: Mark a quotation sent, accepted or rejected
  *     description: >
- *       Sent needs update access; accepted and rejected need approve access. Accepting supersedes the
+ *       Sent needs update access; accepted and rejected need accept access. Accepting supersedes the
  *       request's other open quotations and marks its First Entry as quoted.
  *     tags: [Finance]
  *     security:
@@ -311,7 +311,7 @@ router.delete('/quotations/:id', requirePermission(QUOTATIONS, 'delete'), delete
  *       200:
  *         description: Status updated
  */
-router.patch('/quotations/:id/status', requireAny([QUOTATIONS], ['update', 'approve']), updateQuotationStatus);
+router.patch('/quotations/:id/status', requireAny([QUOTATIONS], ['update', 'accept']), updateQuotationStatus);
 
 /**
  * @swagger

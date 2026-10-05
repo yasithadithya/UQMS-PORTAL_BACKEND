@@ -11,8 +11,10 @@ export const CRUD_ACTIONS = ['create', 'read', 'update', 'delete'] as const;
  * `override` lets Technical Committee users bypass workflow locks (create survey requests in the ERP,
  * edit requests after the RFS is printed); every use is written to the audit log.
  * `discount` gates editing quotation discounts.
+ * `accept` records the client's response to a quotation (accepted or rejected), separate from internal `approve`.
+ * `export` allows downloading data in bulk (e.g. the audit log as CSV).
  */
-export const ACTIONS = [...CRUD_ACTIONS, 'approve', 'sign-on-behalf', 'revoke-signature', 'override', 'discount'] as const;
+export const ACTIONS = [...CRUD_ACTIONS, 'approve', 'accept', 'sign-on-behalf', 'revoke-signature', 'override', 'discount', 'export'] as const;
 
 export type PermissionAction = (typeof ACTIONS)[number];
 
@@ -31,6 +33,11 @@ export interface SystemModuleDef {
   inheritFrom?: string;
   /** Only inherit from roles that hold this action on `inheritFrom`. */
   inheritRequires?: PermissionAction;
+  /**
+   * Migration: when an existing module first gains an action listed here, every role holding the
+   * mapped source action on it receives the new action too (e.g. split one action into two).
+   */
+  newActionsFrom?: Partial<Record<PermissionAction, PermissionAction>>;
   order?: number;
 }
 
@@ -84,8 +91,8 @@ export const SYSTEM_MODULES: SystemModuleDef[] = [
 
   { key: 'finance', name: 'Finance', description: 'Finance Module', parentKey: null, navigable: true, actions: READ },
   {
-    key: 'finance.quotations', name: 'Quotations', description: 'Client quotations for requests and jobs (approve = accept or reject, discount = edit discounts)',
-    parentKey: 'finance', navigable: false, actions: [...CRUD, 'approve', 'discount'], order: 1,
+    key: 'finance.quotations', name: 'Quotations', description: 'Client quotations for requests and jobs (approve = internal approval, accept = record client accept or reject, discount = edit discounts)',
+    parentKey: 'finance', navigable: false, actions: [...CRUD, 'approve', 'accept', 'discount'], newActionsFrom: { accept: 'approve' }, order: 1,
   },
   {
     key: 'finance.fee-structure', name: 'Fee Structure', description: 'Standard survey fees and additional charges',
@@ -100,7 +107,7 @@ export const SYSTEM_MODULES: SystemModuleDef[] = [
     key: 'admin.master-data', name: 'Master Data', description: 'Checklist questions, vessel codes, equipment questions and document templates',
     parentKey: 'admin', navigable: false, actions: CRUD, order: 4,
   },
-  { key: 'admin.audit-log', name: 'Audit Log', description: 'History of override and controlled changes', parentKey: 'admin', navigable: false, actions: READ, order: 5 },
+  { key: 'admin.audit-log', name: 'Audit Log', description: 'Full history of who changed what, sign-ins and document activity (export = download as CSV)', parentKey: 'admin', navigable: false, actions: ['read', 'export'], order: 5 },
 ];
 
 /** Roles (by name) that receive extra actions when the module is first created. Replaces the old hard-coded e-signature bypass list. */

@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { login } from '../controllers/authController';
+import { login, logout } from '../controllers/authController';
+import authMiddleware from '../middleware/auth';
 
 const router = Router();
 
@@ -45,5 +46,16 @@ const router = Router();
  *         description: Missing fields
  */
 router.post('/login', login);
+
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     summary: Record a sign-out in the audit log
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post('/logout', authMiddleware, logout);
 
 export default router;

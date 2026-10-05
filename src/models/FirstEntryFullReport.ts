@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { IESignature, ISignatureField, eSignatureSchema, signatureFieldSchema } from './ESignature';
 
+import { auditPlugin } from '../plugins/auditPlugin';
 // Sub-interface for comments on a general remark
 export interface IRemarkComment {
   _id: mongoose.Types.ObjectId;
@@ -243,6 +244,8 @@ const firstEntryFullReportSchema: Schema = new Schema(
     timestamps: true,
   }
 );
+
+firstEntryFullReportSchema.plugin(auditPlugin, { entityType: 'daily-report' });
 
 const FirstEntryFullReport = mongoose.model<IFirstEntryFullReport>('FirstEntryFullReport', firstEntryFullReportSchema);
 

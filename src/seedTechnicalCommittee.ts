@@ -15,7 +15,7 @@ const EXCLUDED = new Set(['admin.users', 'admin.roles', 'admin.modules']);
 /** Extra actions on top of `read` everywhere. */
 const GRANTS: Record<string, PermissionAction[]> = {
   'new-request': ['update', 'override'],
-  'finance.quotations': ['create', 'update', 'approve', 'discount'],
+  'finance.quotations': ['create', 'update', 'approve', 'accept', 'discount'],
   'marine.reports': ['approve', 'sign-on-behalf', 'revoke-signature'],
   'marine.certificates': ['approve', 'sign-on-behalf', 'revoke-signature'],
   'admin.audit-log': ['read'],
