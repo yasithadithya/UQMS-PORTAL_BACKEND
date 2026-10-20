@@ -266,7 +266,7 @@ export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promis
       const numbered = quotation.notes.length > 0;
       doc.font('Helvetica').fontSize(10).fillColor('#000000');
       if (numbered) doc.text(`${quotation.notes.length + 1}.`, listX, y, { width: numberWidth });
-      doc.text('Payment Terms:', numbered ? textX : noteX, y);
+      doc.text('Payment Milestones:', numbered ? textX : noteX, y);
       y = doc.y + 14;
       const bulletX = textX + 34;
       const termX = bulletX + 20;
