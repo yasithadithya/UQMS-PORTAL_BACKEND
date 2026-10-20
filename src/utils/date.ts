@@ -50,7 +50,14 @@ export const formatDate = (value: Date | string | null = new Date()): string => 
   return parts ? `${parts.year}/${parts.month}/${parts.day}` : '-';
 };
 
-export const formatDateTime = (value: Date | string | null = new Date()): string => {
+/** dd/mm/yyyy, for client-facing documents (quotations) that follow the local convention. */
+export const formatDateDmy = (value: Date | string | null = new Date()): string => {
+  const parts = toParts(value);
+
+  return parts ? `${parts.day}/${parts.month}/${parts.year}` : '-';
+};
+
+export const formatDateTime =(value: Date | string | null = new Date()): string => {
   const parts = toParts(value);
 
   return parts ? `${parts.year}/${parts.month}/${parts.day} ${parts.hour}:${parts.minute}` : '-';

@@ -1,5 +1,5 @@
 import PDFDocument from 'pdfkit';
-import { formatDate } from '../utils/date';
+import { formatDateDmy } from '../utils/date';
 import { FOOTER_RESERVED_HEIGHT, drawCompanyLetterhead, drawPageNumberFooter } from './pdfLayout';
 import type { IQuotationApproval, IQuotationClient, IQuotationDiscount, IQuotationLineItem, QuotationCurrency } from '../models/Quotation';
 
@@ -155,24 +155,25 @@ export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promis
       { text: texts[2], width: cols.amount, align: 'center', bold, fill: bold ? HEADER_TINT : undefined },
     ];
     y = drawRow(doc, left, y, refCells(true, ['Quotation Number', 'Date', 'Job Number']), 18);
-    y = drawRow(doc, left, y, refCells(false, [quotation.quotationNumber, formatDate(quotation.quotationDate), quotation.jobNumber || quotation.requestNumber]), 18);
+    y = drawRow(doc, left, y, refCells(false, [quotation.quotationNumber, formatDateDmy(quotation.quotationDate), quotation.jobNumber || quotation.requestNumber]), 18);
 
     // Amounts print in the quotation's currency. Lines in the other currency ("foreign" lines) show
     // their rate and the conversion rate; lines already in the quotation's currency don't need them.
     const currency: QuotationCurrency = quotation.currency ?? 'LKR';
     const foreign: QuotationCurrency = currency === 'LKR' ? 'USD' : 'LKR';
     const lineAmount = (item: IQuotationLineItem): number => item.amount ?? item.amountLkr;
-    // A USD quotation shows only USD: no LKR rate or conversion rate column. Those columns' width goes
-    // to the description, and a line's USD unit rate is printed there when the quantity isn't 1.
-    const usdOnly = currency === 'USD';
-    const usdDescriptionWidth = cols.description + cols.rate + cols.conversion;
+    // A USD quotation shows only USD: no LKR rate or conversion rate column. An LKR quotation with no
+    // USD lines has nothing to put in those columns either. Their width goes to the description, and a
+    // line's unit rate is printed there when the quantity isn't 1.
+    const compact = currency === 'USD' || quotation.lineItems.every((item) => item.currency === currency);
+    const compactDescriptionWidth = cols.description + cols.rate + cols.conversion;
     const tableHeader = (): Cell[] =>
-      usdOnly
+      compact
         ? [
             { text: 'SN', width: cols.sn, align: 'center', bold: true },
-            { text: 'DESCRIPTION', width: usdDescriptionWidth, align: 'center', bold: true },
+            { text: 'DESCRIPTION', width: compactDescriptionWidth, align: 'center', bold: true },
             ...extraCells(extraColumns.map((label) => label.toUpperCase()), true),
-            { text: 'AMOUNT (USD)', width: cols.amount, align: 'center', bold: true },
+            { text: `AMOUNT (${currency})`, width: cols.amount, align: 'center', bold: true },
           ]
         : [
             { text: 'SN', width: cols.sn, align: 'center', bold: true },
@@ -188,12 +189,12 @@ export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promis
       const sn = String(index + 1).padStart(2, '0');
       const qty = item.quantity !== 1 ? ` × ${rateText(item.quantity)}` : '';
       const extras = item.extra ?? [];
-      // USD unit rate of the line; an LKR line's is derived from its converted USD amount.
-      const usdUnitRate = item.currency === 'USD' ? item.rate : lineAmount(item) / item.quantity;
-      const cells: Cell[] = usdOnly
+      // Unit rate in the quotation's currency; a foreign line's is derived from its converted amount.
+      const unitRate = item.currency === currency ? item.rate : lineAmount(item) / item.quantity;
+      const cells: Cell[] = compact
         ? [
             { text: sn, width: cols.sn, align: 'center' },
-            { text: qty ? `${item.description} (USD ${money(usdUnitRate)}${qty})` : item.description, width: usdDescriptionWidth },
+            { text: qty ? `${item.description} (${currency} ${money(unitRate)}${qty})` : item.description, width: compactDescriptionWidth },
             ...extraCells(extras),
             { text: money(lineAmount(item)), width: cols.amount, align: 'right' },
           ]
@@ -206,22 +207,14 @@ export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promis
               { text: rateText(quotation.exchangeRate), width: cols.conversion, align: 'center' },
               { text: money(lineAmount(item)), width: cols.amount, align: 'right' },
             ]
-          : extraColumns.length
-            ? [
-                { text: sn, width: cols.sn, align: 'center' },
-                { text: item.description, width: cols.description },
-                ...extraCells(extras),
-                { text: qty ? `${currency} ${money(item.rate)}${qty}` : '', width: cols.rate + cols.conversion, align: 'center' },
-                { text: money(lineAmount(item)), width: cols.amount, align: 'right' },
-              ]
-            : [
-                { text: sn, width: cols.sn, align: 'center' },
-                {
-                  text: qty ? `${item.description} (${currency} ${money(item.rate)}${qty})` : item.description,
-                  width: cols.description + cols.rate + cols.conversion,
-                },
-                { text: money(lineAmount(item)), width: cols.amount, align: 'right' },
-              ];
+          : [
+              // An LKR line among USD lines: its rate spans the rate and conversion columns.
+              { text: sn, width: cols.sn, align: 'center' },
+              { text: item.description, width: cols.description },
+              ...extraCells(extras),
+              { text: qty ? `${currency} ${money(item.rate)}${qty}` : '-', width: cols.rate + cols.conversion, align: 'center' },
+              { text: money(lineAmount(item)), width: cols.amount, align: 'right' },
+            ];
 
       const nextY = ensureSpace(y, 34);
       if (nextY !== y) y = drawRow(doc, left, nextY, tableHeader(), 30);
