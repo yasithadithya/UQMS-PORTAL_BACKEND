@@ -162,22 +162,42 @@ export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promis
     const currency: QuotationCurrency = quotation.currency ?? 'LKR';
     const foreign: QuotationCurrency = currency === 'LKR' ? 'USD' : 'LKR';
     const lineAmount = (item: IQuotationLineItem): number => item.amount ?? item.amountLkr;
-    const tableHeader = (): Cell[] => [
-      { text: 'SN', width: cols.sn, align: 'center', bold: true },
-      { text: 'DESCRIPTION', width: cols.description, align: 'center', bold: true },
-      ...extraCells(extraColumns.map((label) => label.toUpperCase()), true),
-      { text: `${foreign} RATE`, width: cols.rate, align: 'center', bold: true },
-      { text: 'CONVERSION RATE', width: cols.conversion, align: 'center', bold: true },
-      { text: `AMOUNT (${currency})`, width: cols.amount, align: 'center', bold: true },
-    ];
+    // A USD quotation shows only USD: no LKR rate or conversion rate column. Those columns' width goes
+    // to the description, and a line's USD unit rate is printed there when the quantity isn't 1.
+    const usdOnly = currency === 'USD';
+    const usdDescriptionWidth = cols.description + cols.rate + cols.conversion;
+    const tableHeader = (): Cell[] =>
+      usdOnly
+        ? [
+            { text: 'SN', width: cols.sn, align: 'center', bold: true },
+            { text: 'DESCRIPTION', width: usdDescriptionWidth, align: 'center', bold: true },
+            ...extraCells(extraColumns.map((label) => label.toUpperCase()), true),
+            { text: 'AMOUNT (USD)', width: cols.amount, align: 'center', bold: true },
+          ]
+        : [
+            { text: 'SN', width: cols.sn, align: 'center', bold: true },
+            { text: 'DESCRIPTION', width: cols.description, align: 'center', bold: true },
+            ...extraCells(extraColumns.map((label) => label.toUpperCase()), true),
+            { text: `${foreign} RATE`, width: cols.rate, align: 'center', bold: true },
+            { text: 'CONVERSION RATE', width: cols.conversion, align: 'center', bold: true },
+            { text: `AMOUNT (${currency})`, width: cols.amount, align: 'center', bold: true },
+          ];
     y = drawRow(doc, left, y, tableHeader(), 30);
 
     quotation.lineItems.forEach((item, index) => {
       const sn = String(index + 1).padStart(2, '0');
       const qty = item.quantity !== 1 ? ` × ${rateText(item.quantity)}` : '';
       const extras = item.extra ?? [];
-      const cells: Cell[] =
-        item.currency !== currency
+      // USD unit rate of the line; an LKR line's is derived from its converted USD amount.
+      const usdUnitRate = item.currency === 'USD' ? item.rate : lineAmount(item) / item.quantity;
+      const cells: Cell[] = usdOnly
+        ? [
+            { text: sn, width: cols.sn, align: 'center' },
+            { text: qty ? `${item.description} (USD ${money(usdUnitRate)}${qty})` : item.description, width: usdDescriptionWidth },
+            ...extraCells(extras),
+            { text: money(lineAmount(item)), width: cols.amount, align: 'right' },
+          ]
+        : item.currency !== currency
           ? [
               { text: sn, width: cols.sn, align: 'center' },
               { text: item.description, width: cols.description },
