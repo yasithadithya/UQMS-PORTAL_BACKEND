@@ -1,7 +1,7 @@
 import PDFDocument from 'pdfkit';
-import { formatDate } from '../utils/date';
+import { formatDateDmy } from '../utils/date';
 import { FOOTER_RESERVED_HEIGHT, drawCompanyLetterhead, drawPageNumberFooter } from './pdfLayout';
-import type { IQuotationApproval, IQuotationClient, IQuotationDiscount, IQuotationLineItem } from '../models/Quotation';
+import type { IQuotationApproval, IQuotationClient, IQuotationDiscount, IQuotationLineItem, QuotationCurrency } from '../models/Quotation';
 
 type QuotationLike = {
   quotationNumber: string;
@@ -10,8 +10,13 @@ type QuotationLike = {
   requestNumber: string;
   title: string;
   client: IQuotationClient;
+  /** Missing on quotations created before quotation currencies existed; those are LKR. */
+  currency?: QuotationCurrency;
   exchangeRate: number;
   lineItems: IQuotationLineItem[];
+  subtotal?: number;
+  discountAmount?: number;
+  total?: number;
   totalLkr: number;
   notes: string[];
   paymentTerms: string[];
@@ -150,57 +155,71 @@ export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promis
       { text: texts[2], width: cols.amount, align: 'center', bold, fill: bold ? HEADER_TINT : undefined },
     ];
     y = drawRow(doc, left, y, refCells(true, ['Quotation Number', 'Date', 'Job Number']), 18);
-    y = drawRow(doc, left, y, refCells(false, [quotation.quotationNumber, formatDate(quotation.quotationDate), quotation.jobNumber || quotation.requestNumber]), 18);
+    y = drawRow(doc, left, y, refCells(false, [quotation.quotationNumber, formatDateDmy(quotation.quotationDate), quotation.jobNumber || quotation.requestNumber]), 18);
 
-    const tableHeader = (): Cell[] => [
-      { text: 'SN', width: cols.sn, align: 'center', bold: true },
-      { text: 'DESCRIPTION', width: cols.description, align: 'center', bold: true },
-      ...extraCells(extraColumns.map((label) => label.toUpperCase()), true),
-      { text: 'USD RATE', width: cols.rate, align: 'center', bold: true },
-      { text: 'CONVERSION RATE', width: cols.conversion, align: 'center', bold: true },
-      { text: 'AMOUNT (LKR)', width: cols.amount, align: 'center', bold: true },
-    ];
+    // Amounts print in the quotation's currency. Lines in the other currency ("foreign" lines) show
+    // their rate and the conversion rate; lines already in the quotation's currency don't need them.
+    const currency: QuotationCurrency = quotation.currency ?? 'LKR';
+    const foreign: QuotationCurrency = currency === 'LKR' ? 'USD' : 'LKR';
+    const lineAmount = (item: IQuotationLineItem): number => item.amount ?? item.amountLkr;
+    // A USD quotation shows only USD: no LKR rate or conversion rate column. Those columns' width goes
+    // to the description, and a line's USD unit rate is printed there when the quantity isn't 1.
+    // An LKR quotation always shows every line's USD rate and the conversion rate.
+    const compact = currency === 'USD';
+    const compactDescriptionWidth = cols.description + cols.rate + cols.conversion;
+    const tableHeader = (): Cell[] =>
+      compact
+        ? [
+            { text: 'SN', width: cols.sn, align: 'center', bold: true },
+            { text: 'DESCRIPTION', width: compactDescriptionWidth, align: 'center', bold: true },
+            ...extraCells(extraColumns.map((label) => label.toUpperCase()), true),
+            { text: `AMOUNT (${currency})`, width: cols.amount, align: 'center', bold: true },
+          ]
+        : [
+            { text: 'SN', width: cols.sn, align: 'center', bold: true },
+            { text: 'DESCRIPTION', width: cols.description, align: 'center', bold: true },
+            ...extraCells(extraColumns.map((label) => label.toUpperCase()), true),
+            { text: `${foreign} RATE`, width: cols.rate, align: 'center', bold: true },
+            { text: 'CONVERSION RATE', width: cols.conversion, align: 'center', bold: true },
+            { text: `AMOUNT (${currency})`, width: cols.amount, align: 'center', bold: true },
+          ];
+    // A line's unit rate in the foreign currency; an LKR line's USD rate is derived from the conversion rate.
+    const foreignRate = (item: IQuotationLineItem): number | undefined =>
+      item.currency !== currency ? item.rate : quotation.exchangeRate > 0 ? item.rate / quotation.exchangeRate : undefined;
     y = drawRow(doc, left, y, tableHeader(), 30);
 
     quotation.lineItems.forEach((item, index) => {
       const sn = String(index + 1).padStart(2, '0');
       const qty = item.quantity !== 1 ? ` × ${rateText(item.quantity)}` : '';
       const extras = item.extra ?? [];
-      const cells: Cell[] =
-        item.currency === 'USD'
-          ? [
-              { text: sn, width: cols.sn, align: 'center' },
-              { text: item.description, width: cols.description },
-              ...extraCells(extras),
-              { text: `${rateText(item.rate)}${qty}`, width: cols.rate, align: 'center' },
-              { text: rateText(quotation.exchangeRate), width: cols.conversion, align: 'center' },
-              { text: money(item.amountLkr), width: cols.amount, align: 'right' },
-            ]
-          : extraColumns.length
-            ? [
-                { text: sn, width: cols.sn, align: 'center' },
-                { text: item.description, width: cols.description },
-                ...extraCells(extras),
-                { text: qty ? `LKR ${money(item.rate)}${qty}` : '', width: cols.rate + cols.conversion, align: 'center' },
-                { text: money(item.amountLkr), width: cols.amount, align: 'right' },
-              ]
-            : [
-                { text: sn, width: cols.sn, align: 'center' },
-                {
-                  text: qty ? `${item.description} (LKR ${money(item.rate)}${qty})` : item.description,
-                  width: cols.description + cols.rate + cols.conversion,
-                },
-                { text: money(item.amountLkr), width: cols.amount, align: 'right' },
-              ];
+      // Unit rate in the quotation's currency; a foreign line's is derived from its converted amount.
+      const unitRate = item.currency === currency ? item.rate : lineAmount(item) / item.quantity;
+      const cells: Cell[] = compact
+        ? [
+            { text: sn, width: cols.sn, align: 'center' },
+            { text: qty ? `${item.description} (${currency} ${money(unitRate)}${qty})` : item.description, width: compactDescriptionWidth },
+            ...extraCells(extras),
+            { text: money(lineAmount(item)), width: cols.amount, align: 'right' },
+          ]
+        : [
+            { text: sn, width: cols.sn, align: 'center' },
+            { text: item.description, width: cols.description },
+            ...extraCells(extras),
+            { text: foreignRate(item) === undefined ? '-' : `${rateText(foreignRate(item)!)}${qty}`, width: cols.rate, align: 'center' },
+            { text: quotation.exchangeRate > 0 ? rateText(quotation.exchangeRate) : '-', width: cols.conversion, align: 'center' },
+            { text: money(lineAmount(item)), width: cols.amount, align: 'right' },
+          ];
 
       const nextY = ensureSpace(y, 34);
       if (nextY !== y) y = drawRow(doc, left, nextY, tableHeader(), 30);
       y = drawRow(doc, left, y, cells, 34);
     });
 
-    const discountLkr = quotation.discountLkr ?? 0;
-    if (discountLkr > 0 && quotation.discount) {
-      const subtotal = quotation.subtotalLkr ?? quotation.totalLkr + discountLkr;
+    // Quotations created before quotation currencies existed only have the LKR figures.
+    const total = quotation.total ?? quotation.totalLkr;
+    const discountAmount = quotation.discountAmount ?? quotation.discountLkr ?? 0;
+    if (discountAmount > 0 && quotation.discount) {
+      const subtotal = quotation.subtotal ?? quotation.subtotalLkr ?? total + discountAmount;
       const label = quotation.discount.type === 'percent' ? `Discount (${rateText(quotation.discount.value)}%)` : 'Discount';
       y = ensureSpace(y, 60);
       y = drawRow(doc, left, y, [
@@ -209,14 +228,14 @@ export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promis
       ], 22);
       y = drawRow(doc, left, y, [
         { text: quotation.discount.description ? `${label} - ${quotation.discount.description}` : label, width: width - cols.amount, align: 'center' },
-        { text: `(${money(discountLkr)})`, width: cols.amount, align: 'right' },
+        { text: `(${money(discountAmount)})`, width: cols.amount, align: 'right' },
       ], 22);
     }
 
     y = ensureSpace(y, 30);
     y = drawRow(doc, left, y, [
-      { text: 'Total Amount', width: width - cols.amount, align: 'center', bold: true },
-      { text: money(quotation.totalLkr), width: cols.amount, align: 'right', bold: true },
+      { text: `Total Amount (${currency})`, width: width - cols.amount, align: 'center', bold: true },
+      { text: money(total), width: cols.amount, align: 'right', bold: true },
     ], 30);
     y += 24;
 

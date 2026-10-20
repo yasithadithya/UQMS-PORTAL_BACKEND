@@ -170,6 +170,11 @@ router.delete('/fee-items/:id', requirePermission(FEE_STRUCTURE, 'delete'), dele
  *                   address: { type: string }
  *                   contactPerson: { type: string }
  *                   email: { type: string }
+ *               currency:
+ *                 type: string
+ *                 enum: [LKR, USD]
+ *                 default: LKR
+ *                 description: Currency the quotation is priced and totalled in. Lines in the other currency are converted with exchangeRate.
  *               exchangeRate: { type: number, example: 328.13 }
  *               lineItems:
  *                 type: array

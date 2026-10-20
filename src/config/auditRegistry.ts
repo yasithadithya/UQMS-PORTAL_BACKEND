@@ -168,7 +168,16 @@ export const AUDIT_ENTITIES: Record<string, AuditEntityConfig> = {
   quotation: {
     label: 'Quotation', model: 'Quotation', module: 'finance.quotations', refField: 'quotationNumber',
     displayRefs: { feeItem: 'FeeItem', request: 'Request' },
-    fieldLabels: { totalLkr: 'Total (LKR)', subtotalLkr: 'Subtotal (LKR)', discountLkr: 'Discount (LKR)', exchangeRate: 'Exchange rate' },
+    fieldLabels: {
+      currency: 'Quotation currency',
+      total: 'Total',
+      subtotal: 'Subtotal',
+      discountAmount: 'Discount',
+      totalLkr: 'Total (LKR)',
+      subtotalLkr: 'Subtotal (LKR)',
+      discountLkr: 'Discount (LKR)',
+      exchangeRate: 'Exchange rate',
+    },
   },
 };
 
