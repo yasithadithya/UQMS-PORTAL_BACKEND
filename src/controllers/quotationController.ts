@@ -2,7 +2,14 @@ import { Response } from 'express';
 import mongoose from 'mongoose';
 import { AuthRequest } from '../middleware/auth';
 import { rejectUnlessCan } from '../middleware/permission';
-import Quotation, { IQuotationDiscount, OPEN_QUOTATION_STATUSES, QUOTATION_STATUSES, QuotationStatus } from '../models/Quotation';
+import Quotation, {
+  DEFAULT_QUOTATION_CURRENCY,
+  IQuotationDiscount,
+  OPEN_QUOTATION_STATUSES,
+  QUOTATION_STATUSES,
+  QuotationCurrency,
+  QuotationStatus,
+} from '../models/Quotation';
 import RequestModel from '../models/Request';
 import User from '../models/User';
 import VesselCode from '../models/VesselCode';
@@ -16,6 +23,7 @@ import {
   cleanTextList,
   describeDiscount,
   discountKey,
+  readQuotationCurrency,
   syncFirstEntryQuotation,
 } from '../services/quotationService';
 import { createQuotationPdfBuffer } from '../services/quotationPdfService';
@@ -52,6 +60,12 @@ const readVesselCode = async (value: unknown): Promise<string | undefined> => {
   return code;
 };
 
+/** A discount together with the currency of the quotation it belongs to. */
+type PricedDiscount = { discount?: IQuotationDiscount | null; currency: QuotationCurrency };
+
+const sameDiscount = (a: PricedDiscount, b: PricedDiscount): boolean =>
+  discountKey(a.discount, a.currency) === discountKey(b.discount, b.currency);
+
 /**
  * Discounts are interlocked: changing one (from `previous`) needs the `discount` action.
  * Sends the 403 and returns true when the caller must stop.
@@ -59,37 +73,45 @@ const readVesselCode = async (value: unknown): Promise<string | undefined> => {
 const rejectDiscountChange = async (
   req: AuthRequest,
   res: Response,
-  previous: IQuotationDiscount | undefined | null,
-  next: IQuotationDiscount | undefined
+  previous: PricedDiscount,
+  next: PricedDiscount
 ): Promise<boolean> => {
-  if (discountKey(previous) === discountKey(next)) return false;
+  if (sameDiscount(previous, next)) return false;
   return rejectUnlessCan(req, res, QUOTATIONS_KEY, 'discount');
 };
 
 /** Records a discount that differs from the revised quotation's (edits are tagged on the save instead). */
 const auditRevisionDiscount = async (
   quotation: { _id: unknown; quotationNumber: string },
-  previous: IQuotationDiscount | undefined | null,
-  next: IQuotationDiscount | undefined
+  previous: PricedDiscount,
+  next: PricedDiscount
 ): Promise<void> => {
-  if (discountKey(previous) === discountKey(next)) return;
+  if (sameDiscount(previous, next)) return;
   await audit.event({
     action: 'quotation.discount',
     entityType: 'quotation',
     entityId: quotation._id,
     entityRef: quotation.quotationNumber,
-    reason: optionalText(next?.description),
-    changes: [{ field: 'discount', from: describeDiscount(previous), to: describeDiscount(next) }],
+    reason: optionalText(next.discount?.description),
+    changes: [{
+      field: 'discount',
+      from: describeDiscount(previous.discount, previous.currency),
+      to: describeDiscount(next.discount, next.currency),
+    }],
   });
 };
 
 const supersededTag = (by: string) => ({ audit: { action: 'quotation.superseded', metadata: { supersededBy: by } } });
 
-/** The editable fields shared by create and update; throws QuotationError on invalid input. */
-const readQuotationBody = (body: any) => {
+/**
+ * The editable fields shared by create and update; throws QuotationError on invalid input.
+ * `currentCurrency` is used when the body doesn't name a currency (LKR for new quotations).
+ */
+const readQuotationBody = (body: any, currentCurrency: QuotationCurrency = DEFAULT_QUOTATION_CURRENCY) => {
+  const currency = readQuotationCurrency(body.currency, currentCurrency);
   const extraColumns = cleanExtraColumns(body.extraColumns);
-  const { lineItems, totalLkr: subtotalLkr, exchangeRate } = buildLineItems(body.lineItems, body.exchangeRate, extraColumns.length);
-  const { discount, discountLkr } = buildDiscount(body.discount, subtotalLkr);
+  const { lineItems, subtotal, subtotalLkr, exchangeRate } = buildLineItems(body.lineItems, body.exchangeRate, extraColumns.length, currency);
+  const { discount, discountAmount, discountLkr } = buildDiscount(body.discount, { subtotal, subtotalLkr, currency, exchangeRate });
 
   const title = optionalText(body.title);
   if (!title) throw new QuotationError(400, 'Title is required.');
@@ -110,13 +132,17 @@ const readQuotationBody = (body: any) => {
       contactPerson: optionalText(body.client?.contactPerson),
       email: optionalText(body.client?.email),
     },
+    currency,
     exchangeRate,
     extraColumns,
     lineItems,
+    subtotal,
+    discountAmount,
+    total: round2(subtotal - discountAmount),
     subtotalLkr,
     discount,
     discountLkr,
-    totalLkr: round2(subtotalLkr - discountLkr),
+    totalLkr: Math.max(0, round2(subtotalLkr - discountLkr)),
     notes: cleanTextList(body.notes),
     paymentTerms: cleanTextList(body.paymentTerms),
     preparedByName: optionalText(body.preparedByName),
@@ -249,23 +275,24 @@ export const createQuotation = async (req: AuthRequest, res: Response): Promise<
       return;
     }
 
-    let revisedDiscount: IQuotationDiscount | undefined;
+    let revised: PricedDiscount = { discount: undefined, currency: DEFAULT_QUOTATION_CURRENCY };
     if (revisedFrom !== undefined && revisedFrom !== null && revisedFrom !== '') {
       const source = mongoose.isValidObjectId(revisedFrom)
-        ? await Quotation.findOne({ _id: revisedFrom, request: requestId }).select('discount').lean()
+        ? await Quotation.findOne({ _id: revisedFrom, request: requestId }).select('discount currency').lean()
         : null;
       if (!source) {
         res.status(400).json({ success: false, message: 'The quotation being revised does not belong to this request.' });
         return;
       }
-      revisedDiscount = source.discount;
+      revised = { discount: source.discount, currency: source.currency ?? DEFAULT_QUOTATION_CURRENCY };
     }
 
     const fields = readQuotationBody(req.body);
+    const next: PricedDiscount = { discount: fields.discount, currency: fields.currency };
     const vesselCode = await readVesselCode(req.body.vesselCode);
     if (!vesselCode) throw new QuotationError(400, 'Select the vessel code the quotation is for.');
     // A revision keeps its source's discount without needing the discount permission.
-    if (await rejectDiscountChange(req, res, revisedDiscount, fields.discount)) return;
+    if (await rejectDiscountChange(req, res, revised, next)) return;
     const status: QuotationStatus = req.body.status === 'sent' ? 'sent' : 'draft';
 
     // Two users revising the same request at once can race for the same revision number; retry once.
@@ -295,7 +322,7 @@ export const createQuotation = async (req: AuthRequest, res: Response): Promise<
       }
     }
 
-    await auditRevisionDiscount(quotation, revisedDiscount, fields.discount);
+    await auditRevisionDiscount(quotation, revised, next);
 
     if (quotation.revision > 0) {
       await Quotation.updateMany(
@@ -330,22 +357,32 @@ export const updateQuotation = async (req: AuthRequest, res: Response): Promise<
       return;
     }
 
-    const fields = readQuotationBody(req.body);
+    const previousCurrency: QuotationCurrency = quotation.currency ?? DEFAULT_QUOTATION_CURRENCY;
+    const fields = readQuotationBody(req.body, previousCurrency);
     const vesselCode = req.body.vesselCode !== undefined ? await readVesselCode(req.body.vesselCode) : quotation.vesselCode;
-    const previousDiscount: IQuotationDiscount | undefined = quotation.discount
-      ? { type: quotation.discount.type, value: quotation.discount.value, description: quotation.discount.description }
-      : undefined;
-    if (await rejectDiscountChange(req, res, previousDiscount, fields.discount)) return;
+    const previous: PricedDiscount = {
+      discount: quotation.discount
+        ? { type: quotation.discount.type, value: quotation.discount.value, description: quotation.discount.description }
+        : undefined,
+      currency: previousCurrency,
+    };
+    const next: PricedDiscount = { discount: fields.discount, currency: fields.currency };
+    if (await rejectDiscountChange(req, res, previous, next)) return;
 
     quotation.set({ ...fields, vesselCode, vesselName: fields.vesselName ?? quotation.vesselName, updatedBy: req.user?.id });
     if (!fields.discount) quotation.set('discount', undefined);
     // The approval covered what was there before; any edit needs a fresh approval.
     quotation.set('approval', undefined);
-    if (discountKey(previousDiscount) !== discountKey(fields.discount)) {
+    if (!sameDiscount(previous, next)) {
       quotation.$locals.audit = {
         action: 'quotation.discount',
         reason: optionalText(fields.discount?.description),
-        metadata: { discount: { from: describeDiscount(previousDiscount), to: describeDiscount(fields.discount) } },
+        metadata: {
+          discount: {
+            from: describeDiscount(previous.discount, previous.currency),
+            to: describeDiscount(next.discount, next.currency),
+          },
+        },
       };
     }
     await quotation.save();
