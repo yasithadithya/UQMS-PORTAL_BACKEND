@@ -162,10 +162,10 @@ export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promis
     const currency: QuotationCurrency = quotation.currency ?? 'LKR';
     const foreign: QuotationCurrency = currency === 'LKR' ? 'USD' : 'LKR';
     const lineAmount = (item: IQuotationLineItem): number => item.amount ?? item.amountLkr;
-    // A USD quotation shows only USD: no LKR rate or conversion rate column. An LKR quotation with no
-    // USD lines has nothing to put in those columns either. Their width goes to the description, and a
-    // line's unit rate is printed there when the quantity isn't 1.
-    const compact = currency === 'USD' || quotation.lineItems.every((item) => item.currency === currency);
+    // A USD quotation shows only USD: no LKR rate or conversion rate column. Those columns' width goes
+    // to the description, and a line's USD unit rate is printed there when the quantity isn't 1.
+    // An LKR quotation always shows every line's USD rate and the conversion rate.
+    const compact = currency === 'USD';
     const compactDescriptionWidth = cols.description + cols.rate + cols.conversion;
     const tableHeader = (): Cell[] =>
       compact
@@ -183,6 +183,9 @@ export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promis
             { text: 'CONVERSION RATE', width: cols.conversion, align: 'center', bold: true },
             { text: `AMOUNT (${currency})`, width: cols.amount, align: 'center', bold: true },
           ];
+    // A line's unit rate in the foreign currency; an LKR line's USD rate is derived from the conversion rate.
+    const foreignRate = (item: IQuotationLineItem): number | undefined =>
+      item.currency !== currency ? item.rate : quotation.exchangeRate > 0 ? item.rate / quotation.exchangeRate : undefined;
     y = drawRow(doc, left, y, tableHeader(), 30);
 
     quotation.lineItems.forEach((item, index) => {
@@ -198,23 +201,14 @@ export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promis
             ...extraCells(extras),
             { text: money(lineAmount(item)), width: cols.amount, align: 'right' },
           ]
-        : item.currency !== currency
-          ? [
-              { text: sn, width: cols.sn, align: 'center' },
-              { text: item.description, width: cols.description },
-              ...extraCells(extras),
-              { text: `${rateText(item.rate)}${qty}`, width: cols.rate, align: 'center' },
-              { text: rateText(quotation.exchangeRate), width: cols.conversion, align: 'center' },
-              { text: money(lineAmount(item)), width: cols.amount, align: 'right' },
-            ]
-          : [
-              // An LKR line among USD lines: its rate spans the rate and conversion columns.
-              { text: sn, width: cols.sn, align: 'center' },
-              { text: item.description, width: cols.description },
-              ...extraCells(extras),
-              { text: qty ? `${currency} ${money(item.rate)}${qty}` : '-', width: cols.rate + cols.conversion, align: 'center' },
-              { text: money(lineAmount(item)), width: cols.amount, align: 'right' },
-            ];
+        : [
+            { text: sn, width: cols.sn, align: 'center' },
+            { text: item.description, width: cols.description },
+            ...extraCells(extras),
+            { text: foreignRate(item) === undefined ? '-' : `${rateText(foreignRate(item)!)}${qty}`, width: cols.rate, align: 'center' },
+            { text: quotation.exchangeRate > 0 ? rateText(quotation.exchangeRate) : '-', width: cols.conversion, align: 'center' },
+            { text: money(lineAmount(item)), width: cols.amount, align: 'right' },
+          ];
 
       const nextY = ensureSpace(y, 34);
       if (nextY !== y) y = drawRow(doc, left, nextY, tableHeader(), 30);
