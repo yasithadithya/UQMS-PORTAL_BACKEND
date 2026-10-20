@@ -8,13 +8,23 @@ export type QuotationStatus = (typeof QUOTATION_STATUSES)[number];
 /** Statuses in which a quotation can still be edited, or superseded by a new revision. */
 export const OPEN_QUOTATION_STATUSES: QuotationStatus[] = ['draft', 'sent'];
 
+/** Currency a quotation is priced and totalled in. Quotations created before this existed are LKR. */
+export const QUOTATION_CURRENCIES = FEE_CURRENCIES;
+export type QuotationCurrency = FeeCurrency;
+export const DEFAULT_QUOTATION_CURRENCY: QuotationCurrency = 'LKR';
+
 export interface IQuotationLineItem {
   feeItem?: mongoose.Types.ObjectId;
   description: string;
   currency: FeeCurrency;
   rate: number;
   quantity: number;
-  /** rate × quantity, converted with the quotation's exchange rate for USD lines. */
+  /**
+   * rate × quantity in the quotation's currency, converted with the exchange rate when the line's
+   * currency differs. Missing on quotations created before quotation currencies existed (use amountLkr).
+   */
+  amount?: number;
+  /** rate × quantity in LKR, converted with the quotation's exchange rate for USD lines. Always LKR. */
   amountLkr: number;
   /** Values for the quotation's extra columns, in the same order as `extraColumns`. */
   extra: string[];
@@ -26,7 +36,7 @@ export type DiscountType = (typeof DISCOUNT_TYPES)[number];
 /** Discount on the subtotal; only users with the `discount` action may set or change it. */
 export interface IQuotationDiscount {
   type: DiscountType;
-  /** Percentage (0–100) or an LKR amount. */
+  /** Percentage (0–100) or an amount in the quotation's currency. */
   value: number;
   description?: string;
 }
@@ -69,14 +79,23 @@ export interface IQuotation extends Document {
   client: IQuotationClient;
   /** Labels of user-added table columns, shown between Description and Rate. */
   extraColumns: string[];
+  /** Currency the quotation is priced and totalled in (LKR or USD). */
+  currency: QuotationCurrency;
   /** LKR per 1 USD. */
   exchangeRate: number;
   lineItems: IQuotationLineItem[];
-  /** Sum of the lines before discount. Missing on quotations created before discounts existed. */
+  /** Sum of the lines before discount, in the quotation's currency. */
+  subtotal?: number;
+  /** Discount in the quotation's currency. */
+  discountAmount?: number;
+  /** subtotal − discountAmount, in the quotation's currency. Missing on older quotations (use totalLkr). */
+  total?: number;
+  /** Sum of the lines before discount, in LKR. Missing on quotations created before discounts existed. */
   subtotalLkr?: number;
   discount?: IQuotationDiscount;
+  /** Discount in LKR. */
   discountLkr: number;
-  /** subtotalLkr − discountLkr. */
+  /** subtotalLkr − discountLkr. Always LKR, whatever the quotation's currency, for reporting. */
   totalLkr: number;
   notes: string[];
   paymentTerms: string[];
@@ -124,6 +143,10 @@ const lineItemSchema = new Schema(
       required: true,
       min: 0,
       default: 1,
+    },
+    amount: {
+      type: Number,
+      min: 0,
     },
     amountLkr: {
       type: Number,
@@ -218,6 +241,11 @@ const quotationSchema: Schema = new Schema(
       contactPerson: { type: String, trim: true },
       email: { type: String, trim: true },
     },
+    currency: {
+      type: String,
+      enum: QUOTATION_CURRENCIES,
+      default: DEFAULT_QUOTATION_CURRENCY,
+    },
     exchangeRate: {
       type: Number,
       required: [true, 'Conversion rate is required'],
@@ -229,6 +257,18 @@ const quotationSchema: Schema = new Schema(
         validator: (items: unknown[]) => Array.isArray(items) && items.length > 0,
         message: 'At least one line item is required',
       },
+    },
+    subtotal: {
+      type: Number,
+      min: 0,
+    },
+    discountAmount: {
+      type: Number,
+      min: 0,
+    },
+    total: {
+      type: Number,
+      min: 0,
     },
     subtotalLkr: {
       type: Number,
