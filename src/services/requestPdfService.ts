@@ -204,8 +204,8 @@ export const createRequestSurveyPdfBuffer = async (request: RequestLike): Promis
       ['Invoicing Address', request.invoicingAddress], 30);
     y = drawTableRow(doc, innerLeft, y, [col1, col2, col3, col4],
       ['Vessel Code', request.vesselCode ?? '-', 'Sector', request.sector], 24);
-    y = drawTableRow(doc, innerLeft, y, [col1, col2, col3, col4],
-      ['Company email ID', request.companyEmail, 'Status', request.status], 24);
+    y = drawTableRow(doc, innerLeft, y, [col1, pageWidth - col1],
+      ['Company email ID', request.companyEmail], 24);
     y = drawTableRow(doc, innerLeft, y, [col1, pageWidth - col1],
       ['Vessel Type', toText(request.vesselType)], 22);
     y = drawTableRow(doc, innerLeft, y, [col1, pageWidth - col1],
