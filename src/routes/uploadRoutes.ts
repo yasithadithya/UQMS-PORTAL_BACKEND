@@ -73,7 +73,7 @@ router.use(authMiddleware);
  *       401:
  *         description: Unauthorized
  */
-router.post('/', requireAny(['new-request', 'marine.entries', 'marine.bookings', 'marine.reports', 'marine.certificates'], ['create', 'update']), upload.single('file'), uploadFile);
+router.post('/', requireAny(['new-request', 'marine.entries', 'marine.bookings', 'marine.reports', 'marine.certificates', 'jobs.reporting', 'previous-docs'], ['create', 'update']), upload.single('file'), uploadFile);
 
 router.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof multer.MulterError) {

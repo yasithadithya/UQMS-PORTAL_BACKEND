@@ -18,6 +18,7 @@ import {
 } from '../controllers/firstEntryFullReportController';
 import authMiddleware from '../middleware/auth';
 import { requirePermission } from '../middleware/permission';
+import { jobLock } from '../middleware/jobLock';
 
 const router = Router();
 
@@ -28,7 +29,7 @@ router.get('/public-pdf/:id', getPublicDailyReportPdf);
 router.use(authMiddleware);
 
 // Daily visit report PDF generation routes (authenticated)
-router.post('/:id/daily-report', requirePermission('marine.reports', 'update'), generateDailyReportPdf);
+router.post('/:id/daily-report', requirePermission('marine.reports', 'update'), jobLock.fullReportParam, generateDailyReportPdf);
 router.get('/:id/daily-report-preview', requirePermission('marine.reports', 'read'), getDailyReportPdfPreview);
 router.get('/:id/daily-report-pdf', requirePermission('marine.reports', 'read'), getDailyReportPdf);
 
@@ -167,7 +168,7 @@ router.get('/survey-report/:surveyReportId', requirePermission('marine.reports',
  *       500:
  *         description: Server error
  */
-router.put('/:id', requirePermission('marine.reports', 'update'), updateFirstEntryFullReport);
+router.put('/:id', requirePermission('marine.reports', 'update'), jobLock.fullReportParam, updateFirstEntryFullReport);
 
 /**
  * @swagger
@@ -194,7 +195,7 @@ router.put('/:id', requirePermission('marine.reports', 'update'), updateFirstEnt
  *       500:
  *         description: Server error
  */
-router.delete('/:id', requirePermission('marine.reports', 'delete'), deleteFirstEntryFullReport);
+router.delete('/:id', requirePermission('marine.reports', 'delete'), jobLock.fullReportParam, deleteFirstEntryFullReport);
 
 /**
  * @swagger
@@ -221,6 +222,6 @@ router.delete('/:id', requirePermission('marine.reports', 'delete'), deleteFirst
  *       500:
  *         description: Server error
  */
-router.post('/generate/:surveyReportId', requirePermission('marine.reports', 'update'), triggerFullReportGeneration);
+router.post('/generate/:surveyReportId', requirePermission('marine.reports', 'update'), jobLock.surveyReportParam('surveyReportId'), triggerFullReportGeneration);
 
 export default router;

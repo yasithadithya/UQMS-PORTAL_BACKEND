@@ -14,7 +14,8 @@ export const CRUD_ACTIONS = ['create', 'read', 'update', 'delete'] as const;
  * `accept` records the client's response to a quotation (accepted or rejected), separate from internal `approve`.
  * `export` allows downloading data in bulk (e.g. the audit log as CSV).
  */
-export const ACTIONS = [...CRUD_ACTIONS, 'approve', 'accept', 'sign-on-behalf', 'revoke-signature', 'override', 'discount', 'export'] as const;
+/** `view-all` lets a user see every job instead of only the jobs allocated to them (managers). */
+export const ACTIONS = [...CRUD_ACTIONS, 'approve', 'accept', 'sign-on-behalf', 'revoke-signature', 'override', 'discount', 'export', 'view-all'] as const;
 
 export type PermissionAction = (typeof ACTIONS)[number];
 
@@ -38,6 +39,11 @@ export interface SystemModuleDef {
    * mapped source action on it receives the new action too (e.g. split one action into two).
    */
   newActionsFrom?: Partial<Record<PermissionAction, PermissionAction>>;
+  /**
+   * Migration: rename an existing module still called this to `name` (module names are unique, so
+   * this frees the old name for another module). Names set by an admin are left alone.
+   */
+  renameFrom?: string;
   order?: number;
 }
 
@@ -46,9 +52,10 @@ const READ: PermissionAction[] = ['read'];
 const SIGNING: PermissionAction[] = [...CRUD, 'approve', 'sign-on-behalf', 'revoke-signature'];
 
 export const SYSTEM_MODULES: SystemModuleDef[] = [
-  { key: 'reporting', name: 'Reporting', description: 'Reporting Module', parentKey: null, navigable: true, actions: READ },
-  { key: 'marine', name: 'Marine', description: 'Marine Sub-module', parentKey: 'reporting', navigable: true, actions: READ },
-  { key: 'marine.first-entry', name: 'First Entry', description: 'First entry survey pipeline', parentKey: 'marine', navigable: true, actions: READ },
+  { key: 'reporting', name: 'Reporting', description: 'Reporting Module (pre-V2 screens; replaced by My Jobs, kept for permissions)', parentKey: null, navigable: false, actions: READ },
+  // Holds the reporting permissions; "Marine" under My Jobs (jobs.marine) is the sector access module.
+  { key: 'marine', name: 'Marine Survey', renameFrom: 'Marine', description: 'Marine Sub-module', parentKey: 'reporting', navigable: false, actions: READ },
+  { key: 'marine.first-entry', name: 'First Entry', description: 'First entry survey pipeline', parentKey: 'marine', navigable: false, actions: READ },
   {
     key: 'marine.entries', name: 'First Entry & Vessels', description: 'First entries, Schedule II and vessel records',
     parentKey: 'marine.first-entry', navigable: false, actions: CRUD, inheritFrom: 'marine.first-entry', order: 1,
@@ -70,6 +77,43 @@ export const SYSTEM_MODULES: SystemModuleDef[] = [
     key: 'new-request', name: 'New Request', description: 'Survey request intake (override = create requests in the ERP and edit locked requests)',
     parentKey: null, navigable: true, actions: [...CRUD, 'override'],
   },
+
+  // ── V2 survey workflow ───────────────────────────────────────────────────
+  {
+    key: 'surveyor-allocation', name: 'Surveyor Allocation', description: 'Allocate surveyors to accepted jobs, set the main survey type and issue UQMS numbers (override = turn off MSS proof)',
+    parentKey: null, navigable: true, actions: [...CRUD, 'override'], order: 3,
+  },
+  {
+    key: 'jobs', name: 'My Jobs', description: 'Open survey jobs and their workspace. Surveyors and assistant surveyors see only their own jobs; other users see all (view-all = also edit jobs not allocated to you)',
+    parentKey: null, navigable: true, actions: ['read', 'view-all'], order: 4,
+  },
+  // Sector access: a user sees a sector's jobs only with read on its module.
+  {
+    key: 'jobs.marine', name: 'Marine', description: 'Marine jobs (First Entry, Periodical, Occasional, New Constructions, Audits)',
+    parentKey: 'jobs', navigable: true, actions: READ, inheritFrom: 'jobs', order: 1,
+  },
+  {
+    key: 'jobs.industrial', name: 'Industrial', description: 'Industrial jobs (Audits, Surveys)',
+    parentKey: 'jobs', navigable: true, actions: READ, inheritFrom: 'jobs', order: 2,
+  },
+  {
+    key: 'jobs.reporting', name: 'Survey Reporting', description: 'Survey reporting workspace (approve = surveyor review, certificate generation and signing)',
+    parentKey: 'jobs', navigable: false, actions: SIGNING, order: 3,
+  },
+  { key: 'view-report', name: 'View Report', description: 'Read-only view of completed survey reports', parentKey: null, navigable: true, actions: ['read', 'export'], order: 5 },
+  { key: 'authorization', name: 'Authorization', description: 'Manager approval of signed survey reports', parentKey: null, navigable: true, actions: ['read', 'approve'], order: 6 },
+  { key: 'approvals', name: 'Approvals', description: 'QMS change approvals (checklists, forms, SOPs)', parentKey: null, navigable: true, actions: ['read', 'approve'], order: 7 },
+  { key: 'ships', name: 'Ships', description: 'Ships module', parentKey: null, navigable: true, actions: CRUD, order: 8 },
+  { key: 'qms', name: 'QMS', description: 'Quality Management System', parentKey: null, navigable: true, actions: READ, order: 9 },
+  { key: 'qms.qms', name: 'QMS Documents', description: 'Quality manual and procedures', parentKey: 'qms', navigable: true, actions: CRUD, order: 1 },
+  { key: 'qms.forms', name: 'Forms', description: 'Controlled forms', parentKey: 'qms', navigable: true, actions: CRUD, order: 2 },
+  {
+    key: 'qms.checklist', name: 'Checklist', description: 'Survey checklist questions (changes go to Approvals)',
+    parentKey: 'qms', navigable: true, actions: CRUD, inheritFrom: 'admin.master-data', order: 3,
+  },
+  { key: 'qms.sop', name: 'SOP', description: 'Standard operating procedures', parentKey: 'qms', navigable: true, actions: CRUD, order: 4 },
+  { key: 'qms.jd', name: 'JD', description: 'Job descriptions', parentKey: 'qms', navigable: true, actions: CRUD, order: 5 },
+  { key: 'previous-docs', name: 'Previous Docs', description: 'Documents from surveys done before the portal', parentKey: null, navigable: true, actions: CRUD, order: 20 },
 
   { key: 'hr', name: 'HR', description: 'Human Resources Module', parentKey: null, navigable: true, actions: READ },
   {

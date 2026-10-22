@@ -1,3 +1,4 @@
+import { cosVariantFor } from '../config/certificateVariants';
 import { Request, Response } from 'express';
 import { isSigned, recordPublicView, rejectUnsignedPublicPdf, sendAnnotatedPublicPdf, sendDeliverablePdf } from '../services/deliverableAccess';
 import mongoose from 'mongoose';
@@ -188,7 +189,10 @@ export const createSCCCOS = async (req: Request, res: Response): Promise<void> =
       surveyReportId,
       surveyBookingId,
       surveyFindings: findings,
-      typeOfSurvey,
+      vesselCode: vessel.vesselCode,
+      certificateName: cosVariantFor(vessel.vesselCode).shortName,
+      kind: 'cos',
+      typeOfSurvey: typeOfSurvey || cosVariantFor(vessel.vesselCode).defaultTypeOfSurvey,
       nominatedDeparturePoint,
       surveyorName,
       additionalRemarks,

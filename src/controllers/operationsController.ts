@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import VesselType from '../models/VesselType';
 import SurveyType from '../models/SurveyType';
 import AreaOfOperation from '../models/AreaOfOperation';
+import { isMainSurveyType } from '../config/surveyCategories';
 
 const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -87,5 +88,35 @@ export const searchAreaOperationsByCategory = async (req: Request, res: Response
     res.status(200).json({ success: true, count: areas.length, data: areas });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Error searching area operations.', error: error.message });
+  }
+};
+
+/** V2: set which main survey type (and sector) a survey sub type belongs to. */
+export const updateSurveyTypeMapping = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { mainType, sector } = req.body ?? {};
+    const update: Record<string, unknown> = {};
+    if (mainType !== undefined) {
+      if (mainType !== null && !isMainSurveyType(mainType)) {
+        res.status(400).json({ success: false, message: 'Invalid main survey type.' });
+        return;
+      }
+      update.mainType = mainType;
+    }
+    if (sector !== undefined) {
+      if (!['marine', 'industrial', 'both'].includes(sector)) {
+        res.status(400).json({ success: false, message: 'Sector must be marine, industrial or both.' });
+        return;
+      }
+      update.sector = sector;
+    }
+    const surveyType = await SurveyType.findByIdAndUpdate(req.params.id, { $set: update }, { new: true, runValidators: true });
+    if (!surveyType) {
+      res.status(404).json({ success: false, message: 'Survey type not found.' });
+      return;
+    }
+    res.status(200).json({ success: true, message: 'Survey type mapping saved.', data: surveyType });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Error saving the survey type mapping.', error: error.message });
   }
 };

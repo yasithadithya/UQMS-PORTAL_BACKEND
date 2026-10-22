@@ -164,6 +164,26 @@ export const AUDIT_ENTITIES: Record<string, AuditEntityConfig> = {
     arrayKeys: { equipmentRecords: 'questionId' },
   },
 
+  // ── V2 jobs / QMS ────────────────────────────────────────────────────────
+  job: {
+    label: 'Job', model: 'Job', module: 'jobs', refField: ['jobNumber', 'requestNumber'],
+    ignore: ['statusHistory'],
+    displayRefs: {
+      surveyor: 'User', assistantSurveyors: 'User', vessel: 'Vessel', request: 'Request',
+      surveyTypes: 'SurveyType', allocatedBy: 'User', submittedBy: 'User', uploadedBy: 'User',
+    },
+    fieldLabels: { mainSurveyType: 'Main survey type', mssProofRequired: 'MSS proof required', assistantSurveyors: 'Assistant surveyors' },
+    classify: (changes) =>
+      changed(changes, /^(surveyor|assistantSurveyors)$/) ? 'job.surveyor.assign' : changed(changes, /^status$/) ? 'job.status' : undefined,
+  },
+  'approval-request': {
+    label: 'Approval request', model: 'ApprovalRequest', module: 'approvals', refField: ['summary', 'entityType'],
+    displayRefs: { requestedBy: 'User', reviewedBy: 'User' },
+  },
+  'previous-document': {
+    label: 'Previous document', model: 'PreviousDocument', module: 'previous-docs', refField: ['uqmsNumber', 'vesselName'],
+  },
+
   // ── Finance ──────────────────────────────────────────────────────────────
   quotation: {
     label: 'Quotation', model: 'Quotation', module: 'finance.quotations', refField: 'quotationNumber',
@@ -246,6 +266,23 @@ export const AUDIT_ACTIONS: Record<string, AuditActionDef> = {
   'document.print': { label: 'Document printed', operation: 'print' },
   'document.email': { label: 'Document emailed', operation: 'email' },
   'document.upload': { label: 'File uploaded', operation: 'upload' },
+
+  // V2 jobs
+  'job.allocate': { label: 'Surveyor allocated', operation: 'assign' },
+  'job.surveyor.assign': { label: 'Job surveyors changed', operation: 'assign' },
+  'job.status': { label: 'Job status changed', operation: 'status' },
+  'job.submit': { label: 'Reporting submitted for surveyor review', operation: 'status' },
+  'job.review.approve': { label: 'Reporting approved by surveyor', operation: 'approve' },
+  'job.review.reject': { label: 'Reporting rejected by surveyor', operation: 'status' },
+  'job.authorize.approve': { label: 'Job authorized by manager', operation: 'approve' },
+  'job.authorize.reject': { label: 'Job rejected by manager', operation: 'status' },
+  'job.last-visit.unmark': { label: 'Last visit unmarked', operation: 'update' },
+  'job.document.add': { label: 'Supporting document added', operation: 'upload' },
+  'job.document.delete': { label: 'Supporting document removed', operation: 'delete' },
+
+  // QMS approvals
+  'approval-request.approve': { label: 'QMS change approved', operation: 'approve' },
+  'approval-request.reject': { label: 'QMS change rejected', operation: 'status' },
 
   // Quotations
   'quotation.discount': { label: 'Quotation discount', operation: 'update' },

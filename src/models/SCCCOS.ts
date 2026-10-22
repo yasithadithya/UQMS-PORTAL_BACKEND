@@ -15,6 +15,12 @@ export interface ISCCCOS extends Document {
   surveyBookingId: mongoose.Types.ObjectId;
   surveyFindings: ISurveyFindingItem[];
   typeOfSurvey?: string;
+  /** V2: vessel code at issue; decides the COS variant (SSC → SSCCOS). */
+  vesselCode?: string;
+  /** V2: e.g. "SSCCOS". */
+  certificateName?: string;
+  /** V2: certificate of survey, or class certificate (template pending). */
+  kind?: 'cos' | 'class';
   nominatedDeparturePoint?: string;
   surveyorName?: string;
   additionalRemarks?: string;
@@ -69,9 +75,11 @@ const scccosSchema: Schema = new Schema(
       type: [surveyFindingItemSchema],
       default: []
     },
+    vesselCode: { type: String, trim: true },
+    certificateName: { type: String, trim: true },
+    kind: { type: String, enum: ['cos', 'class'], default: 'cos' },
     typeOfSurvey: {
       type: String,
-      default: 'SSC Initial Survey',
       trim: true
     },
     nominatedDeparturePoint: {

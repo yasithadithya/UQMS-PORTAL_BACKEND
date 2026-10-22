@@ -9,7 +9,7 @@ import { AuthRequest } from '../middleware/auth';
 import { rejectUnlessCan } from '../middleware/permission';
 
 // Helper function to extract and pre-populate report details from a booking
-const getPrePopulatedData = async (bookingId: string): Promise<any> => {
+export const getPrePopulatedData = async (bookingId: string): Promise<any> => {
   if (!mongoose.isValidObjectId(bookingId)) {
     throw new Error('Invalid booking ID format.');
   }

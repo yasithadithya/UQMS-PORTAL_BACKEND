@@ -12,6 +12,7 @@ import {
 } from '../controllers/scccosController';
 import authMiddleware from '../middleware/auth';
 import { requirePermission } from '../middleware/permission';
+import { jobLock } from '../middleware/jobLock';
 
 const router = Router();
 
@@ -99,7 +100,7 @@ router.get('/report/:surveyReportId', requirePermission('marine.certificates', '
  *       404:
  *         description: Vessel, Report, or Booking not found
  */
-router.post('/', requirePermission('marine.certificates', 'create'), createSCCCOS);
+router.post('/', requirePermission('marine.certificates', 'create'), jobLock.surveyReportBody(), createSCCCOS);
 
 /**
  * @swagger
@@ -198,7 +199,7 @@ router.get('/:id', requirePermission('marine.certificates', 'read'), getSCCCOSBy
  *       404:
  *         description: Certificate not found
  */
-router.put('/:id', requirePermission('marine.certificates', 'update'), updateSCCCOS);
+router.put('/:id', requirePermission('marine.certificates', 'update'), jobLock.certificateParam, updateSCCCOS);
 
 /**
  * @swagger
@@ -226,7 +227,7 @@ router.put('/:id', requirePermission('marine.certificates', 'update'), updateSCC
  *       404:
  *         description: Certificate not found
  */
-router.delete('/:id', requirePermission('marine.certificates', 'delete'), deleteSCCCOS);
+router.delete('/:id', requirePermission('marine.certificates', 'delete'), jobLock.certificateParam, deleteSCCCOS);
 
 /**
  * @swagger

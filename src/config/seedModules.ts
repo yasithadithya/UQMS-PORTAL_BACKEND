@@ -88,6 +88,11 @@ export const syncSystemModules = async (): Promise<void> => {
         console.log(`🌱 Created system module "${def.name}" (${def.key}).`);
       }
 
+      if (def.renameFrom && mod.name === def.renameFrom) {
+        console.log(`✏️  Renaming system module "${mod.name}" to "${def.name}".`);
+        mod.name = def.name;
+      }
+
       if (String(mod.parentId ?? '') !== String(parentId ?? '')) {
         console.log(`↪️  Moving system module "${mod.name}" under its registry parent.`);
       }

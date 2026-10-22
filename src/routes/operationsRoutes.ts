@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import authMiddleware from '../middleware/auth';
+import { requirePermission } from '../middleware/permission';
 import {
   getAllVesselTypes,
   getAllSurveyTypes,
@@ -7,6 +8,7 @@ import {
   searchVesselTypesByGroup,
   searchSurveyTypes,
   searchAreaOperationsByCategory,
+  updateSurveyTypeMapping,
 } from '../controllers/operationsController';
 
 const router = Router();
@@ -217,5 +219,16 @@ router.get('/survey-types/search', searchSurveyTypes);
  *         description: Unauthorized
  */
 router.get('/area-operations/search', searchAreaOperationsByCategory);
+
+/**
+ * @swagger
+ * /api/operations/survey-types/{id}/mapping:
+ *   patch:
+ *     summary: Set the main survey type and sector of a survey sub type ({ mainType, sector })
+ *     tags: [Operations]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.patch('/survey-types/:id/mapping', requirePermission('admin.master-data', 'update'), updateSurveyTypeMapping);
 
 export default router;

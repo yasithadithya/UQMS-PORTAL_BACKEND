@@ -45,6 +45,8 @@ const scheduleIIDocumentSchema = new Schema(
 export interface IScheduleII extends Document {
   firstEntry: mongoose.Types.ObjectId;
   documents: IScheduleIIDocument[];
+  /** V2: proof of MSS submission; required before signing when the job has MSS proof turned on. */
+  mssProofDocuments: IScheduleIIDocument[];
   status: string;
   emailSent?: boolean;
   createdBy?: mongoose.Types.ObjectId;
@@ -59,6 +61,10 @@ const scheduleIISchema: Schema = new Schema(
       type: Schema.Types.ObjectId,
       ref: 'FirstEntry',
       required: [true, 'First entry reference is required'],
+    },
+    mssProofDocuments: {
+      type: [scheduleIIDocumentSchema],
+      default: [],
     },
     documents: {
       type: [scheduleIIDocumentSchema],

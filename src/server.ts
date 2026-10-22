@@ -30,6 +30,9 @@ import financeRoutes from './routes/financeRoutes';
 import publicRoutes from './routes/publicRoutes';
 import auditLogRoutes from './routes/auditLogRoutes';
 import documentAnnotationRoutes from './routes/documentAnnotationRoutes';
+import jobRoutes from './routes/jobRoutes';
+import approvalRoutes from './routes/approvalRoutes';
+import previousDocumentRoutes from './routes/previousDocumentRoutes';
 import hrRoutes from './HR/routes';
 import { syncSystemModules } from './config/seedModules';
 import { formatDate } from './utils/date';
@@ -87,6 +90,9 @@ app.use('/api/hr', hrRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
 app.use('/api/document-annotations', documentAnnotationRoutes);
+app.use('/api/jobs', jobRoutes);
+app.use('/api/approvals', approvalRoutes);
+app.use('/api/previous-documents', previousDocumentRoutes);
 
 // Public intake (API-key authenticated, called by the public website)
 app.use('/api/public', publicRoutes);

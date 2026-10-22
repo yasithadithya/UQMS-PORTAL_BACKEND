@@ -16,7 +16,9 @@
     "seed:hr": "ts-node src/seedHr.ts",
     "seed:document-templates": "ts-node src/seedDocumentTemplates.ts",
     "seed:fee-items": "ts-node src/seedFeeItems.ts",
-    "seed:technical-committee": "ts-node src/seedTechnicalCommittee.ts"
+    "seed:technical-committee": "ts-node src/seedTechnicalCommittee.ts",
+    "seed:v2-roles": "ts-node src/seedV2Roles.ts",
+    "migrate:v2": "ts-node src/migrations/v2Migrate.ts"
   },
   "keywords": [],
   "author": "",

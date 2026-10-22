@@ -1,3 +1,4 @@
+import { cosVariantFor } from '../config/certificateVariants';
 import PDFDocument from 'pdfkit';
 import { formatDate } from '../utils/date';
 import { DOCUMENT_TEMPLATE_NAMES, getDocumentTemplate } from './documentTemplateService';
@@ -61,7 +62,8 @@ export const createScccosPdfBuffer = async (
     // ────────────────────────────────────────────────────────
     // DRAW PAGE 1
     // ────────────────────────────────────────────────────────
-    let currentY = drawLetterhead(doc, { title: 'SMALL CRAFT CODE CERTIFICATE OF SURVEY', template, margin: PAGE_MARGIN });
+    const variant = cosVariantFor(scccos.vesselCode || scccos.vesselId?.vesselCode);
+    let currentY = drawLetterhead(doc, { title: variant.title, template, margin: PAGE_MARGIN });
 
     // Verification QR code beside the certificate details
     try {
@@ -73,7 +75,7 @@ export const createScccosPdfBuffer = async (
     // Metadata block
     const vessel = scccos.vesselId || {};
     const booking = scccos.surveyBookingId || {};
-    const typeOfSurvey = scccos.typeOfSurvey || 'SSC Initial Survey';
+    const typeOfSurvey = scccos.typeOfSurvey || variant.defaultTypeOfSurvey;
 
     doc.font('Helvetica').fontSize(10).fillColor('#111827');
     const labelW = 160;
@@ -237,7 +239,7 @@ export const createScccosPdfBuffer = async (
     doc.font('Helvetica-Bold').fontSize(11).fillColor(HEADING_COLOR).text('CERTIFICATION', innerLeft, currentY);
     currentY += 15;
 
-    const certText = 'I hereby certify that the inspection was carried out in accordance with the guidelines provided under the Small Craft Code 2025, and the vessel was found to comply with the relevant safety and equipment standards at the time of examination.';
+    const certText = variant.certificationText;
     doc.font('Helvetica').fontSize(9.5).fillColor('#111827').lineGap(3).text(certText, innerLeft, currentY, {
       width: pageWidth,
       align: 'justify'
