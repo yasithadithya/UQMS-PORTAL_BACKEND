@@ -37,7 +37,7 @@ router.use(authMiddleware);
  *           type: array
  *           items:
  *             type: string
- *             enum: [Qty, Capacity, Model or Serial Number]
+ *             enum: [Model, Serial Number, Qty, Capacity, Type, Last Service]
  *           description: Custom input fields required for the item when filling reports
  *         surveyCategories:
  *           type: array
@@ -107,7 +107,7 @@ router.use(authMiddleware);
  *                 type: array
  *                 items:
  *                   type: string
- *                   enum: [Qty, Capacity, Model or Serial Number]
+ *                   enum: [Model, Serial Number, Qty, Capacity, Type, Last Service]
  *                 example: ["Qty", "Capacity"]
  *               surveyCategories:
  *                 type: array
@@ -298,7 +298,7 @@ router.get('/:id', getChecklistQuestionById);
  *                 type: array
  *                 items:
  *                   type: string
- *                   enum: [Qty, Capacity, Model or Serial Number]
+ *                   enum: [Model, Serial Number, Qty, Capacity, Type, Last Service]
  *               surveyCategories:
  *                 type: array
  *                 items:

@@ -16,6 +16,9 @@ export interface IChecklistQuestion extends Document {
   updatedAt: Date;
 }
 
+/** The extra columns a checklist item can ask for. The checklist form offers the same list. */
+export const CHECKLIST_ADDITIONAL_FIELDS = ['Model', 'Serial Number', 'Qty', 'Capacity', 'Type', 'Last Service'];
+
 const checklistQuestionSchema: Schema = new Schema(
   {
     item: {
@@ -29,7 +32,7 @@ const checklistQuestionSchema: Schema = new Schema(
       default: null,
     },
     additionalFields: {
-      type: [{ type: String, enum: ['Model', 'Serial Number', 'Qty', 'Capacity', 'Type', 'Last Service'] }],
+      type: [{ type: String, enum: CHECKLIST_ADDITIONAL_FIELDS }],
       default: [],
     },
     surveyCategories: {

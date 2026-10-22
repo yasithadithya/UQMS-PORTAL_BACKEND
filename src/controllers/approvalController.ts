@@ -1,7 +1,10 @@
 import { Request, Response, RequestHandler } from 'express';
-import mongoose from 'mongoose';
+import mongoose, { Model } from 'mongoose';
 import ApprovalRequest, { APPROVAL_ENTITY_TYPES, ApprovalEntityType, IApprovalRequest } from '../models/ApprovalRequest';
 import ChecklistQuestion from '../models/ChecklistQuestion';
+import SurveyType from '../models/SurveyType';
+import AreaOfOperation from '../models/AreaOfOperation';
+import VesselType from '../models/VesselType';
 import User from '../models/User';
 import { AuthRequest } from '../middleware/auth';
 import { rejectUnlessCan } from '../middleware/permission';
@@ -15,6 +18,15 @@ import {
 
 type Operation = IApprovalRequest['operation'];
 
+/** How a field is shown to the approver. `ref` turns stored IDs into names. */
+interface ApprovalField {
+  key: string;
+  label: string;
+  ref?: { model: Model<any>; select: string; name: (doc: any) => string };
+  /** Shown when the value is empty (e.g. "General" for no category). */
+  empty?: string;
+}
+
 interface ApprovalHandler {
   /** Permission module whose create/update/delete action is needed to propose a change. */
   moduleKey: string;
@@ -22,6 +34,8 @@ interface ApprovalHandler {
   loadCurrent: (id: string) => Promise<Record<string, unknown> | null>;
   /** The existing controllers, so approved changes go through exactly the same validation. */
   apply: Record<Operation, RequestHandler>;
+  /** The fields an approver sees, in order. */
+  fields: ApprovalField[];
 }
 
 const HANDLERS: Record<ApprovalEntityType, ApprovalHandler> = {
@@ -30,8 +44,82 @@ const HANDLERS: Record<ApprovalEntityType, ApprovalHandler> = {
     label: (payload, before) => String(payload?.item || before?.item || 'Checklist question'),
     loadCurrent: async (id) => ChecklistQuestion.findById(id).lean() as any,
     apply: { create: createChecklistQuestion, update: updateChecklistQuestion, delete: deleteChecklistQuestion },
+    fields: [
+      { key: 'item', label: 'Item' },
+      { key: 'description', label: 'Description' },
+      { key: 'qCategory', label: 'Category', empty: 'General' },
+      { key: 'vesselCode', label: 'Vessel code', empty: 'All' },
+      { key: 'additionalFields', label: 'Additional fields' },
+      {
+        key: 'surveyCategories', label: 'Survey types',
+        ref: { model: SurveyType, select: 'code name', name: (d) => [d.code, d.name].filter(Boolean).join(' · ') },
+      },
+      {
+        key: 'areaOfOperations', label: 'Areas of operation',
+        ref: { model: AreaOfOperation, select: 'AreaCategory description', name: (d) => (d.AreaCategory ? `Area ${d.AreaCategory}` : d.description) },
+      },
+      {
+        key: 'boatTypes', label: 'Vessel types',
+        ref: { model: VesselType, select: 'group name', name: (d) => (/^group\s/i.test(d.group || '') ? `${d.group} · ${d.name}` : d.name || d.group) },
+      },
+    ],
   },
 };
+
+export interface ApprovalChange {
+  key: string;
+  label: string;
+  /** Lists are compared item by item; text fields have one value each. */
+  list: boolean;
+  before: string[];
+  after: string[];
+  added: string[];
+  removed: string[];
+  changed: boolean;
+  empty?: string;
+}
+
+const idText = (v: unknown): string =>
+  v && typeof v === 'object' && '_id' in (v as any) ? String((v as any)._id) : String(v ?? '');
+
+const toList = (v: unknown): unknown[] => (Array.isArray(v) ? v : v === undefined || v === null || v === '' ? [] : [v]);
+
+/** Readable field-by-field changes for an approval, with referenced IDs replaced by names. */
+export const describeChanges = async (approval: IApprovalRequest): Promise<ApprovalChange[]> => {
+  const handler = HANDLERS[approval.entityType];
+  if (!handler) return [];
+  const before = (approval.before ?? {}) as Record<string, unknown>;
+  const after = (approval.operation === 'delete' ? {} : approval.payload ?? {}) as Record<string, unknown>;
+
+  const changes: ApprovalChange[] = [];
+  for (const field of handler.fields) {
+    const beforeRaw = approval.operation === 'create' ? [] : toList(before[field.key]);
+    // An update that leaves a field out keeps the current value.
+    const afterRaw = approval.operation === 'update' && !(field.key in after) ? beforeRaw : toList(after[field.key]);
+
+    let name = (v: unknown) => String(v ?? '').trim();
+    if (field.ref) {
+      const ids = [...new Set([...beforeRaw, ...afterRaw].map(idText).filter((id) => mongoose.isValidObjectId(id)))];
+      const docs = ids.length ? await field.ref.model.find({ _id: { $in: ids } }).select(field.ref.select).lean() : [];
+      const names = new Map(docs.map((d: any) => [String(d._id), field.ref!.name(d)]));
+      name = (v) => names.get(idText(v)) ?? '(deleted item)';
+    }
+    const b = beforeRaw.map(name).filter(Boolean);
+    const a = afterRaw.map(name).filter(Boolean);
+    const added = a.filter((x) => !b.includes(x));
+    const removed = b.filter((x) => !a.includes(x));
+    const list = Array.isArray(before[field.key]) || Array.isArray(after[field.key]) || !!field.ref;
+    changes.push({
+      key: field.key, label: field.label, list, before: b, after: a, added, removed,
+      changed: added.length > 0 || removed.length > 0 || (!list && b.join() !== a.join()),
+      empty: field.empty,
+    });
+  }
+  return changes;
+};
+
+const withChanges = async (approval: IApprovalRequest | null) =>
+  approval ? { ...approval.toObject(), changes: await describeChanges(approval) } : null;
 
 const isEntityType = (v: unknown): v is ApprovalEntityType =>
   typeof v === 'string' && (APPROVAL_ENTITY_TYPES as readonly string[]).includes(v);
@@ -46,7 +134,12 @@ const nameOf = async (userId?: string) => {
 const invoke = (handler: RequestHandler, req: Request, body: unknown, params: Record<string, string>) =>
   new Promise<{ status: number; body: any }>((resolve, reject) => {
     let status = 200;
-    const fakeReq = Object.assign(Object.create(req), { body, params, query: {} });
+    // Express 5 makes req.query a getter, so plain assignment throws; define the fields instead.
+    const fakeReq = Object.create(req, {
+      body: { value: body, writable: true, enumerable: true },
+      params: { value: params, writable: true, enumerable: true },
+      query: { value: {}, writable: true, enumerable: true },
+    });
     const fakeRes: any = {
       status(code: number) {
         status = code;
@@ -155,7 +248,7 @@ export const getApprovalRequests = async (req: Request, res: Response): Promise<
     // Without approvals access a user only sees the changes they proposed.
     if (!(await userCan(authReq, 'approvals', 'read'))) filter.requestedBy = authReq.user?.id;
     const result = await paginate(ApprovalRequest, filter, req);
-    res.status(200).json(result);
+    res.status(200).json({ ...result, data: await Promise.all(result.data.map((a) => withChanges(a))) });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Error loading approvals.', error: error.message });
   }

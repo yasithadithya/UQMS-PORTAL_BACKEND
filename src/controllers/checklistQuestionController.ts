@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import ChecklistQuestion from '../models/ChecklistQuestion';
+import ChecklistQuestion, { CHECKLIST_ADDITIONAL_FIELDS } from '../models/ChecklistQuestion';
 import SurveyType from '../models/SurveyType';
 import AreaOfOperation from '../models/AreaOfOperation';
 import VesselType from '../models/VesselType';
@@ -47,7 +47,7 @@ export const createChecklistQuestion = async (req: Request, res: Response): Prom
         res.status(400).json({ success: false, message: 'additionalFields must be an array.' });
         return;
       }
-      const allowedFields = ['Qty', 'Capacity', 'Model or Serial Number'];
+      const allowedFields = CHECKLIST_ADDITIONAL_FIELDS;
       const invalidFields = additionalFields.filter((f) => !allowedFields.includes(f));
       if (invalidFields.length > 0) {
         res.status(400).json({ success: false, message: `Invalid additional field(s): ${invalidFields.join(', ')}` });
@@ -326,7 +326,7 @@ export const updateChecklistQuestion = async (req: Request, res: Response): Prom
           res.status(400).json({ success: false, message: 'additionalFields must be an array.' });
           return;
         }
-        const allowedFields = ['Qty', 'Capacity', 'Model or Serial Number'];
+        const allowedFields = CHECKLIST_ADDITIONAL_FIELDS;
         const invalidFields = additionalFields.filter((f) => !allowedFields.includes(f));
         if (invalidFields.length > 0) {
           res.status(400).json({ success: false, message: `Invalid additional field(s): ${invalidFields.join(', ')}` });
