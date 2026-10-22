@@ -1,7 +1,7 @@
 import PDFDocument from 'pdfkit';
 import { formatDateDmy } from '../utils/date';
 import { FOOTER_RESERVED_HEIGHT, drawCompanyLetterhead, drawPageNumberFooter } from './pdfLayout';
-import type { IQuotationApproval, IQuotationClient, IQuotationDiscount, IQuotationLineItem, QuotationCurrency } from '../models/Quotation';
+import type { IQuotationApproval, IQuotationClient, IQuotationDiscount, IQuotationLineItem, QuotationCurrency, QuotationStatus } from '../models/Quotation';
 
 type QuotationLike = {
   quotationNumber: string;
@@ -27,6 +27,27 @@ type QuotationLike = {
   discount?: IQuotationDiscount;
   discountLkr?: number;
   approval?: IQuotationApproval;
+  status?: QuotationStatus;
+};
+
+/** Draws a large diagonal "DRAFT" across the middle of every page. */
+const drawDraftWatermark = (doc: PDFKit.PDFDocument) => {
+  const range = doc.bufferedPageRange();
+  for (let i = range.start; i < range.start + range.count; i++) {
+    doc.switchToPage(i);
+    const { width, height } = doc.page;
+    // Without zero margins, text near the page edge would trigger an automatic new page.
+    const margins = doc.page.margins;
+    doc.page.margins = { top: 0, bottom: 0, left: 0, right: 0 };
+    doc.save();
+    doc.rotate(-45, { origin: [width / 2, height / 2] });
+    doc.font('Helvetica-Bold').fontSize(150).fillColor('#c0392b').fillOpacity(0.12);
+    const textHeight = doc.currentLineHeight();
+    doc.text('DRAFT', -width / 2, height / 2 - textHeight / 2, { width: width * 2, align: 'center', lineBreak: false });
+    doc.restore();
+    doc.page.margins = margins;
+  }
+  doc.fillOpacity(1).fillColor('#000000');
 };
 
 /** Printed on approved quotations in place of a handwritten signature. */
@@ -330,6 +351,9 @@ export const createQuotationPdfBuffer = async (quotation: QuotationLike): Promis
         .text(SYSTEM_GENERATED_NOTICE, left, Math.max(bankY, doc.y) + 18, { width, align: 'center' });
       doc.fillColor('#000000');
     }
+
+    // A draft that hasn't been approved yet isn't final, so mark every page.
+    if (quotation.status === 'draft' && !approval) drawDraftWatermark(doc);
 
     drawPageNumberFooter(doc, { margin: PAGE_MARGIN });
     doc.end();
