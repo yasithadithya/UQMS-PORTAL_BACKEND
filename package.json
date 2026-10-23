@@ -1,6 +1,6 @@
 {
   "name": "shipping-backend",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "UQMS backend API with Node.js, TypeScript, MongoDB",
   "main": "dist/server.js",
   "scripts": {
@@ -35,7 +35,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.14.0",
     "multer": "^2.1.1",
-    "nodemailer": "^9.0.3",
+    "nodemailer": "^10.2.1",
     "pdf-lib": "^1.17.1",
     "pdfkit": "^0.18.0",
     "qrcode": "^1.5.4",
@@ -49,7 +49,7 @@
     "@types/jsonwebtoken": "^9.0.7",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.12.0",
-    "@types/nodemailer": "^8.0.0",
+    "@types/nodemailer": "^8.0.2",
     "@types/pdfkit": "^0.17.6",
     "@types/qrcode": "^1.5.6",
     "@types/swagger-jsdoc": "^6.0.4",
