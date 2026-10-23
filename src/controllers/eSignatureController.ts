@@ -13,7 +13,7 @@ import {
 } from '../services/signableDocuments';
 import { isElectronicallySigned } from '../services/eSignatureLock';
 import { convertFullNameToInitials } from './surveyReportController';
-import { certificateSignBlockReason, onCertificateRevoked, onCertificateSigned } from '../services/jobWorkflow';
+import { jobDocumentSignBlockReason, onJobDocumentRevoked } from '../services/jobWorkflow';
 
 const MAX_LOCATION_LENGTH = 120;
 const NOT_ASSIGNED_MESSAGE = 'Only a surveyor assigned to this survey can sign this document.';
@@ -164,13 +164,11 @@ export const signDocument = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    // V2: a job's certificate is signed by the surveyor once the reporting is ready.
-    if (req.params.docType === 'scccos') {
-      const jobReason = await certificateSignBlockReason(req as AuthRequest, doc);
-      if (jobReason) {
-        res.status(409).json({ success: false, message: jobReason });
-        return;
-      }
+    // V2: a job's survey report, docking report and certificate are signed by the surveyor once the reporting is ready.
+    const jobReason = await jobDocumentSignBlockReason(req as AuthRequest, String(req.params.docType), doc);
+    if (jobReason) {
+      res.status(409).json({ success: false, message: jobReason });
+      return;
     }
 
     const booking = await handler.loadBooking(doc);
@@ -233,8 +231,6 @@ export const signDocument = async (req: Request, res: Response): Promise<void> =
       throw renderError;
     }
 
-    if (req.params.docType === 'scccos') await onCertificateSigned(doc, userId);
-
     const signedDoc = await handler.model.findById(id);
     res.status(200).json({
       success: true,
@@ -271,7 +267,7 @@ export const revokeSignature = async (req: Request, res: Response): Promise<void
       audit: { action: 'document.sign.revoke', reason, metadata: { previousSigner: (doc as any).eSignature?.signedByName } },
     });
     await handler.regeneratePdf(req, id);
-    if (req.params.docType === 'scccos') await onCertificateRevoked(doc, userId, reason);
+    await onJobDocumentRevoked(String(req.params.docType), doc, userId, reason);
 
     const unsignedDoc = await handler.model.findById(id);
     res.status(200).json({

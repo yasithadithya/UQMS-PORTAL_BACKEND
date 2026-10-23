@@ -9,6 +9,7 @@ import VesselEquipmentRecord from '../models/VesselEquipmentRecord';
 import SurveyReport from '../models/SurveyReport';
 import SCCCOS from '../models/SCCCOS';
 import DockingSurveyCert from '../models/DockingSurveyCert';
+import SurveyType from '../models/SurveyType';
 import User from '../models/User';
 import type { AuthRequest } from '../middleware/auth';
 import { roleNameOf, userCan } from '../utils/permissions';
@@ -210,7 +211,7 @@ export const jobEditBlockReason = async (req: AuthRequest, job: IJob | null): Pr
       : 'This job has been submitted for surveyor review. It can be edited again if the surveyor rejects it.';
   }
   if (job.status === 'pending-authorization') {
-    return 'This job is signed and waiting for manager approval. It can be edited again if the manager rejects it.';
+    return 'This job has been submitted for manager approval. It can be edited again if the manager rejects it.';
   }
   return 'This job has been approved and can no longer be edited.';
 };
@@ -226,14 +227,14 @@ export const rejectIfJobLocked = async (req: Request, res: Response, ref: JobRef
 
 /**
  * Vessels are shared by every job for that vessel, so a vessel is only locked while one of its jobs is
- * signed and waiting for the manager.
+ * waiting for the manager.
  */
 export const rejectIfVesselLocked = async (req: Request, res: Response, vesselId: unknown): Promise<boolean> => {
   const waiting = await Job.findOne({ vessel: vesselId, status: 'pending-authorization' }).select('_id').lean();
   if (!waiting) return false;
   res.status(409).json({
     success: false,
-    message: 'A job for this vessel is signed and waiting for manager approval, so the vessel details are locked.',
+    message: 'A job for this vessel is waiting for manager approval, so the vessel details are locked.',
     code: 'JOB_LOCKED',
   });
   return true;
@@ -243,51 +244,134 @@ export const rejectIfVesselLocked = async (req: Request, res: Response, vesselId
 // Certificate signing hooks
 // ---------------------------------------------------------------------------
 
-/** Why the certificate of a job cannot be signed yet (null = it can, or the certificate has no job). */
-export const certificateSignBlockReason = async (req: AuthRequest, certificate: any): Promise<string | null> => {
-  const job = await findJobFor({ surveyReportId: certificate?.surveyReportId });
+/** Documents of a job the surveyor signs before the job goes to the manager. */
+type JobSignedDocType = 'survey-report' | 'docking-cert' | 'scccos';
+
+const JOB_SIGNED_DOCS: Record<JobSignedDocType, { model: Model<any>; field: string; label: string }> = {
+  'survey-report': { model: SurveyReport, field: 'firstEntrySurveyReportId', label: 'survey report' },
+  'docking-cert': { model: DockingSurveyCert, field: 'surveyReportId', label: 'docking survey report' },
+  scccos: { model: SCCCOS, field: 'surveyReportId', label: 'certificate' },
+};
+
+export const isJobSignedDocType = (docType: string): docType is JobSignedDocType =>
+  Object.prototype.hasOwnProperty.call(JOB_SIGNED_DOCS, docType);
+
+const jobOfDocument = (docType: JobSignedDocType, doc: any): Promise<IJob | null> =>
+  findJobFor({ surveyReportId: doc?.[JOB_SIGNED_DOCS[docType].field] });
+
+/** Why a job's survey report, docking report or certificate cannot be signed yet (null = it can, or it has no job). */
+export const jobDocumentSignBlockReason = async (req: AuthRequest, docType: string, doc: any): Promise<string | null> => {
+  if (!isJobSignedDocType(docType)) return null;
+  const job = await jobOfDocument(docType, doc);
   if (!job) return null;
+  const label = JOB_SIGNED_DOCS[docType].label;
   if (!(await userCan(req, 'jobs.reporting', 'approve')) && !(await userCan(req, 'marine.certificates', 'sign-on-behalf'))) {
-    return 'Only the surveyor can sign the certificate.';
+    return `Only the surveyor can sign the ${label}.`;
   }
   if (!['in-progress', 'surveyor-approved'].includes(job.status)) {
     return job.status === 'submitted'
-      ? 'Review and approve the submitted reporting before signing the certificate.'
-      : 'This job is not ready for the certificate to be signed.';
+      ? `Review and approve the submitted reporting before signing the ${label}.`
+      : `This job is not ready for the ${label} to be signed.`;
   }
-  if (!(await hasRequiredMssProof(job))) return 'Upload the MSS proof in the Schedule II section before signing the certificate.';
+  if (docType === 'scccos' && !(await hasRequiredMssProof(job))) {
+    return 'Upload the MSS proof in the Schedule II section before signing the certificate.';
+  }
   return null;
 };
 
-/** After a certificate is signed, its job goes to the manager for authorization. */
-export const onCertificateSigned = async (certificate: any, userId: string): Promise<void> => {
-  const job = await findJobFor({ surveyReportId: certificate?.surveyReportId });
-  if (!job) return;
-  await transitionJob(job._id, ['in-progress', 'surveyor-approved'], 'pending-authorization', {
-    userId,
-    reason: 'Certificate signed.',
-  });
+/** Which reports a job needs. Keep in step with REPORT_RULES in the frontend FirstEntryWorkspace. */
+export const jobReportsNeeded = async (job: IJob): Promise<{ surveyReport: boolean; docking: boolean }> => {
+  const types = await SurveyType.find({ _id: { $in: job.surveyTypes || [] } }).select('name').lean();
+  return {
+    surveyReport: job.mainSurveyType === 'first-entry',
+    docking: types.some((t: any) => /docking/i.test(t.name || '')),
+  };
 };
 
-/** Removes the certificate's signature when the manager sends a job back, so it can be edited again. */
-export const revokeJobCertificateSignature = async (req: Request, job: IJob, reason: string): Promise<void> => {
+export interface JobDocumentState {
+  id?: string;
+  /** Whether the job needs this document. */
+  required: boolean;
+  /** Survey report only: finalized ("Approved"), which it must be before signing. */
+  finalized?: boolean;
+  signed: boolean;
+}
+
+/** Whether each signed document of the job exists, is needed and is signed. */
+export const loadJobDocumentStates = async (job: IJob): Promise<Record<'surveyReport' | 'dockingCert' | 'certificate', JobDocumentState>> => {
+  const needs = await jobReportsNeeded(job);
+  const sr = job.surveyReport;
+  const [report, docking, certificate] = sr
+    ? await Promise.all([
+      SurveyReport.findOne({ firstEntrySurveyReportId: sr }).select('status eSignature'),
+      DockingSurveyCert.findOne({ surveyReportId: sr }).select('eSignature'),
+      SCCCOS.findOne({ surveyReportId: sr }).select('eSignature'),
+    ])
+    : [null, null, null];
+  const state = (doc: any, required: boolean): JobDocumentState => ({
+    id: doc ? String(doc._id) : undefined,
+    required,
+    signed: Boolean(doc && isElectronicallySigned(doc)),
+  });
+  return {
+    surveyReport: { ...state(report, needs.surveyReport), finalized: (report as any)?.status === 'Approved' },
+    dockingCert: state(docking, needs.docking),
+    certificate: state(certificate, true),
+  };
+};
+
+/**
+ * Why the surveyor cannot submit this job for manager approval yet (null = they can). Signing the
+ * certificate does not send the job on; the surveyor does that from the Summary section.
+ */
+export const managerSubmitBlockReason = async (req: AuthRequest, job: IJob): Promise<string | null> => {
+  if (!(await userCan(req, 'jobs.reporting', 'approve'))) return 'Only the surveyor can submit the job for manager approval.';
+  if (!isLeadSurveyor(job, req.user?.id ?? '') && !(await userCan(req, 'jobs', 'view-all'))) {
+    return 'Only the lead surveyor of this job can submit it for manager approval.';
+  }
+  if (job.status === 'submitted') return 'Review the reporting the assistant surveyor submitted first.';
+  if (!['in-progress', 'surveyor-approved'].includes(job.status)) return 'This job is not ready to be submitted for manager approval.';
+  if (!(await hasRequiredMssProof(job))) return 'Upload the MSS proof in the Schedule II section first.';
+  const docs = await loadJobDocumentStates(job);
+  const unsigned: string[] = [];
+  if (docs.surveyReport.required && !docs.surveyReport.signed) unsigned.push('survey report');
+  if (docs.dockingCert.required && !docs.dockingCert.signed) unsigned.push('docking survey report');
+  if (!docs.certificate.signed) unsigned.push('certificate');
+  if (unsigned.length) {
+    const list = unsigned.length === 1 ? unsigned[0] : `${unsigned.slice(0, -1).join(', ')} and ${unsigned[unsigned.length - 1]}`;
+    return `Sign the ${list} first.`;
+  }
+  return null;
+};
+
+/**
+ * Removes the signatures on the job's reports and certificate when the manager sends it back. The survey
+ * report also goes back to Draft, since a finalized report can no longer be edited.
+ */
+export const revokeJobSignatures = async (req: Request, job: IJob, reason: string): Promise<void> => {
   if (!job.surveyReport) return;
-  const certificate = await SCCCOS.findOne({ surveyReportId: job.surveyReport });
-  if (!certificate || !isElectronicallySigned(certificate)) return;
-  const handler = getSignableDocument('scccos')!;
-  await SCCCOS.updateOne(
-    { _id: certificate._id },
-    { $unset: { eSignature: 1 } },
-    { audit: { action: 'document.sign.revoke', reason, metadata: { previousSigner: (certificate as any).eSignature?.signedByName } } } as any
-  );
-  await handler.regeneratePdf(req, String(certificate._id));
+  for (const [docType, source] of Object.entries(JOB_SIGNED_DOCS)) {
+    const doc = await source.model.findOne({ [source.field]: job.surveyReport });
+    if (!doc) continue;
+    const reopen = docType === 'survey-report' && (doc as any).status === 'Approved';
+    if (!isElectronicallySigned(doc) && !reopen) continue;
+    await source.model.updateOne(
+      { _id: doc._id },
+      { $unset: { eSignature: 1 }, ...(reopen ? { $set: { status: 'Draft' } } : {}) },
+      { audit: { action: 'document.sign.revoke', reason, metadata: { previousSigner: (doc as any).eSignature?.signedByName } } } as any
+    );
+    await getSignableDocument(docType)!.regeneratePdf(req, String(doc._id));
+  }
 };
 
 // ---------------------------------------------------------------------------
 // Deliverables
 // ---------------------------------------------------------------------------
 
-/** In V2 only the certificate is e-signed; these PDFs are released when their job is approved. */
+/**
+ * Unsigned PDFs released when their job is approved. V2 jobs sign the survey and docking reports before
+ * they reach the manager; those two stay listed for jobs completed before that rule.
+ */
 const RELEASED_WITH_JOB: Record<string, { model: Model<any>; field: string }> = {
   'survey-report': { model: SurveyReport, field: 'firstEntrySurveyReportId' },
   'docking-cert': { model: DockingSurveyCert, field: 'surveyReportId' },
@@ -305,12 +389,15 @@ export const isReleasedByCompletedJob = async (docType: string, docId: string): 
   return job?.status === 'completed';
 };
 
-/** A certificate's signature was removed outside the manager flow: the job goes back to in-progress. */
-export const onCertificateRevoked = async (certificate: any, userId: string, reason?: string): Promise<void> => {
-  const job = await findJobFor({ surveyReportId: certificate?.surveyReportId });
+/** A report or certificate signature was removed outside the manager flow: a waiting job goes back to in-progress. */
+export const onJobDocumentRevoked = async (docType: string, doc: any, userId: string, reason?: string): Promise<void> => {
+  if (!isJobSignedDocType(docType)) return;
+  const job = await jobOfDocument(docType, doc);
   if (!job) return;
+  const label = JOB_SIGNED_DOCS[docType].label;
+  const what = `${label.charAt(0).toUpperCase()}${label.slice(1)} signature revoked`;
   await transitionJob(job._id, ['pending-authorization'], 'in-progress', {
     userId,
-    reason: reason ? `Certificate signature revoked: ${reason}` : 'Certificate signature revoked.',
+    reason: reason ? `${what}: ${reason}` : `${what}.`,
   });
 };

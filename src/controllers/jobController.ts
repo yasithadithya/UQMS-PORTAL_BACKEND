@@ -28,7 +28,9 @@ import {
   isLeadSurveyor,
   jobEditBlockReason,
   loadJobLinks,
-  revokeJobCertificateSignature,
+  managerSubmitBlockReason,
+  loadJobDocumentStates,
+  revokeJobSignatures,
   scopeJobsQuery,
   scopeMyJobsQuery,
   transitionJob,
@@ -473,6 +475,8 @@ export const getJobById = async (req: Request, res: Response): Promise<void> => 
     const userId = authReq.user?.id ?? '';
     const blocked = await jobEditBlockReason(authReq, job);
     const canApprove = await userCan(authReq, 'jobs.reporting', 'approve');
+    const canViewAll = await userCan(authReq, 'jobs', 'view-all');
+    const managerBlocked = await managerSubmitBlockReason(authReq, job);
     const populated = await Job.findById(job._id).populate(JOB_POPULATE).populate('request');
     res.status(200).json({
       success: true,
@@ -480,13 +484,19 @@ export const getJobById = async (req: Request, res: Response): Promise<void> => 
         ...populated!.toObject(),
         links: await loadJobLinks(job),
         mssProofUploaded: await hasRequiredMssProof(job),
+        documents: await loadJobDocumentStates(job),
         access: {
           isMember: isJobMember(job, userId),
           isLeadSurveyor: isLeadSurveyor(job, userId),
-          canEdit: !blocked && (isJobMember(job, userId) || (await userCan(authReq, 'jobs', 'view-all'))),
+          canEdit: !blocked && (isJobMember(job, userId) || canViewAll),
           lockedReason: blocked,
           canReview: canApprove && job.status === 'submitted',
-          canSubmit: !canApprove && job.status === 'in-progress',
+          canSubmit: !canApprove && job.status === 'in-progress' && (isJobMember(job, userId) || canViewAll),
+          // The surveyor sees the "Submit for manager approval" button while the job is open; it stays disabled until ready.
+          showSubmitToManager:
+            canApprove && (isLeadSurveyor(job, userId) || canViewAll) && ['in-progress', 'submitted', 'surveyor-approved'].includes(job.status),
+          canSubmitToManager: !managerBlocked,
+          submitToManagerBlockedReason: managerBlocked,
           canAuthorize: job.status === 'pending-authorization' && (await userCan(authReq, 'authorization', 'approve')),
         },
       },
@@ -590,7 +600,7 @@ export const unmarkLastVisit = async (req: Request, res: Response): Promise<void
 };
 
 // ===========================================================================
-// Workflow: submit → surveyor review → (certificate signed) → manager authorization
+// Workflow: submit → surveyor review → certificate signed → submit to manager → manager authorization
 // ===========================================================================
 
 /** An assistant surveyor submits the reporting to the lead surveyor. */
@@ -611,6 +621,28 @@ export const submitJob = async (req: Request, res: Response): Promise<void> => {
     await sendJob(res, job._id, 200, 'Submitted to the surveyor for review.');
   } catch (error: any) {
     serverError(res, 'Error submitting the job.', error);
+  }
+};
+
+/** The surveyor sends the job, with its signed certificate, to the manager for authorization. */
+export const submitJobToManager = async (req: Request, res: Response): Promise<void> => {
+  const authReq = req as AuthRequest;
+  const userId = authReq.user?.id;
+  try {
+    const job = await loadViewableJob(authReq, res);
+    if (!job) return;
+    const blocked = await managerSubmitBlockReason(authReq, job);
+    if (blocked) return fail(res, 400, blocked);
+
+    const updated = await transitionJob(job._id, ['in-progress', 'surveyor-approved'], 'pending-authorization', {
+      userId,
+      action: 'job.submit-to-manager',
+      reason: 'Submitted for manager approval.',
+    });
+    if (!updated) return fail(res, 409, 'The job changed while you were submitting it. Reload and try again.');
+    await sendJob(res, job._id, 200, 'Submitted for manager approval.');
+  } catch (error: any) {
+    serverError(res, 'Error submitting the job for manager approval.', error);
   }
 };
 
@@ -673,8 +705,8 @@ export const authorizeJob = async (req: Request, res: Response): Promise<void> =
       action: 'job.authorize.reject',
     });
     if (!updated) return fail(res, 409, 'This job is no longer waiting for authorization.');
-    await revokeJobCertificateSignature(req, updated, `Rejected by manager: ${reason}`);
-    await sendJob(res, job._id, 200, 'Job sent back for changes. The certificate signature was removed.');
+    await revokeJobSignatures(req, updated, `Rejected by manager: ${reason}`);
+    await sendJob(res, job._id, 200, 'Job sent back for changes. The report and certificate signatures were removed.');
   } catch (error: any) {
     serverError(res, 'Error authorizing the job.', error);
   }
@@ -759,7 +791,7 @@ export const getJobReports = async (req: Request, res: Response): Promise<void> 
         items.push({ category: 'Checklist', name: 'Daily visit report (checklist)', docType: 'daily-report', docId: String(full!._id), generatedAt: (full as any).dailyReportPdfGeneratedAt });
       }
       if (finalReport) {
-        items.push({ category: 'Report Generation', name: `Record of Equipment & Survey Report ${finalReport.certificateNumber ?? ''}`.trim(), docType: 'survey-report', docId: String(finalReport._id), generatedAt: (finalReport as any).pdf?.generatedAt });
+        items.push({ category: 'Report Generation', name: `Record of Equipment & Survey Report ${finalReport.certificateNumber ?? ''}`.trim(), docType: 'survey-report', docId: String(finalReport._id), signed: Boolean((finalReport as any).eSignature?.signedAt), generatedAt: (finalReport as any).pdf?.generatedAt });
       }
       if (docking) {
         items.push({ category: 'Report Generation', name: `Docking Survey Report ${docking.certificateNumber ?? ''}`.trim(), docType: 'docking-cert', docId: String(docking._id), signed: Boolean((docking as any).eSignature?.signedAt), generatedAt: (docking as any).pdf?.generatedAt });

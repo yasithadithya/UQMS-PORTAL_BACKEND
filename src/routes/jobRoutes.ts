@@ -16,6 +16,7 @@ import {
   reviewJob,
   startJobReporting,
   submitJob,
+  submitJobToManager,
   unmarkLastVisit,
   updateJobAllocation,
 } from '../controllers/jobController';
@@ -96,6 +97,11 @@ router.delete('/:id/documents/:docId', REPORTING, removeSupportingDocument);
  *     summary: Assistant surveyor submits the reporting for surveyor review
  *     tags: [Jobs]
  *     security: [{ bearerAuth: [] }]
+ * /api/jobs/{id}/submit-to-manager:
+ *   post:
+ *     summary: Lead surveyor submits the job (certificate signed) for manager approval
+ *     tags: [Jobs]
+ *     security: [{ bearerAuth: [] }]
  * /api/jobs/{id}/review:
  *   post:
  *     summary: Surveyor approves or rejects submitted reporting ({ decision, reason })
@@ -108,7 +114,8 @@ router.delete('/:id/documents/:docId', REPORTING, removeSupportingDocument);
  *     security: [{ bearerAuth: [] }]
  */
 router.post('/:id/submit', REPORTING, submitJob);
-router.post('/:id/review', requirePermission('jobs.reporting', 'approve'), reviewJob);
+router.post('/:id/submit-to-manager', requirePermission('jobs.reporting', 'approve'), submitJobToManager);
+router.post('/:id/review',requirePermission('jobs.reporting', 'approve'), reviewJob);
 router.post('/:id/authorize', requirePermission('authorization', 'approve'), authorizeJob);
 
 export default router;

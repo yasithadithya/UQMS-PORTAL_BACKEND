@@ -7,6 +7,7 @@ import Vessel from '../models/Vessel';
 import ChecklistQuestion from '../models/ChecklistQuestion';
 import SurveyType from '../models/SurveyType';
 import User from '../models/User';
+import Job from '../models/Job';
 import QRCode from 'qrcode';
 import { createDailyReportPdfBuffer } from '../services/dailyReportPdfService';
 import { uploadToR2, deleteFromR2, downloadFromR2, getPresignedGetUrl } from '../services/r2Storage';
@@ -149,13 +150,19 @@ export const generateFullReport = async (surveyReport: any): Promise<any> => {
 };
 
 /**
- * Helper function to filter visitDetails array in bookingId to only contain visits
- * relevant/assigned to the logged-in user.
+ * Limits the booking's visits to the ones assigned to the logged-in user.
+ * Members of the booking's job (lead surveyor or assistants) see every visit, since the
+ * job's people can change after the visits were saved.
  */
-const filterVisitsForUser = (report: any, userId: string): any => {
+const filterVisitsForUser = async (report: any, userId: string): Promise<any> => {
   if (!report || !userId) return report;
   const reportObj = typeof report.toObject === 'function' ? report.toObject() : report;
   if (reportObj.bookingId && typeof reportObj.bookingId === 'object' && reportObj.bookingId.visitDetails) {
+    const isJobMember = mongoose.isValidObjectId(userId) && !!(await Job.exists({
+      booking: reportObj.bookingId._id,
+      $or: [{ surveyor: userId }, { assistantSurveyors: userId }],
+    }));
+    if (isJobMember) return reportObj;
     reportObj.bookingId.visitDetails = reportObj.bookingId.visitDetails.filter((visit: any) => {
       return visit.surveyorAssignments?.some((assign: any) => {
         const sId = assign.surveyorId && typeof assign.surveyorId === 'object'
@@ -185,7 +192,7 @@ export const getAllFirstEntryFullReports = async (req: Request, res: Response): 
       .sort({ createdAt: -1 });
 
     const userId = (req as any).user?.id;
-    const filteredReports = reports.map((r) => filterVisitsForUser(r, userId));
+    const filteredReports = await Promise.all(reports.map((r) => filterVisitsForUser(r, userId)));
 
     res.status(200).json({
       success: true,
@@ -228,7 +235,7 @@ export const getFirstEntryFullReportById = async (req: Request, res: Response): 
     }
 
     const userId = (req as any).user?.id;
-    const filteredReport = filterVisitsForUser(report, userId);
+    const filteredReport = await filterVisitsForUser(report, userId);
 
     res.status(200).json({
       success: true,
@@ -270,7 +277,7 @@ export const getFirstEntryFullReportBySurveyReportId = async (req: Request, res:
     }
 
     const userId = (req as any).user?.id;
-    const filteredReport = filterVisitsForUser(report, userId);
+    const filteredReport = await filterVisitsForUser(report, userId);
 
     res.status(200).json({
       success: true,
@@ -412,7 +419,7 @@ export const updateFirstEntryFullReport = async (req: Request, res: Response): P
       return;
     }
 
-    const filteredReport = filterVisitsForUser(updatedReport, userId);
+    const filteredReport = await filterVisitsForUser(updatedReport, userId);
 
     res.status(200).json({
       success: true,
@@ -490,7 +497,7 @@ export const triggerFullReportGeneration = async (req: Request, res: Response): 
       .populate('remarks.comments.createdBy', 'username email');
 
     const userId = (req as any).user?.id;
-    const filteredReport = filterVisitsForUser(populatedFullReport, userId);
+    const filteredReport = await filterVisitsForUser(populatedFullReport, userId);
 
     res.status(200).json({
       success: true,
@@ -653,7 +660,7 @@ export const generateDailyReportPdf = async (req: Request, res: Response): Promi
       .populate('remarks.comments.createdBy', 'username email');
 
     const userId = (req as any).user?.id;
-    const filteredReport = filterVisitsForUser(populatedReport, userId);
+    const filteredReport = await filterVisitsForUser(populatedReport, userId);
 
     res.status(200).json({
       success: true,
@@ -847,7 +854,7 @@ export const addGeneralRemark = async (req: Request, res: Response): Promise<voi
     res.status(200).json({
       success: true,
       message: 'General remark added successfully.',
-      data: filterVisitsForUser(updatedReport, userId)
+      data: await filterVisitsForUser(updatedReport, userId)
     });
   } catch (error: any) {
     res.status(500).json({
@@ -908,7 +915,7 @@ export const editGeneralRemark = async (req: Request, res: Response): Promise<vo
     res.status(200).json({
       success: true,
       message: 'General remark updated successfully.',
-      data: filterVisitsForUser(updatedReport, userId)
+      data: await filterVisitsForUser(updatedReport, userId)
     });
   } catch (error: any) {
     res.status(500).json({
@@ -958,7 +965,7 @@ export const toggleCloseGeneralRemark = async (req: Request, res: Response): Pro
     res.status(200).json({
       success: true,
       message: `General remark ${remark.isClosed ? 'closed' : 'reopened'} successfully.`,
-      data: filterVisitsForUser(updatedReport, userId)
+      data: await filterVisitsForUser(updatedReport, userId)
     });
   } catch (error: any) {
     res.status(500).json({
@@ -1026,7 +1033,7 @@ export const addRemarkComment = async (req: Request, res: Response): Promise<voi
     res.status(200).json({
       success: true,
       message: 'Comment added successfully.',
-      data: filterVisitsForUser(updatedReport, userId)
+      data: await filterVisitsForUser(updatedReport, userId)
     });
   } catch (error: any) {
     res.status(500).json({
@@ -1093,7 +1100,7 @@ export const editRemarkComment = async (req: Request, res: Response): Promise<vo
     res.status(200).json({
       success: true,
       message: 'Comment updated successfully.',
-      data: filterVisitsForUser(updatedReport, userId)
+      data: await filterVisitsForUser(updatedReport, userId)
     });
   } catch (error: any) {
     res.status(500).json({
