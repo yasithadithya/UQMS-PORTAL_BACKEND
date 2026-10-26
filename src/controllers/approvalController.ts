@@ -1,6 +1,12 @@
 import { Request, Response, RequestHandler } from 'express';
 import mongoose, { Model } from 'mongoose';
-import ApprovalRequest, { APPROVAL_ENTITY_TYPES, ApprovalEntityType, IApprovalRequest } from '../models/ApprovalRequest';
+import ApprovalRequest, {
+  APPROVAL_ENTITY_TYPES,
+  APPROVAL_STATUSES,
+  ApprovalEntityType,
+  IApprovalRequest,
+  OPEN_STATUSES,
+} from '../models/ApprovalRequest';
 import ChecklistQuestion from '../models/ChecklistQuestion';
 import SurveyType from '../models/SurveyType';
 import AreaOfOperation from '../models/AreaOfOperation';
@@ -8,7 +14,7 @@ import VesselType from '../models/VesselType';
 import User from '../models/User';
 import { AuthRequest } from '../middleware/auth';
 import { rejectUnlessCan } from '../middleware/permission';
-import { userCan } from '../utils/permissions';
+import { userCanAny } from '../utils/permissions';
 import { paginate } from '../utils/pagination';
 import {
   createChecklistQuestion,
@@ -32,7 +38,7 @@ interface ApprovalHandler {
   moduleKey: string;
   label: (payload: any, before: any) => string;
   loadCurrent: (id: string) => Promise<Record<string, unknown> | null>;
-  /** The existing controllers, so approved changes go through exactly the same validation. */
+  /** The existing controllers, so accepted changes go through exactly the same validation. */
   apply: Record<Operation, RequestHandler>;
   /** The fields an approver sees, in order. */
   fields: ApprovalField[];
@@ -124,6 +130,16 @@ const withChanges = async (approval: IApprovalRequest | null) =>
 const isEntityType = (v: unknown): v is ApprovalEntityType =>
   typeof v === 'string' && (APPROVAL_ENTITY_TYPES as readonly string[]).includes(v);
 
+/** `status` may be one status or a comma-separated list ("pending,approved"). */
+const statusFilter = (v: unknown) => {
+  if (typeof v !== 'string' || !v) return undefined;
+  const list = v.split(',').map((x) => x.trim()).filter((x) => (APPROVAL_STATUSES as readonly string[]).includes(x));
+  if (list.length === 0) return undefined;
+  return list.length === 1 ? list[0] : { $in: list };
+};
+
+const commentOf = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+
 const nameOf = async (userId?: string) => {
   if (!userId) return '';
   const u = await User.findById(userId).select('fullName username').lean();
@@ -153,18 +169,23 @@ const invoke = (handler: RequestHandler, req: Request, body: unknown, params: Re
     Promise.resolve(handler(fakeReq, fakeRes, reject)).catch(reject);
   });
 
-/** Propose a change. Approvers' own changes are applied straight away and recorded as approved. */
+/** Propose a change. Every change goes through approval and then acceptance, whoever raises it. */
 export const createApprovalRequest = async (req: Request, res: Response): Promise<void> => {
   const authReq = req as AuthRequest;
   const userId = authReq.user?.id;
   try {
     const { entityType, entityId, operation, payload } = req.body ?? {};
+    const requestComment = commentOf(req.body?.requestComment);
     if (!isEntityType(entityType)) {
       res.status(400).json({ success: false, message: 'Unknown record type.' });
       return;
     }
     if (!['create', 'update', 'delete'].includes(operation)) {
       res.status(400).json({ success: false, message: 'Operation must be create, update or delete.' });
+      return;
+    }
+    if (!requestComment) {
+      res.status(400).json({ success: false, message: 'Add a request comment explaining the change.' });
       return;
     }
     const handler = HANDLERS[entityType];
@@ -181,13 +202,14 @@ export const createApprovalRequest = async (req: Request, res: Response): Promis
         res.status(404).json({ success: false, message: 'Record not found.' });
         return;
       }
-      const pending = await ApprovalRequest.exists({ entityType, entityId, status: 'pending' });
-      if (pending) {
-        res.status(409).json({ success: false, message: 'This record already has a change waiting for approval.' });
+      const open = await ApprovalRequest.exists({ entityType, entityId, status: { $in: OPEN_STATUSES } });
+      if (open) {
+        res.status(409).json({ success: false, message: 'This record already has a change waiting for approval or acceptance.' });
         return;
       }
     }
 
+    const requestedByName = await nameOf(userId);
     const approval = await ApprovalRequest.create({
       entityType,
       entityId: operation === 'create' ? undefined : entityId,
@@ -195,19 +217,11 @@ export const createApprovalRequest = async (req: Request, res: Response): Promis
       summary: handler.label(payload, before),
       payload: payload ?? {},
       before,
+      requestComment,
       requestedBy: userId,
-      requestedByName: await nameOf(userId),
+      requestedByName,
+      history: [{ action: 'submitted', by: userId, byName: requestedByName, at: new Date(), comment: requestComment }],
     });
-
-    if (await userCan(authReq, 'approvals', 'approve')) {
-      const result = await applyApproval(req, approval, userId, 'Applied directly by an approver.');
-      res.status(result.ok ? 201 : result.status).json({
-        success: result.ok,
-        message: result.ok ? 'Change applied.' : result.message,
-        data: await ApprovalRequest.findById(approval._id),
-      });
-      return;
-    }
 
     res.status(201).json({ success: true, message: 'Change sent for approval.', data: approval });
   } catch (error: any) {
@@ -215,11 +229,29 @@ export const createApprovalRequest = async (req: Request, res: Response): Promis
   }
 };
 
-const applyApproval = async (
+/** Revision the accepted change gives the record: 0 for a new record, then 1, 2, … for each later change. */
+const nextRevision = async (approval: IApprovalRequest, entityId: unknown): Promise<number> => {
+  if (approval.operation === 'create') return 0;
+  const previous = await ApprovalRequest.find({
+    entityType: approval.entityType,
+    status: 'accepted',
+    _id: { $ne: approval._id },
+    $or: [{ entityId }, { resultId: entityId }],
+    // When renumbering old records, only count changes that took effect earlier.
+    ...(approval.effectiveDate ? { effectiveDate: { $lt: approval.effectiveDate } } : {}),
+  }).select('revision operation').lean();
+  const known = previous.map((p) => p.revision).filter((r): r is number => typeof r === 'number');
+  // Records that existed before QMS change control count as revision 0.
+  const latest = known.length ? Math.max(...known) : previous.filter((p) => p.operation !== 'create').length;
+  return latest + 1;
+};
+
+/** Level 2: apply the approved change to the live record and mark it accepted. */
+const applyAcceptance = async (
   req: Request,
   approval: IApprovalRequest,
-  reviewerId: string | undefined,
-  reason?: string
+  userId: string | undefined,
+  comment: string
 ): Promise<{ ok: boolean; status: number; message?: string }> => {
   const handler = HANDLERS[approval.entityType];
   const params: Record<string, string> = approval.entityId ? { id: String(approval.entityId) } : {};
@@ -228,12 +260,26 @@ const applyApproval = async (
     return { ok: false, status: result.status, message: result.body?.message || 'The change could not be applied.' };
   }
   const resultId = approval.operation === 'create' ? result.body?.data?._id : undefined;
+  const entityId = approval.entityId ?? resultId;
+  const revision = await nextRevision(approval, entityId);
+  const now = new Date();
+  const byName = await nameOf(userId);
   await ApprovalRequest.findOneAndUpdate(
-    { _id: approval._id, status: 'pending' },
+    { _id: approval._id, status: 'approved' },
     {
-      $set: { status: 'approved', reviewedBy: reviewerId, reviewedByName: await nameOf(reviewerId), reviewedAt: new Date(), reason, resultId },
+      $set: {
+        status: 'accepted',
+        acceptedBy: userId,
+        acceptedByName: byName,
+        acceptanceComment: comment || undefined,
+        effectiveDate: now,
+        revision,
+        resultId,
+        entityId,
+      },
+      $push: { history: { action: 'accepted', by: userId, byName, at: now, comment: comment || undefined } },
     },
-    { audit: { action: 'approval-request.approve', reason } } as any
+    { audit: { action: 'approval-request.accept', reason: comment || undefined } } as any
   );
   return { ok: true, status: 200 };
 };
@@ -242,11 +288,12 @@ export const getApprovalRequests = async (req: Request, res: Response): Promise<
   const authReq = req as AuthRequest;
   try {
     const filter: Record<string, unknown> = {};
-    if (typeof req.query.status === 'string' && req.query.status) filter.status = req.query.status;
+    const status = statusFilter(req.query.status);
+    if (status) filter.status = status;
     if (isEntityType(req.query.entityType)) filter.entityType = req.query.entityType;
     if (req.query.entityId && mongoose.isValidObjectId(req.query.entityId)) filter.entityId = req.query.entityId;
     // Without approvals access a user only sees the changes they proposed.
-    if (!(await userCan(authReq, 'approvals', 'read'))) filter.requestedBy = authReq.user?.id;
+    if (!(await userCanAny(authReq, ['approvals'], ['read', 'approve', 'accept']))) filter.requestedBy = authReq.user?.id;
     const result = await paginate(ApprovalRequest, filter, req);
     res.status(200).json({ ...result, data: await Promise.all(result.data.map((a) => withChanges(a))) });
   } catch (error: any) {
@@ -254,35 +301,77 @@ export const getApprovalRequests = async (req: Request, res: Response): Promise<
   }
 };
 
-export const decideApprovalRequest = async (req: Request, res: Response): Promise<void> => {
-  const authReq = req as AuthRequest;
-  const userId = authReq.user?.id;
+/**
+ * QMS revision history: every change request in QMS in every state, newest activity first.
+ * Readable by anyone with QMS or Approvals access.
+ */
+export const getRevisionHistory = async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!mongoose.isValidObjectId(req.params.id)) {
-      res.status(400).json({ success: false, message: 'Invalid approval ID.' });
-      return;
+    const filter: Record<string, unknown> = {};
+    const and: Record<string, unknown>[] = [];
+    const status = statusFilter(req.query.status);
+    if (status) filter.status = status;
+    if (isEntityType(req.query.entityType)) filter.entityType = req.query.entityType;
+    if (req.query.entityId && mongoose.isValidObjectId(req.query.entityId)) {
+      and.push({ $or: [{ entityId: req.query.entityId }, { resultId: req.query.entityId }] });
     }
-    const approval = await ApprovalRequest.findById(req.params.id);
-    if (!approval) {
-      res.status(404).json({ success: false, message: 'Approval not found.' });
-      return;
+    const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+    if (search) {
+      const rx = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      and.push({ $or: [{ summary: rx }, { requestComment: rx }, { requestedByName: rx }, { approvedByName: rx }, { acceptedByName: rx }] });
     }
+    if (and.length) filter.$and = and;
+    const result = await paginate(ApprovalRequest, filter, req, [], { updatedAt: -1 });
+    res.status(200).json({ ...result, data: await Promise.all(result.data.map((a) => withChanges(a))) });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Error loading the revision history.', error: error.message });
+  }
+};
+
+const loadForDecision = async (req: Request, res: Response): Promise<IApprovalRequest | null> => {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    res.status(400).json({ success: false, message: 'Invalid approval ID.' });
+    return null;
+  }
+  const approval = await ApprovalRequest.findById(req.params.id);
+  if (!approval) {
+    res.status(404).json({ success: false, message: 'Change request not found.' });
+    return null;
+  }
+  return approval;
+};
+
+const reject = async (approval: IApprovalRequest, stage: 'approval' | 'acceptance', userId: string | undefined, comment: string) => {
+  const now = new Date();
+  const byName = await nameOf(userId);
+  await ApprovalRequest.findOneAndUpdate(
+    { _id: approval._id, status: approval.status },
+    {
+      $set: { status: 'rejected', rejectedStage: stage, rejectedBy: userId, rejectedByName: byName, rejectedAt: now, rejectionComment: comment },
+      $push: { history: { action: 'rejected', stage, by: userId, byName, at: now, comment } },
+    },
+    { audit: { action: 'approval-request.reject', reason: comment } } as any
+  );
+};
+
+/** Level 1: approve (sets the request date) or reject a pending change. Nothing is applied yet. */
+export const decideApprovalRequest = async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthRequest).user?.id;
+  try {
+    const approval = await loadForDecision(req, res);
+    if (!approval) return;
     if (approval.status !== 'pending') {
-      res.status(409).json({ success: false, message: 'This change has already been decided.' });
+      res.status(409).json({ success: false, message: 'This change is no longer waiting for approval.' });
       return;
     }
     const decision = req.body?.decision;
-    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+    const comment = commentOf(req.body?.comment ?? req.body?.reason);
     if (decision === 'reject') {
-      if (!reason) {
-        res.status(400).json({ success: false, message: 'Give a reason for rejecting.' });
+      if (!comment) {
+        res.status(400).json({ success: false, message: 'Add a comment explaining the rejection.' });
         return;
       }
-      await ApprovalRequest.findOneAndUpdate(
-        { _id: approval._id, status: 'pending' },
-        { $set: { status: 'rejected', reviewedBy: userId, reviewedByName: await nameOf(userId), reviewedAt: new Date(), reason } },
-        { audit: { action: 'approval-request.reject', reason } } as any
-      );
+      await reject(approval, 'approval', userId, comment);
       res.status(200).json({ success: true, message: 'Change rejected.', data: await ApprovalRequest.findById(approval._id) });
       return;
     }
@@ -290,13 +379,105 @@ export const decideApprovalRequest = async (req: Request, res: Response): Promis
       res.status(400).json({ success: false, message: 'Decision must be approve or reject.' });
       return;
     }
-    const result = await applyApproval(req, approval, userId, reason || undefined);
+    const now = new Date();
+    const byName = await nameOf(userId);
+    await ApprovalRequest.findOneAndUpdate(
+      { _id: approval._id, status: 'pending' },
+      {
+        $set: { status: 'approved', approvedBy: userId, approvedByName: byName, approvalComment: comment || undefined, requestDate: now },
+        $push: { history: { action: 'approved', by: userId, byName, at: now, comment: comment || undefined } },
+      },
+      { audit: { action: 'approval-request.approve', reason: comment || undefined } } as any
+    );
+    res.status(200).json({ success: true, message: 'Change approved. It now needs to be accepted.', data: await ApprovalRequest.findById(approval._id) });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Error deciding the approval.', error: error.message });
+  }
+};
+
+/** Level 2: accept (applies the change, sets the effective date) or reject an approved change. */
+export const acceptApprovalRequest = async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthRequest).user?.id;
+  try {
+    const approval = await loadForDecision(req, res);
+    if (!approval) return;
+    if (approval.status === 'pending') {
+      res.status(409).json({ success: false, message: 'This change must be approved before it can be accepted.' });
+      return;
+    }
+    if (approval.status !== 'approved') {
+      res.status(409).json({ success: false, message: 'This change is no longer waiting for acceptance.' });
+      return;
+    }
+    const decision = req.body?.decision;
+    const comment = commentOf(req.body?.comment);
+    if (decision === 'reject') {
+      if (!comment) {
+        res.status(400).json({ success: false, message: 'Add a comment explaining the rejection.' });
+        return;
+      }
+      await reject(approval, 'acceptance', userId, comment);
+      res.status(200).json({ success: true, message: 'Change rejected.', data: await ApprovalRequest.findById(approval._id) });
+      return;
+    }
+    if (decision !== 'accept') {
+      res.status(400).json({ success: false, message: 'Decision must be accept or reject.' });
+      return;
+    }
+    const result = await applyAcceptance(req, approval, userId, comment);
     if (!result.ok) {
       res.status(result.status).json({ success: false, message: result.message });
       return;
     }
-    res.status(200).json({ success: true, message: 'Change approved and applied.', data: await ApprovalRequest.findById(approval._id) });
+    res.status(200).json({ success: true, message: 'Change accepted and now in effect.', data: await ApprovalRequest.findById(approval._id) });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error deciding the approval.', error: error.message });
+    res.status(500).json({ success: false, message: 'Error accepting the change.', error: error.message });
+  }
+};
+
+/**
+ * One-off startup migration from single-level approvals: old "approved" requests were applied on
+ * approval, so they become "accepted" (request and effective date = the old decision date), and
+ * every old request gets a history. Writes go straight to the collection so the audit log isn't flooded.
+ */
+export const migrateLegacyApprovals = async (): Promise<void> => {
+  try {
+    const legacy = await ApprovalRequest.collection
+      .find({ $or: [{ history: { $exists: false } }, { history: { $size: 0 } }] })
+      .toArray();
+    for (const doc of legacy as any[]) {
+      const history: any[] = [{ action: 'submitted', by: doc.requestedBy, byName: doc.requestedByName, at: doc.createdAt }];
+      const set: Record<string, unknown> = {};
+      if (doc.status === 'approved' && doc.reviewedAt && !doc.requestDate) {
+        Object.assign(set, {
+          status: 'accepted',
+          approvedBy: doc.reviewedBy, approvedByName: doc.reviewedByName, approvalComment: doc.reason, requestDate: doc.reviewedAt,
+          acceptedBy: doc.reviewedBy, acceptedByName: doc.reviewedByName, effectiveDate: doc.reviewedAt,
+          entityId: doc.entityId ?? doc.resultId,
+        });
+        history.push(
+          { action: 'approved', by: doc.reviewedBy, byName: doc.reviewedByName, at: doc.reviewedAt, comment: doc.reason },
+          { action: 'accepted', by: doc.reviewedBy, byName: doc.reviewedByName, at: doc.reviewedAt },
+        );
+      } else if (doc.status === 'rejected' && !doc.rejectedStage) {
+        Object.assign(set, {
+          rejectedStage: 'approval', rejectedBy: doc.reviewedBy, rejectedByName: doc.reviewedByName,
+          rejectedAt: doc.reviewedAt, rejectionComment: doc.reason,
+        });
+        history.push({ action: 'rejected', stage: 'approval', by: doc.reviewedBy, byName: doc.reviewedByName, at: doc.reviewedAt, comment: doc.reason });
+      }
+      set.history = history;
+      await ApprovalRequest.collection.updateOne({ _id: doc._id }, { $set: set });
+    }
+
+    // Number the revisions of migrated records in order of their effective date.
+    const unnumbered = await ApprovalRequest.find({ status: 'accepted', revision: { $exists: false } }).sort({ effectiveDate: 1 });
+    for (const a of unnumbered) {
+      const revision = await nextRevision(a, a.entityId ?? a.resultId);
+      await ApprovalRequest.collection.updateOne({ _id: a._id }, { $set: { revision } });
+    }
+    if (legacy.length) console.log(`✅ QMS approvals: migrated ${legacy.length} request(s) to two-level sign-off.`);
+  } catch (error) {
+    console.error('❌ QMS approvals migration failed:', error);
   }
 };

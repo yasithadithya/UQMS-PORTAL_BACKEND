@@ -102,7 +102,10 @@ export const SYSTEM_MODULES: SystemModuleDef[] = [
   },
   { key: 'view-report', name: 'View Report', description: 'Read-only view of completed survey reports', parentKey: null, navigable: true, actions: ['read', 'export'], order: 5 },
   { key: 'authorization', name: 'Authorization', description: 'Manager approval of signed survey reports', parentKey: null, navigable: true, actions: ['read', 'approve'], order: 6 },
-  { key: 'approvals', name: 'Approvals', description: 'QMS change approvals (checklists, forms, SOPs)', parentKey: null, navigable: true, actions: ['read', 'approve'], order: 7 },
+  {
+    key: 'approvals', name: 'Approvals', description: 'QMS change control (approve = level 1 approval, accept = level 2 acceptance that puts the change into effect)',
+    parentKey: null, navigable: true, actions: ['read', 'approve', 'accept'], newActionsFrom: { accept: 'approve' }, order: 7,
+  },
   { key: 'ships', name: 'Ships', description: 'Ships module', parentKey: null, navigable: true, actions: CRUD, order: 8 },
   { key: 'qms', name: 'QMS', description: 'Quality Management System', parentKey: null, navigable: true, actions: READ, order: 9 },
   { key: 'qms.qms', name: 'QMS Documents', description: 'Quality manual and procedures', parentKey: 'qms', navigable: true, actions: CRUD, order: 1 },

@@ -178,7 +178,8 @@ export const AUDIT_ENTITIES: Record<string, AuditEntityConfig> = {
   },
   'approval-request': {
     label: 'Approval request', model: 'ApprovalRequest', module: 'approvals', refField: ['summary', 'entityType'],
-    displayRefs: { requestedBy: 'User', reviewedBy: 'User' },
+    ignore: ['history'],
+    displayRefs: { requestedBy: 'User', reviewedBy: 'User', approvedBy: 'User', acceptedBy: 'User', rejectedBy: 'User' },
   },
   'previous-document': {
     label: 'Previous document', model: 'PreviousDocument', module: 'previous-docs', refField: ['uqmsNumber', 'vesselName'],
@@ -282,6 +283,7 @@ export const AUDIT_ACTIONS: Record<string, AuditActionDef> = {
 
   // QMS approvals
   'approval-request.approve': { label: 'QMS change approved', operation: 'approve' },
+  'approval-request.accept': { label: 'QMS change accepted (in effect)', operation: 'approve' },
   'approval-request.reject': { label: 'QMS change rejected', operation: 'status' },
 
   // Quotations

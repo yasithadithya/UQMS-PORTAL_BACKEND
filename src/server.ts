@@ -35,6 +35,7 @@ import approvalRoutes from './routes/approvalRoutes';
 import previousDocumentRoutes from './routes/previousDocumentRoutes';
 import hrRoutes from './HR/routes';
 import { syncSystemModules } from './config/seedModules';
+import { migrateLegacyApprovals } from './controllers/approvalController';
 import { formatDate } from './utils/date';
 import { requestContext, runAsSystem } from './middleware/requestContext';
 
@@ -119,6 +120,7 @@ const startServer = async () => {
   }
   await connectDB();
   await runAsSystem('permission-sync', syncSystemModules);
+  await runAsSystem('qms-approvals-migration', migrateLegacyApprovals);
 
   app.listen(PORT, () => {
     console.log(`\n🚀 Server running on http://localhost:${PORT}`);
