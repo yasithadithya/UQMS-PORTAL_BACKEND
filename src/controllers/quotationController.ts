@@ -430,6 +430,10 @@ export const updateQuotationStatus = async (req: AuthRequest, res: Response): Pr
     }
 
     if (status === 'accepted') {
+      if (!quotation.approval?.approvedAt) {
+        res.status(409).json({ success: false, message: 'Approve the quotation before marking it accepted.' });
+        return;
+      }
       const accepted = await Quotation.findOne({ request: quotation.request, status: 'accepted', _id: { $ne: quotation._id } }).select('quotationNumber');
       if (accepted) {
         res.status(409).json({ success: false, message: `Quotation ${accepted.quotationNumber} is already accepted for this request.` });
