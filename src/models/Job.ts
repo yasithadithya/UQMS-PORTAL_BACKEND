@@ -50,6 +50,8 @@ export interface IJob extends Document {
   vesselName: string;
   vesselCode?: string;
   uqmsNumber?: string;
+  /** First Entry jobs: survey report number, issued at Surveyor Allocation. */
+  reportNumber?: string;
   sector: Sector;
   mainSurveyType: MainSurveyType;
   surveyTypes: mongoose.Types.ObjectId[];
@@ -109,6 +111,7 @@ const jobSchema = new Schema(
     vesselName: { type: String, required: true, trim: true },
     vesselCode: { type: String, trim: true },
     uqmsNumber: { type: String, trim: true, index: true },
+    reportNumber: { type: String, trim: true, index: true },
     sector: { type: String, enum: ['marine', 'industrial'], required: true },
     mainSurveyType: { type: String, enum: MAIN_SURVEY_TYPES, required: true },
     surveyTypes: [{ type: Schema.Types.ObjectId, ref: 'SurveyType' }],

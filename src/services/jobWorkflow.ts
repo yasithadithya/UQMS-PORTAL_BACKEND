@@ -16,6 +16,7 @@ import { roleNameOf, userCan } from '../utils/permissions';
 import { SURVEYOR_ROLE_NAMES } from '../config/surveyCategories';
 import { getSignableDocument } from './signableDocuments';
 import { isElectronicallySigned } from './eSignatureLock';
+import { scheduleIILabelFor } from '../config/certificateVariants';
 
 const idOf = (value: unknown): string => {
   if (!value) return '';
@@ -274,7 +275,7 @@ export const jobDocumentSignBlockReason = async (req: AuthRequest, docType: stri
       : `This job is not ready for the ${label} to be signed.`;
   }
   if (docType === 'scccos' && !(await hasRequiredMssProof(job))) {
-    return 'Upload the MSS proof in the Schedule II section before signing the certificate.';
+    return `Upload the MSS proof in the ${scheduleIILabelFor(job.vesselCode)} section before signing the certificate.`;
   }
   return null;
 };
@@ -331,7 +332,7 @@ export const managerSubmitBlockReason = async (req: AuthRequest, job: IJob): Pro
   }
   if (job.status === 'submitted') return 'Review the reporting the assistant surveyor submitted first.';
   if (!['in-progress', 'surveyor-approved'].includes(job.status)) return 'This job is not ready to be submitted for manager approval.';
-  if (!(await hasRequiredMssProof(job))) return 'Upload the MSS proof in the Schedule II section first.';
+  if (!(await hasRequiredMssProof(job))) return `Upload the MSS proof in the ${scheduleIILabelFor(job.vesselCode)} section first.`;
   const docs = await loadJobDocumentStates(job);
   const unsigned: string[] = [];
   if (docs.surveyReport.required && !docs.surveyReport.signed) unsigned.push('survey report');

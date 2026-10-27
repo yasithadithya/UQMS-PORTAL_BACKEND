@@ -27,6 +27,12 @@ const VARIANTS: Record<string, CosVariant> = {
 const GENERIC_TEXT =
   'I hereby certify that the inspection was carried out in accordance with the applicable rules and guidelines, and the vessel was found to comply with the relevant safety and equipment standards at the time of examination.';
 
+/** Schedule II is named after the vessel's governing code, e.g. "SSC Schedule II". */
+export const scheduleIILabelFor = (vesselCode?: string | null): string => {
+  const code = String(vesselCode || '').trim().toUpperCase();
+  return code ? `${code} Schedule II` : 'Schedule II';
+};
+
 export const cosVariantFor = (vesselCode?: string | null): CosVariant => {
   const code = String(vesselCode || '').trim().toUpperCase();
   if (VARIANTS[code]) return VARIANTS[code];

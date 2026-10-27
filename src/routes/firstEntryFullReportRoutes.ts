@@ -10,6 +10,7 @@ import {
   getDailyReportPdfPreview,
   getDailyReportPdf,
   getPublicDailyReportPdf,
+  getDailyVisitReportPdf,
   addGeneralRemark,
   editGeneralRemark,
   toggleCloseGeneralRemark,
@@ -32,6 +33,8 @@ router.use(authMiddleware);
 router.post('/:id/daily-report', requirePermission('marine.reports', 'update'), jobLock.fullReportParam, generateDailyReportPdf);
 router.get('/:id/daily-report-preview', requirePermission('marine.reports', 'read'), getDailyReportPdfPreview);
 router.get('/:id/daily-report-pdf', requirePermission('marine.reports', 'read'), getDailyReportPdf);
+// Daily Visit Report for one visit (?visit=<visit label>), generated on demand from the checklist
+router.get('/:id/visit-report-pdf', requirePermission('marine.reports', 'read'), getDailyVisitReportPdf);
 
 // Remarks and comments routes (authenticated)
 router.post('/:id/remarks', requirePermission('marine.reports', 'update'), addGeneralRemark);

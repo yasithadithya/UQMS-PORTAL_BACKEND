@@ -3,8 +3,7 @@ import mongoose from 'mongoose';
 import FirstEntrySurveyBookingModel, { IFirstEntrySurveyBooking } from '../models/FirstEntrySurveyBooking';
 import VesselModel, { IVessel } from '../models/Vessel';
 import VesselTypeModel from '../models/VesselType';
-import DocumentNumberModel from '../models/DocumentNumber';
-import { getNextDocumentNumber } from '../services/documentNumberService';
+import { reportNumberForBooking } from '../services/reportNumberService';
 import { paginate } from '../utils/pagination';
 
 // Helper to convert booking data fields to Vessel fields
@@ -167,19 +166,8 @@ export const createFirstEntrySurveyBooking = async (req: Request, res: Response)
     const vesselId = await syncVesselDetails(bookingData, userId);
     bookingData.vesselId = vesselId;
 
-    // AUTOMATIC REPORT NUMBER GENERATION (document number name is 'report')
-    let reportConfig = await DocumentNumberModel.findOne({ name: 'report' });
-    if (!reportConfig) {
-      reportConfig = new DocumentNumberModel({
-        name: 'report',
-        prefix: 'REP-',
-        digits: 4,
-        lastNumber: 100, // REP-0101 will be the first code
-      });
-      await reportConfig.save();
-    }
-    const generatedReportNo = await getNextDocumentNumber('report');
-    bookingData.reportNo = generatedReportNo;
+    // REPORT NUMBER: V2 jobs already received theirs at Surveyor Allocation; otherwise issue a new one.
+    bookingData.reportNo = await reportNumberForBooking(bookingData.requestIds);
 
     // Compute lastVisitDate & lastVisit from visitDetails if a row is marked as the last visit
     if (bookingData.visitDetails && Array.isArray(bookingData.visitDetails)) {
@@ -370,18 +358,7 @@ export const updateFirstEntrySurveyBooking = async (req: Request, res: Response)
 
     // Retain or auto-generate report number if somehow not generated yet
     if (!existingBooking.reportNo && !bookingData.reportNo) {
-      let reportConfig = await DocumentNumberModel.findOne({ name: 'report' });
-      if (!reportConfig) {
-        reportConfig = new DocumentNumberModel({
-          name: 'report',
-          prefix: 'REP-',
-          digits: 4,
-          lastNumber: 100,
-        });
-        await reportConfig.save();
-      }
-      const generatedReportNo = await getNextDocumentNumber('report');
-      bookingData.reportNo = generatedReportNo;
+      bookingData.reportNo = await reportNumberForBooking(bookingData.requestIds ?? existingBooking.requestIds);
     } else {
       bookingData.reportNo = existingBooking.reportNo; // Cannot change report number once generated
     }

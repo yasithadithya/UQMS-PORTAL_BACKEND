@@ -19,8 +19,10 @@ import { AuthRequest } from '../middleware/auth';
 import { rejectUnlessCan } from '../middleware/permission';
 import { userCan } from '../utils/permissions';
 import { ensureVesselUqmsNumber } from '../services/uqmsNumberService';
+import { issueReportNumber } from '../services/reportNumberService';
+import { scheduleIILabelFor } from '../config/certificateVariants';
 import { getPrePopulatedData } from './firstEntrySurveyReportController';
-import { generateFullReport } from './firstEntryFullReportController';
+import { bookingVisitLabels, generateFullReport } from './firstEntryFullReportController';
 import {
   canViewJob,
   hasRequiredMssProof,
@@ -285,9 +287,11 @@ export const allocateJob = async (req: Request, res: Response): Promise<void> =>
       { audit: { action: 'request.status', reason: 'Surveyor allocated; UQMS number assigned.' } } as any
     );
 
-    // 3. First Entry record for first entry jobs.
+    // 3. First Entry record and report number for first entry jobs.
     let firstEntryId: mongoose.Types.ObjectId | undefined;
+    let reportNumber: string | undefined;
     if (mainSurveyType === 'first-entry') {
+      reportNumber = await issueReportNumber();
       const existing = await FirstEntry.findOne({ request: request._id }).select('_id').lean();
       firstEntryId = existing?._id as mongoose.Types.ObjectId | undefined;
       if (!firstEntryId) {
@@ -314,6 +318,7 @@ export const allocateJob = async (req: Request, res: Response): Promise<void> =>
       vesselName: vessel.vesselName,
       vesselCode: vessel.vesselCode || request.vesselCode,
       uqmsNumber,
+      reportNumber,
       sector,
       mainSurveyType,
       surveyTypes: surveyTypes.ids,
@@ -334,7 +339,7 @@ export const allocateJob = async (req: Request, res: Response): Promise<void> =>
       throw err;
     }
 
-    await sendJob(res, job._id, 201, `Job allocated. UQMS number ${uqmsNumber}.`);
+    await sendJob(res, job._id, 201, `Job allocated. UQMS number ${uqmsNumber}${reportNumber ? `, report number ${reportNumber}` : ''}.`);
   } catch (error: any) {
     serverError(res, 'Error allocating the job.', error);
   }
@@ -610,7 +615,7 @@ export const submitJob = async (req: Request, res: Response): Promise<void> => {
     const job = await loadWorkableJob(req as AuthRequest, res);
     if (!job) return;
     if (job.status !== 'in-progress') return fail(res, 409, 'Only reporting in progress can be submitted.');
-    if (!(await hasRequiredMssProof(job))) return fail(res, 400, 'Upload the MSS proof in the Schedule II section before submitting.');
+    if (!(await hasRequiredMssProof(job))) return fail(res, 400, `Upload the MSS proof in the ${scheduleIILabelFor(job.vesselCode)} section before submitting.`);
 
     const updated = await transitionJob(job._id, ['in-progress'], 'submitted', {
       userId,
@@ -753,8 +758,10 @@ type ReportItem = {
   category: string;
   name: string;
   /** A signable/generated PDF the viewer fetches through its own API. */
-  docType?: 'scccos' | 'docking-cert' | 'survey-report' | 'daily-report';
+  docType?: 'scccos' | 'docking-cert' | 'survey-report' | 'daily-report' | 'daily-visit';
   docId?: string;
+  /** Daily visit reports: the visit the report covers. */
+  visit?: string;
   /** An uploaded file. */
   key?: string;
   url?: string;
@@ -774,7 +781,7 @@ export const getJobReports = async (req: Request, res: Response): Promise<void> 
 
     if (job.firstEntry) {
       const schedule = await ScheduleII.findOne({ firstEntry: job.firstEntry }).lean();
-      files('Schedule II', schedule?.documents);
+      files(scheduleIILabelFor(job.vesselCode), schedule?.documents);
       files('MSS Proof', (schedule as any)?.mssProofDocuments);
     }
     files('Supporting Documents', job.supportingDocuments as any[]);
@@ -782,13 +789,21 @@ export const getJobReports = async (req: Request, res: Response): Promise<void> 
     if (job.surveyReport) {
       const sr = job.surveyReport;
       const [full, finalReport, docking, cos] = await Promise.all([
-        FirstEntryFullReport.findOne({ firstEntrySurveyReportId: sr }).select('dailyReportPdfKey dailyReportPdfGeneratedAt eSignature').lean(),
+        FirstEntryFullReport.findOne({ firstEntrySurveyReportId: sr }).select('dailyReportPdfKey dailyReportPdfGeneratedAt eSignature checklist.visitNumber').lean(),
         SurveyReport.findOne({ firstEntrySurveyReportId: sr }).select('pdf certificateNumber eSignature').lean(),
         DockingSurveyCert.findOne({ surveyReportId: sr }).select('pdf certificateNumber eSignature').lean(),
         SCCCOS.findOne({ surveyReportId: sr }).select('pdf certificateNumber eSignature').lean(),
       ]);
       if ((full as any)?.dailyReportPdfKey) {
-        items.push({ category: 'Checklist', name: 'Daily visit report (checklist)', docType: 'daily-report', docId: String(full!._id), generatedAt: (full as any).dailyReportPdfGeneratedAt });
+        items.push({ category: 'Checklist', name: 'Survey checklist', docType: 'daily-report', docId: String(full!._id), generatedAt: (full as any).dailyReportPdfGeneratedAt });
+      }
+      // One Daily Visit Report per visit that has checklist items recorded against it.
+      if (full) {
+        const recorded = new Set(((full as any).checklist || []).map((i: any) => String(i.visitNumber || '')).filter(Boolean));
+        const booking = job.booking ? await FirstEntrySurveyBooking.findById(job.booking).select('visitDetails').lean() : null;
+        bookingVisitLabels(booking)
+          .filter((v) => recorded.has(v.label))
+          .forEach((v) => items.push({ category: 'Daily Visit Reports', name: `Daily visit report · ${v.label}`, docType: 'daily-visit', docId: String(full._id), visit: v.label, generatedAt: v.visit.visitDate }));
       }
       if (finalReport) {
         items.push({ category: 'Report Generation', name: `Record of Equipment & Survey Report ${finalReport.certificateNumber ?? ''}`.trim(), docType: 'survey-report', docId: String(finalReport._id), signed: Boolean((finalReport as any).eSignature?.signedAt), generatedAt: (finalReport as any).pdf?.generatedAt });

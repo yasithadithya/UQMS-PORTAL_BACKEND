@@ -7,6 +7,7 @@ import VesselModel from '../models/Vessel';
 import JobModel from '../models/Job';
 import { getNextDocumentNumber } from '../services/documentNumberService';
 import nodemailer from 'nodemailer';
+import { scheduleIILabelFor } from '../config/certificateVariants';
 import { paginate } from '../utils/pagination';
 
 // ==========================================
@@ -364,6 +365,7 @@ export const sendScheduleIIEmail = async (req: Request, res: Response): Promise<
 
     const firstEntry: any = schedule.firstEntry;
     const vesselName = firstEntry?.vessel?.vesselName || 'Unknown Vessel';
+    const scheduleLabel = scheduleIILabelFor(firstEntry?.vessel?.vesselCode);
 
     const attachments = (schedule.documents || []).map(doc => ({
       filename: doc.name,
@@ -386,8 +388,8 @@ export const sendScheduleIIEmail = async (req: Request, res: Response): Promise<
     const mailOptions = {
       from: process.env.SENDER_EMAIL,
       to: process.env.DSSC_EMAIL,
-      subject: `Schedule II Documents - ${vesselName}`,
-      text: `Please find the attached Schedule II documents for the vessel: ${vesselName}.`,
+      subject: `${scheduleLabel} Documents - ${vesselName}`,
+      text: `Please find the attached ${scheduleLabel} documents for the vessel: ${vesselName}.`,
       attachments,
     };
 

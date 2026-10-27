@@ -52,10 +52,24 @@ const drawTableRow = (
   return y + height;
 };
 
+/**
+ * Two documents come from the checklist:
+ *  - `checklist`: the Survey Checklist, every item across all visits (stored and listed under Reports);
+ *  - `visit`: the Daily Visit Report for one visit, only the items recorded on that visit.
+ */
+export interface DailyReportPdfOptions {
+  kind?: 'checklist' | 'visit';
+  visit?: { label: string; date?: Date | string; location?: string; surveyors?: string[] };
+}
+
 export const createDailyReportPdfBuffer = async (
   report: any,
-  qrBuffer: Buffer
+  qrBuffer: Buffer,
+  options: DailyReportPdfOptions = {}
 ): Promise<GeneratedPdf> => {
+  const isVisit = options.kind === 'visit' && !!options.visit;
+  const documentTitle = isVisit ? 'DAILY VISIT REPORT' : 'SURVEY CHECKLIST';
+  const footerTitle = isVisit ? `Daily Visit Report (${options.visit!.label})` : 'Survey Checklist';
   return new Promise<GeneratedPdf>((resolve, reject) => {
     const doc = new PDFDocument({
       size: 'A4',
@@ -144,7 +158,7 @@ export const createDailyReportPdfBuffer = async (
       .font('Helvetica-Bold')
       .fontSize(12)
       .fillColor('#111827')
-      .text('DAILY VISIT REPORT', innerLeft, currentY, { align: 'center' });
+      .text(documentTitle, innerLeft, currentY, { align: 'center' });
     
     currentY += 20;
 
@@ -176,6 +190,13 @@ export const createDailyReportPdfBuffer = async (
       ['Report Number', reportNumber, 'Gross Tonnage (GT)', grossTonnage], 22);
     currentY = drawTableRow(doc, innerLeft, currentY, [col1, col2, col3, col4],
       ['Port of Registry', portOfRegistry, 'Port of Survey', portOfSurvey], 22);
+    if (isVisit) {
+      const visit = options.visit!;
+      currentY = drawTableRow(doc, innerLeft, currentY, [col1, col2, col3, col4],
+        ['Visit', visit.label, 'Visit Date', visit.date ? formatDate(visit.date as any) : '-'], 22);
+      currentY = drawTableRow(doc, innerLeft, currentY, [col1, col2, col3, col4],
+        ['Surveyor(s)', visit.surveyors?.length ? visit.surveyors.join(', ') : '-', 'Location', toText(visit.location)], 22);
+    }
 
     currentY += 15;
 
@@ -184,12 +205,30 @@ export const createDailyReportPdfBuffer = async (
       .font('Helvetica-Bold')
       .fontSize(10)
       .fillColor('#111827')
-      .text('CHECKLIST DETAILS:', innerLeft, currentY);
+      .text(isVisit ? 'ITEMS INSPECTED ON THIS VISIT:' : 'CHECKLIST DETAILS:', innerLeft, currentY);
     
     currentY += 15;
 
-    // Group checklist items by category
-    const checklist = report.checklist || [];
+    // Group checklist items by category (a daily visit report only covers its own visit)
+    const allItems: any[] = report.checklist || [];
+    const checklist = isVisit ? allItems.filter((item: any) => String(item.visitNumber || '') === options.visit!.label) : allItems;
+    if (isVisit) {
+      const count = (c: string) => checklist.filter((i: any) => i.comment === c).length;
+      doc
+        .font('Helvetica')
+        .fontSize(9)
+        .fillColor('#374151')
+        .text(
+          `${checklist.length} item(s) inspected · Satisfactory: ${count('Satisfactory')} · Unsatisfactory: ${count('Unsatisfactory')} · N/A: ${count('N/A')}`,
+          innerLeft,
+          currentY
+        );
+      currentY += 16;
+      if (checklist.length === 0) {
+        doc.text('No checklist items were recorded against this visit.', innerLeft, currentY);
+        currentY += 16;
+      }
+    }
     const grouped: Record<string, any[]> = {};
     checklist.forEach((item: any) => {
       const q = item.checklistQuestionId || {};
@@ -487,7 +526,7 @@ export const createDailyReportPdfBuffer = async (
       .text('SIGNED:', innerLeft, currentY);
 
     currentY += 25;
-    signatureField = drawSignatureBlock(doc, innerLeft, currentY, report.eSignature);
+    signatureField = drawSignatureBlock(doc, innerLeft, currentY, isVisit ? null : report.eSignature);
 
     // Add Page Numbers to Footers dynamically
     const totalPages = doc.bufferedPageRange().count;
@@ -498,7 +537,7 @@ export const createDailyReportPdfBuffer = async (
         .fontSize(8)
         .fillColor('#9ca3af')
         .text(
-          `Universal Quality Management Systems (PVT) Ltd • Daily Visit Report • Page ${i + 1} of ${totalPages}`,
+          `Universal Quality Management Systems (PVT) Ltd • ${footerTitle} • Page ${i + 1} of ${totalPages}`,
           PAGE_MARGIN,
           doc.page.height - PAGE_MARGIN - 12,
           { width: pageWidth, align: 'center', lineBreak: false }
