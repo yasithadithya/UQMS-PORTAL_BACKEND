@@ -91,7 +91,7 @@ const dockingSurveyCertSchema: Schema = new Schema(
     surveyBookingId: {
       type: Schema.Types.ObjectId,
       ref: 'FirstEntrySurveyBooking',
-      required: [true, 'Survey Booking ID reference is required']
+      required: [true, 'Visit plan reference is required']
     },
     client: { type: String, trim: true, default: '' },
     surveyLocation: { type: String, trim: true, default: '' },

@@ -107,6 +107,10 @@ export const AUDIT_ENTITIES: Record<string, AuditEntityConfig> = {
   'vessel-code': { label: 'Vessel code', model: 'VesselCode', module: 'admin.master-data', refField: 'code' },
   'rec-equip-ques': { label: 'Equipment question', model: 'RecEquipQues', module: 'admin.master-data', refField: 'codeRefNo' },
   'document-template': { label: 'Document template', model: 'DocumentTemplate', module: 'admin.master-data', refField: 'documentName' },
+  'survey-type': {
+    label: 'Survey type', model: 'SurveyType', module: 'admin.survey-config', refField: ['code', 'name'],
+    fieldLabels: { mainTypes: 'Main survey types' },
+  },
 
   // ── Survey / marine ──────────────────────────────────────────────────────
   request: {
@@ -127,7 +131,7 @@ export const AUDIT_ENTITIES: Record<string, AuditEntityConfig> = {
   },
   'vessel-type': { label: 'Vessel type', model: 'VesselType', module: 'marine.entries', refField: 'name' },
   booking: {
-    label: 'Survey booking', model: 'FirstEntrySurveyBooking', module: 'marine.bookings', refField: ['reportNo', 'shipName'],
+    label: 'Visit planning', model: 'FirstEntrySurveyBooking', module: 'marine.bookings', refField: ['reportNo', 'shipName'],
     displayRefs: { surveyorId: 'User', vesselId: 'Vessel', requestIds: 'Request' },
     fieldLabels: { 'visitDetails.surveyorAssignments.surveyorId': 'Surveyor' },
     classify: (changes) =>
@@ -182,7 +186,10 @@ export const AUDIT_ENTITIES: Record<string, AuditEntityConfig> = {
     displayRefs: { requestedBy: 'User', reviewedBy: 'User', approvedBy: 'User', acceptedBy: 'User', rejectedBy: 'User' },
   },
   'previous-document': {
-    label: 'Previous document', model: 'PreviousDocument', module: 'previous-docs', refField: ['uqmsNumber', 'vesselName'],
+    label: 'Manual survey document', model: 'PreviousDocument', module: 'previous-docs', refField: ['uqmsNumber', 'vesselName'],
+  },
+  'library-document': {
+    label: 'Library document', model: 'LibraryDocument', module: '', refField: ['title', 'referenceNumber'],
   },
 
   // ── Finance ──────────────────────────────────────────────────────────────
@@ -269,7 +276,7 @@ export const AUDIT_ACTIONS: Record<string, AuditActionDef> = {
   'document.upload': { label: 'File uploaded', operation: 'upload' },
 
   // V2 jobs
-  'job.allocate': { label: 'Surveyor allocated', operation: 'assign' },
+  'job.allocate': { label: 'Surveyor booked', operation: 'assign' },
   'job.surveyor.assign': { label: 'Job surveyors changed', operation: 'assign' },
   'job.status': { label: 'Job status changed', operation: 'status' },
   'job.submit': { label: 'Reporting submitted for surveyor review', operation: 'status' },

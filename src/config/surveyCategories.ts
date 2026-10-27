@@ -1,7 +1,8 @@
 /**
- * V2 survey classification. Every survey type (ST01, ST02 ...) is a *sub type* that belongs to one
- * main survey type. The main type is chosen at Surveyor Allocation and decides which reporting
- * workspace the job uses. Mirrored in the frontend at `src/config/surveyCategories.ts`.
+ * V2 survey classification. Every survey type (ST01, ST02 ...) is a *sub type* that can belong to one
+ * or more main survey types (e.g. Annual Survey under both First Entry and New Constructions). The
+ * main type is chosen at Surveyor Allocation and decides which reporting workspace the job uses.
+ * Configured under Admin → Survey Configuration. Mirrored in the frontend at `src/config/surveyCategories.ts`.
  */
 
 export const SECTORS = ['marine', 'industrial'] as const;
@@ -27,6 +28,13 @@ export const sectorOfMainType = (mainType: MainSurveyType): Sector =>
 
 export const isMainSurveyType = (value: unknown): value is MainSurveyType =>
   typeof value === 'string' && (MAIN_SURVEY_TYPES as readonly string[]).includes(value);
+
+export const SUB_TYPE_SECTORS = ['marine', 'industrial', 'both'] as const;
+export type SubTypeSector = (typeof SUB_TYPE_SECTORS)[number];
+
+/** Main types a sub type offered in this sector may belong to. */
+export const mainTypesForSector = (sector: SubTypeSector): readonly MainSurveyType[] =>
+  sector === 'marine' ? MARINE_MAIN_TYPES : sector === 'industrial' ? INDUSTRIAL_MAIN_TYPES : MAIN_SURVEY_TYPES;
 
 /** Main types whose reporting workspace is built in this version. */
 export const IMPLEMENTED_MAIN_TYPES: MainSurveyType[] = ['first-entry'];

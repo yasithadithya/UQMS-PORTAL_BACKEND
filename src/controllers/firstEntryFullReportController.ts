@@ -759,7 +759,7 @@ export const getDailyVisitReportPdf = async (req: Request, res: Response): Promi
 
     const match = bookingVisitLabels(report.bookingId).find((v) => v.label === visitLabel);
     if (!match) {
-      res.status(404).json({ success: false, message: 'Visit not found in the survey booking.' });
+      res.status(404).json({ success: false, message: 'Visit not found in the visit plan.' });
       return;
     }
 

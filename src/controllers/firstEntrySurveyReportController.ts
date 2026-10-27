@@ -17,7 +17,7 @@ export const getPrePopulatedData = async (bookingId: string): Promise<any> => {
   // 1. Fetch First Entry Survey Booking with related requests
   const booking = await FirstEntrySurveyBookingModel.findById(bookingId).populate('requestIds');
   if (!booking) {
-    throw new Error('First Entry Survey Booking not found.');
+    throw new Error('Visit plan not found.');
   }
 
   // 2. Derive 1st visit date and last visit date

@@ -69,7 +69,7 @@ const scccosSchema: Schema = new Schema(
     surveyBookingId: {
       type: Schema.Types.ObjectId,
       ref: 'FirstEntrySurveyBooking',
-      required: [true, 'Survey Booking ID reference is required']
+      required: [true, 'Visit plan reference is required']
     },
     surveyFindings: {
       type: [surveyFindingItemSchema],

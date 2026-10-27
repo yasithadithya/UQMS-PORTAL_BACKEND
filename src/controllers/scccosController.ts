@@ -102,7 +102,7 @@ export const createSCCCOS = async (req: Request, res: Response): Promise<void> =
       return;
     }
     if (!surveyBookingId || !mongoose.isValidObjectId(surveyBookingId)) {
-      res.status(400).json({ success: false, message: 'Invalid or missing Survey Booking ID.' });
+      res.status(400).json({ success: false, message: 'Invalid or missing visit plan ID.' });
       return;
     }
 
@@ -148,7 +148,7 @@ export const createSCCCOS = async (req: Request, res: Response): Promise<void> =
 
     const surveyBooking = await FirstEntrySurveyBookingModel.findById(surveyBookingId);
     if (!surveyBooking) {
-      res.status(404).json({ success: false, message: 'Survey Booking not found.' });
+      res.status(404).json({ success: false, message: 'Visit plan not found.' });
       return;
     }
 
@@ -413,7 +413,7 @@ export const getSCCCOSPreviewPdf = async (req: Request, res: Response): Promise<
       return;
     }
     if (!surveyBookingId || !mongoose.isValidObjectId(surveyBookingId)) {
-      res.status(400).json({ success: false, message: 'Invalid or missing Survey Booking ID.' });
+      res.status(400).json({ success: false, message: 'Invalid or missing visit plan ID.' });
       return;
     }
 
@@ -425,7 +425,7 @@ export const getSCCCOSPreviewPdf = async (req: Request, res: Response): Promise<
 
     const booking = await FirstEntrySurveyBookingModel.findById(surveyBookingId);
     if (!booking) {
-      res.status(404).json({ success: false, message: 'Survey Booking not found.' });
+      res.status(404).json({ success: false, message: 'Visit plan not found.' });
       return;
     }
 

@@ -76,7 +76,7 @@ export const createDockingSurveyCert = async (req: Request, res: Response): Prom
       return;
     }
     if (!surveyBookingId || !mongoose.isValidObjectId(surveyBookingId)) {
-      res.status(400).json({ success: false, message: 'Invalid or missing Survey Booking ID.' });
+      res.status(400).json({ success: false, message: 'Invalid or missing visit plan ID.' });
       return;
     }
 
@@ -119,7 +119,7 @@ export const createDockingSurveyCert = async (req: Request, res: Response): Prom
 
     const surveyBooking = await FirstEntrySurveyBookingModel.findById(surveyBookingId);
     if (!surveyBooking) {
-      res.status(404).json({ success: false, message: 'Survey Booking not found.' });
+      res.status(404).json({ success: false, message: 'Visit plan not found.' });
       return;
     }
 
@@ -316,7 +316,7 @@ export const getDockingSurveyPreviewPdf = async (req: Request, res: Response): P
       return;
     }
     if (!surveyBookingId || !mongoose.isValidObjectId(surveyBookingId)) {
-      res.status(400).json({ success: false, message: 'Invalid or missing Survey Booking ID.' });
+      res.status(400).json({ success: false, message: 'Invalid or missing visit plan ID.' });
       return;
     }
 
@@ -328,7 +328,7 @@ export const getDockingSurveyPreviewPdf = async (req: Request, res: Response): P
 
     const booking = await FirstEntrySurveyBookingModel.findById(surveyBookingId);
     if (!booking) {
-      res.status(404).json({ success: false, message: 'Survey Booking not found.' });
+      res.status(404).json({ success: false, message: 'Visit plan not found.' });
       return;
     }
 

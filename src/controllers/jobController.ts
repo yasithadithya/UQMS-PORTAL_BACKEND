@@ -60,7 +60,7 @@ const serverError = (res: Response, message: string, error: any) => {
 const JOB_POPULATE = [
   { path: 'surveyor', select: 'fullName nameWithInitials username email' },
   { path: 'assistantSurveyors', select: 'fullName nameWithInitials username email' },
-  { path: 'surveyTypes', select: 'code name mainType sector' },
+  { path: 'surveyTypes', select: 'code name mainTypes sector' },
   { path: 'allocatedBy', select: 'fullName username' },
 ];
 
@@ -111,10 +111,10 @@ const validateSurveyors = async (
 const validateSurveyTypes = async (ids: unknown, mainType: string): Promise<{ error?: string; ids?: string[] }> => {
   const list = Array.isArray(ids) ? [...new Set(ids.filter(isId))] : [];
   if (list.length === 0) return { error: 'Select at least one survey (sub type).' };
-  const found = await SurveyType.find({ _id: { $in: list } }).select('mainType').lean();
+  const found = await SurveyType.find({ _id: { $in: list } }).select('mainTypes').lean();
   if (found.length !== list.length) return { error: 'One or more survey types no longer exist.' };
-  // Sub types that are not mapped yet are allowed so the job can go ahead before the mapping is complete.
-  const mismatch = found.find((t) => t.mainType && t.mainType !== mainType);
+  // A sub type may belong to several main types. Unmapped ones are allowed so the job can go ahead before the mapping is complete.
+  const mismatch = found.find((t) => t.mainTypes?.length && !(t.mainTypes as string[]).includes(mainType));
   if (mismatch) return { error: 'All selected surveys must belong to the selected main survey type.' };
   return { ids: list };
 };
@@ -160,7 +160,7 @@ const loadViewableJob = async (req: AuthRequest, res: Response): Promise<IJob | 
     return null;
   }
   if (!(await canViewJob(req, job))) {
-    fail(res, 403, 'This job is not allocated to you.');
+    fail(res, 403, 'You are not booked on this job.');
     return null;
   }
   return job;
@@ -172,7 +172,7 @@ const loadWorkableJob = async (req: AuthRequest, res: Response): Promise<IJob | 
   if (!job) return null;
   const userId = req.user?.id ?? '';
   if (!isJobMember(job, userId) && !(await userCan(req, 'jobs', 'view-all'))) {
-    fail(res, 403, 'This job is not allocated to you.');
+    fail(res, 403, 'You are not booked on this job.');
     return null;
   }
   const blocked = await jobEditBlockReason(req, job);
@@ -213,7 +213,7 @@ export const getAllocationQueue = async (req: Request, res: Response): Promise<v
     const requests = await RequestModel.find(filter)
       .populate('vesselType', 'name group')
       .populate('areaOfOperation', 'name AreaCategory')
-      .populate('surveyTypes', 'code name mainType sector')
+      .populate('surveyTypes', 'code name mainTypes sector')
       .sort({ updatedAt: -1 })
       .lean();
 
@@ -223,7 +223,7 @@ export const getAllocationQueue = async (req: Request, res: Response): Promise<v
       data: requests.map((r) => ({ ...r, acceptedQuotationNumber: quotationByRequest.get(String(r._id)) })),
     });
   } catch (error: any) {
-    serverError(res, 'Error loading the allocation queue.', error);
+    serverError(res, 'Error loading the surveyor booking queue.', error);
   }
 };
 
@@ -246,7 +246,7 @@ export const allocateJob = async (req: Request, res: Response): Promise<void> =>
   const userId = authReq.user?.id;
   try {
     const body = req.body ?? {};
-    if (!isId(body.requestId)) return fail(res, 400, 'Select a request to allocate.');
+    if (!isId(body.requestId)) return fail(res, 400, 'Select a request to book a surveyor for.');
     if (!isMainSurveyType(body.mainSurveyType)) return fail(res, 400, 'Select the main survey type.');
     const mainSurveyType = body.mainSurveyType;
     const sector = sectorOfMainType(mainSurveyType);
@@ -257,10 +257,10 @@ export const allocateJob = async (req: Request, res: Response): Promise<void> =>
     const request = await RequestModel.findById(body.requestId);
     if (!request) return fail(res, 404, 'Request not found.');
     if (request.status === 'reject') return fail(res, 400, 'This request was rejected.');
-    if (await Job.exists({ request: request._id })) return fail(res, 409, 'This request already has a surveyor allocated.');
+    if (await Job.exists({ request: request._id })) return fail(res, 409, 'This request already has a surveyor booked.');
 
     const quotation = await Quotation.findOne({ request: request._id, status: 'accepted' }).select('_id quotationNumber').lean();
-    if (!quotation) return fail(res, 400, 'A surveyor can only be allocated after the quotation is accepted.');
+    if (!quotation) return fail(res, 400, 'A surveyor can only be booked after the quotation is accepted.');
 
     const people = await validateSurveyors(body.surveyorId, body.assistantSurveyorIds);
     if (people.error) return fail(res, 400, people.error);
@@ -284,7 +284,7 @@ export const allocateJob = async (req: Request, res: Response): Promise<void> =>
     await RequestModel.findByIdAndUpdate(
       request._id,
       { $set: { uqmsNumber, status: 'success', updatedBy: userId } },
-      { audit: { action: 'request.status', reason: 'Surveyor allocated; UQMS number assigned.' } } as any
+      { audit: { action: 'request.status', reason: 'Surveyor booked; UQMS number assigned.' } } as any
     );
 
     // 3. First Entry record and report number for first entry jobs.
@@ -335,13 +335,13 @@ export const allocateJob = async (req: Request, res: Response): Promise<void> =>
     try {
       await job.save();
     } catch (err: any) {
-      if (err?.code === 11000) return fail(res, 409, 'This request already has a surveyor allocated.');
+      if (err?.code === 11000) return fail(res, 409, 'This request already has a surveyor booked.');
       throw err;
     }
 
-    await sendJob(res, job._id, 201, `Job allocated. UQMS number ${uqmsNumber}${reportNumber ? `, report number ${reportNumber}` : ''}.`);
+    await sendJob(res, job._id, 201, `Surveyor booked. UQMS number ${uqmsNumber}${reportNumber ? `, report number ${reportNumber}` : ''}.`);
   } catch (error: any) {
-    serverError(res, 'Error allocating the job.', error);
+    serverError(res, 'Error booking the surveyor.', error);
   }
 };
 
@@ -375,7 +375,7 @@ export const updateJobAllocation = async (req: Request, res: Response): Promise<
       job.mssProofRequired = next;
     }
     if ('mainSurveyType' in body && body.mainSurveyType !== job.mainSurveyType) {
-      if (job.status !== 'allocated') return fail(res, 409, 'The main survey type can only be changed before the survey is booked.');
+      if (job.status !== 'allocated') return fail(res, 409, 'The main survey type can only be changed before the visits are planned.');
       if (!isMainSurveyType(body.mainSurveyType)) return fail(res, 400, 'Invalid main survey type.');
       job.mainSurveyType = body.mainSurveyType;
       job.sector = sectorOfMainType(body.mainSurveyType);
@@ -530,7 +530,7 @@ export const linkJobBooking = async (req: Request, res: Response): Promise<void>
 
     await Job.updateOne({ _id: job._id }, { $set: { booking: req.body.bookingId } });
     if (job.status === 'allocated') {
-      await transitionJob(job._id, ['allocated'], 'booked', { userId: (req as AuthRequest).user?.id, reason: 'Survey booked.' });
+      await transitionJob(job._id, ['allocated'], 'booked', { userId: (req as AuthRequest).user?.id, reason: 'Visits planned.' });
     }
     await sendJob(res, job._id, 200, 'Booking linked to the job.');
   } catch (error: any) {

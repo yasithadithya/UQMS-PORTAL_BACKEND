@@ -33,9 +33,11 @@ import documentAnnotationRoutes from './routes/documentAnnotationRoutes';
 import jobRoutes from './routes/jobRoutes';
 import approvalRoutes from './routes/approvalRoutes';
 import previousDocumentRoutes from './routes/previousDocumentRoutes';
+import libraryDocumentRoutes from './routes/libraryDocumentRoutes';
 import hrRoutes from './HR/routes';
 import { syncSystemModules } from './config/seedModules';
 import { migrateLegacyApprovals } from './controllers/approvalController';
+import { migrateSurveyTypeMainTypes } from './models/SurveyType';
 import { formatDate } from './utils/date';
 import { requestContext, runAsSystem } from './middleware/requestContext';
 
@@ -94,6 +96,7 @@ app.use('/api/document-annotations', documentAnnotationRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/approvals', approvalRoutes);
 app.use('/api/previous-documents', previousDocumentRoutes);
+app.use('/api/library-documents', libraryDocumentRoutes);
 
 // Public intake (API-key authenticated, called by the public website)
 app.use('/api/public', publicRoutes);
@@ -121,6 +124,7 @@ const startServer = async () => {
   await connectDB();
   await runAsSystem('permission-sync', syncSystemModules);
   await runAsSystem('qms-approvals-migration', migrateLegacyApprovals);
+  await runAsSystem('survey-type-main-types-migration', migrateSurveyTypeMainTypes);
 
   app.listen(PORT, () => {
     console.log(`\n🚀 Server running on http://localhost:${PORT}`);

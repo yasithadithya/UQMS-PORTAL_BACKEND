@@ -215,13 +215,13 @@ export const createFirstEntrySurveyBooking = async (req: Request, res: Response)
 
     res.status(201).json({
       success: true,
-      message: 'First Entry Survey Booking created successfully.',
+      message: 'Visit plan created successfully.',
       data: populatedBooking,
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error creating First Entry Survey Booking.',
+      message: 'Error creating visit plan.',
       error: error.message,
     });
   }
@@ -242,7 +242,7 @@ export const getAllFirstEntrySurveyBookings = async (req: Request, res: Response
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching First Entry Survey Bookings.',
+      message: 'Error fetching visit plans.',
       error: error.message,
     });
   }
@@ -251,7 +251,7 @@ export const getAllFirstEntrySurveyBookings = async (req: Request, res: Response
 export const getFirstEntrySurveyBookingById = async (req: Request, res: Response): Promise<void> => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {
-      res.status(400).json({ success: false, message: 'Invalid booking ID format.' });
+      res.status(400).json({ success: false, message: 'Invalid visit plan ID format.' });
       return;
     }
 
@@ -263,7 +263,7 @@ export const getFirstEntrySurveyBookingById = async (req: Request, res: Response
       .populate('updatedBy', 'username email');
 
     if (!booking) {
-      res.status(404).json({ success: false, message: 'First Entry Survey Booking not found.' });
+      res.status(404).json({ success: false, message: 'Visit plan not found.' });
       return;
     }
 
@@ -274,7 +274,7 @@ export const getFirstEntrySurveyBookingById = async (req: Request, res: Response
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching First Entry Survey Booking.',
+      message: 'Error fetching visit plan.',
       error: error.message,
     });
   }
@@ -283,7 +283,7 @@ export const getFirstEntrySurveyBookingById = async (req: Request, res: Response
 export const updateFirstEntrySurveyBooking = async (req: Request, res: Response): Promise<void> => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {
-      res.status(400).json({ success: false, message: 'Invalid booking ID format.' });
+      res.status(400).json({ success: false, message: 'Invalid visit plan ID format.' });
       return;
     }
 
@@ -293,7 +293,7 @@ export const updateFirstEntrySurveyBooking = async (req: Request, res: Response)
     // Retrieve existing booking first
     const existingBooking = await FirstEntrySurveyBookingModel.findById(req.params.id);
     if (!existingBooking) {
-      res.status(404).json({ success: false, message: 'First Entry Survey Booking not found.' });
+      res.status(404).json({ success: false, message: 'Visit plan not found.' });
       return;
     }
 
@@ -413,13 +413,13 @@ export const updateFirstEntrySurveyBooking = async (req: Request, res: Response)
 
     res.status(200).json({
       success: true,
-      message: 'First Entry Survey Booking updated successfully.',
+      message: 'Visit plan updated successfully.',
       data: updatedBooking,
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error updating First Entry Survey Booking.',
+      message: 'Error updating visit plan.',
       error: error.message,
     });
   }
@@ -428,24 +428,24 @@ export const updateFirstEntrySurveyBooking = async (req: Request, res: Response)
 export const deleteFirstEntrySurveyBooking = async (req: Request, res: Response): Promise<void> => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {
-      res.status(400).json({ success: false, message: 'Invalid booking ID format.' });
+      res.status(400).json({ success: false, message: 'Invalid visit plan ID format.' });
       return;
     }
 
     const booking = await FirstEntrySurveyBookingModel.findByIdAndDelete(req.params.id);
     if (!booking) {
-      res.status(404).json({ success: false, message: 'First Entry Survey Booking not found.' });
+      res.status(404).json({ success: false, message: 'Visit plan not found.' });
       return;
     }
 
     res.status(200).json({
       success: true,
-      message: 'First Entry Survey Booking deleted successfully.',
+      message: 'Visit plan deleted successfully.',
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error deleting First Entry Survey Booking.',
+      message: 'Error deleting visit plan.',
       error: error.message,
     });
   }

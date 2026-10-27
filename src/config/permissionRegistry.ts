@@ -61,7 +61,7 @@ export const SYSTEM_MODULES: SystemModuleDef[] = [
     parentKey: 'marine.first-entry', navigable: false, actions: CRUD, inheritFrom: 'marine.first-entry', order: 1,
   },
   {
-    key: 'marine.bookings', name: 'Survey Bookings', description: 'Survey bookings, visits and surveyor assignments',
+    key: 'marine.bookings', name: 'Visit Planning', renameFrom: 'Survey Bookings', description: 'Visit planning: survey visits, dates, locations and the surveyors attending',
     parentKey: 'marine.first-entry', navigable: false, actions: CRUD, inheritFrom: 'marine.first-entry', order: 2,
   },
   {
@@ -80,11 +80,11 @@ export const SYSTEM_MODULES: SystemModuleDef[] = [
 
   // ── V2 survey workflow ───────────────────────────────────────────────────
   {
-    key: 'surveyor-allocation', name: 'Surveyor Allocation', description: 'Allocate surveyors to accepted jobs, set the main survey type and issue UQMS numbers (override = turn off MSS proof)',
+    key: 'surveyor-allocation', name: 'Surveyor Booking', renameFrom: 'Surveyor Allocation', description: 'Book surveyors for accepted jobs, set the main survey type and issue UQMS numbers (override = turn off MSS proof)',
     parentKey: null, navigable: true, actions: [...CRUD, 'override'], order: 3,
   },
   {
-    key: 'jobs', name: 'My Jobs', description: 'Open survey jobs and their workspace. Surveyors and assistant surveyors see only their own jobs; other users see all (view-all = also edit jobs not allocated to you)',
+    key: 'jobs', name: 'My Jobs', description: 'Open survey jobs and their workspace. Surveyors and assistant surveyors see only their own jobs; other users see all (view-all = also edit jobs you are not booked on)',
     parentKey: null, navigable: true, actions: ['read', 'view-all'], order: 4,
   },
   // Sector access: a user sees a sector's jobs only with read on its module.
@@ -116,7 +116,21 @@ export const SYSTEM_MODULES: SystemModuleDef[] = [
   },
   { key: 'qms.sop', name: 'SOP', description: 'Standard operating procedures', parentKey: 'qms', navigable: true, actions: CRUD, order: 4 },
   { key: 'qms.jd', name: 'JD', description: 'Job descriptions', parentKey: 'qms', navigable: true, actions: CRUD, order: 5 },
-  { key: 'previous-docs', name: 'Previous Docs', description: 'Documents from surveys done before the portal', parentKey: null, navigable: true, actions: CRUD, order: 20 },
+  {
+    key: 'previous-docs', name: 'Manual Surveys', renameFrom: 'Previous Docs',
+    description: 'Documents from surveys done before the portal and new surveys done manually, filed by UQMS number and vessel',
+    parentKey: null, navigable: true, actions: CRUD, order: 20,
+  },
+
+  // Reference documents (upload + view). Each screen is its own module; documents live in LibraryDocument.
+  { key: 'uqms-rules', name: 'UQMS Rules and Guidelines', description: 'UQMS rules and guidelines (upload and view)', parentKey: null, navigable: true, actions: READ, order: 10 },
+  { key: 'uqms-rules.rules', name: 'UQMS Rules', description: 'UQMS rules documents', parentKey: 'uqms-rules', navigable: true, actions: CRUD, order: 1 },
+  { key: 'uqms-rules.guidelines', name: 'UQMS Guidelines', description: 'UQMS guideline documents', parentKey: 'uqms-rules', navigable: true, actions: CRUD, order: 2 },
+  { key: 'flag-instructions', name: 'Flag Instructions', description: 'Flag state instructions: marine shipping notices, marine news, gazettes and MSNs (upload and view)', parentKey: null, navigable: true, actions: READ, order: 11 },
+  { key: 'flag-instructions.marine-shipping-notice', name: 'Marine Shipping Notice', description: 'Marine shipping notices', parentKey: 'flag-instructions', navigable: true, actions: CRUD, order: 1 },
+  { key: 'flag-instructions.marine-news', name: 'Marine News', description: 'Marine news', parentKey: 'flag-instructions', navigable: true, actions: CRUD, order: 2 },
+  { key: 'flag-instructions.gazette', name: 'Gazette', description: 'Gazette notifications', parentKey: 'flag-instructions', navigable: true, actions: CRUD, order: 3 },
+  { key: 'flag-instructions.msn', name: 'Merchant Shipping Notices', description: 'Merchant Shipping Notices (MSN)', parentKey: 'flag-instructions', navigable: true, actions: CRUD, order: 4 },
 
   { key: 'hr', name: 'HR', description: 'Human Resources Module', parentKey: null, navigable: true, actions: READ },
   {
@@ -155,6 +169,10 @@ export const SYSTEM_MODULES: SystemModuleDef[] = [
     parentKey: 'admin', navigable: false, actions: CRUD, order: 4,
   },
   { key: 'admin.audit-log', name: 'Audit Log', description: 'Full history of who changed what, sign-ins and document activity (export = download as CSV)', parentKey: 'admin', navigable: false, actions: ['read', 'export'], order: 5 },
+  {
+    key: 'admin.survey-config', name: 'Survey Configuration', description: 'Survey sub types and the main survey types each one belongs to',
+    parentKey: 'admin', navigable: false, actions: CRUD, inheritFrom: 'admin.master-data', order: 6,
+  },
 ];
 
 /** Roles (by name) that receive extra actions when the module is first created. Replaces the old hard-coded e-signature bypass list. */

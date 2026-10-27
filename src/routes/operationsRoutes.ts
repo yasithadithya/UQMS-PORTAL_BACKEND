@@ -9,6 +9,10 @@ import {
   searchSurveyTypes,
   searchAreaOperationsByCategory,
   updateSurveyTypeMapping,
+  createSurveyType,
+  updateSurveyType,
+  deleteSurveyType,
+  getSurveyTypeUsage,
 } from '../controllers/operationsController';
 
 const router = Router();
@@ -220,15 +224,56 @@ router.get('/survey-types/search', searchSurveyTypes);
  */
 router.get('/area-operations/search', searchAreaOperationsByCategory);
 
+/* ── Survey configuration (Admin → Survey Configuration) ── */
+
 /**
  * @swagger
- * /api/operations/survey-types/{id}/mapping:
- *   patch:
- *     summary: Set the main survey type and sector of a survey sub type ({ mainType, sector })
+ * /api/operations/survey-types/usage:
+ *   get:
+ *     summary: How many requests, jobs and checklist questions use each survey type ({ [id]: counts })
  *     tags: [Operations]
  *     security:
  *       - bearerAuth: []
  */
-router.patch('/survey-types/:id/mapping', requirePermission('admin.master-data', 'update'), updateSurveyTypeMapping);
+router.get('/survey-types/usage', requirePermission('admin.survey-config', 'read'), getSurveyTypeUsage);
+
+/**
+ * @swagger
+ * /api/operations/survey-types:
+ *   post:
+ *     summary: Create a survey sub type ({ code, name, description?, sector, mainTypes[] })
+ *     tags: [Operations]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post('/survey-types', requirePermission('admin.survey-config', 'create'), createSurveyType);
+
+/**
+ * @swagger
+ * /api/operations/survey-types/{id}:
+ *   put:
+ *     summary: Update a survey sub type (any of code, name, description, sector, mainTypes[]). A sub type can belong to several main survey types.
+ *     tags: [Operations]
+ *     security:
+ *       - bearerAuth: []
+ *   delete:
+ *     summary: Delete a survey sub type that no request, job or checklist question uses
+ *     tags: [Operations]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.put('/survey-types/:id', requirePermission('admin.survey-config', 'update'), updateSurveyType);
+router.delete('/survey-types/:id', requirePermission('admin.survey-config', 'delete'), deleteSurveyType);
+
+/**
+ * @swagger
+ * /api/operations/survey-types/{id}/mapping:
+ *   patch:
+ *     summary: Set the main survey types and sector of a survey sub type ({ mainTypes[], sector }; legacy { mainType } still accepted)
+ *     tags: [Operations]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.patch('/survey-types/:id/mapping', requirePermission('admin.survey-config', 'update'), updateSurveyTypeMapping);
 
 export default router;

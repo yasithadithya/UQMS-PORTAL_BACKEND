@@ -21,7 +21,7 @@ import dotenv from 'dotenv';
 import { runAsSystem } from '../middleware/requestContext';
 import { ensureUqmsCounter } from '../services/uqmsNumberService';
 import DocumentNumber from '../models/DocumentNumber';
-import SurveyType from '../models/SurveyType';
+import SurveyType, { migrateSurveyTypeMainTypes } from '../models/SurveyType';
 import FirstEntry from '../models/FirstEntry';
 import RequestModel from '../models/Request';
 import Quotation from '../models/Quotation';
@@ -67,8 +67,9 @@ const stepCounter = async () => {
 };
 
 const stepMapping = async () => {
+  if (!DRY) await migrateSurveyTypeMainTypes();
   if (fs.existsSync(MAPPING_FILE)) {
-    const mapping: Record<string, { mainType?: string | null; sector?: string }> = JSON.parse(fs.readFileSync(MAPPING_FILE, 'utf8'));
+    const mapping: Record<string, { mainTypes?: string[]; mainType?: string | null; sector?: string }> = JSON.parse(fs.readFileSync(MAPPING_FILE, 'utf8'));
     for (const [code, entry] of Object.entries(mapping)) {
       if (code.startsWith('_')) continue; // comments
       const type = await SurveyType.findOne({ code });
@@ -76,14 +77,17 @@ const stepMapping = async () => {
         report.mappingUnknownCodes.push(code);
         continue;
       }
-      if (entry.mainType && !isMainSurveyType(entry.mainType)) {
-        report.mappingUnknownCodes.push(`${code} (bad mainType "${entry.mainType}")`);
+      // `mainTypes` (a sub type can sit under several main types); a single legacy `mainType` still works.
+      const mainTypes = entry.mainTypes ?? (entry.mainType ? [entry.mainType] : []);
+      const bad = mainTypes.find((m) => !isMainSurveyType(m));
+      if (bad) {
+        report.mappingUnknownCodes.push(`${code} (bad main type "${bad}")`);
         continue;
       }
       if (!DRY) {
         await SurveyType.updateOne(
           { _id: type._id },
-          { $set: { mainType: entry.mainType ?? null, ...(entry.sector ? { sector: entry.sector } : {}) } }
+          { $set: { mainTypes: [...new Set(mainTypes)], ...(entry.sector ? { sector: entry.sector } : {}) } }
         );
       }
       report.mappingApplied += 1;
@@ -91,7 +95,7 @@ const stepMapping = async () => {
   } else {
     log(`No mapping file at ${MAPPING_FILE}; survey types left unmapped.`);
   }
-  const unmapped = await SurveyType.find({ $or: [{ mainType: null }, { mainType: { $exists: false } }] }).select('code name').lean();
+  const unmapped = await SurveyType.find({ $or: [{ mainTypes: { $size: 0 } }, { mainTypes: { $exists: false } }] }).select('code name').lean();
   report.surveyTypesUnmapped = unmapped.map((t) => `${t.code} ${t.name}`);
 };
 

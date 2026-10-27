@@ -1,14 +1,17 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import { MAIN_SURVEY_TYPES, MainSurveyType } from '../config/surveyCategories';
+import { MAIN_SURVEY_TYPES, MainSurveyType, SUB_TYPE_SECTORS, SubTypeSector } from '../config/surveyCategories';
 
 export interface ISurveyType extends Document {
   code: string;
   name: string;
   description?: string;
-  /** V2: the main survey type this sub type belongs to (null = not mapped yet). */
-  mainType?: MainSurveyType | null;
+  /**
+   * V2: the main survey types this sub type belongs to. A sub type can sit under several main types
+   * (e.g. Annual Survey under First Entry and New Constructions). Empty = not mapped yet.
+   */
+  mainTypes: MainSurveyType[];
   /** V2: which sector offers this sub type. */
-  sector: 'marine' | 'industrial' | 'both';
+  sector: SubTypeSector;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,14 +35,13 @@ const surveyTypeSchema: Schema = new Schema(
       trim: true,
       default: '',
     },
-    mainType: {
-      type: String,
-      enum: [...MAIN_SURVEY_TYPES, null],
-      default: null,
+    mainTypes: {
+      type: [{ type: String, enum: MAIN_SURVEY_TYPES }],
+      default: [],
     },
     sector: {
       type: String,
-      enum: ['marine', 'industrial', 'both'],
+      enum: SUB_TYPE_SECTORS,
       default: 'marine',
     },
   },
@@ -48,6 +50,25 @@ const surveyTypeSchema: Schema = new Schema(
   }
 );
 
+surveyTypeSchema.index({ mainTypes: 1 });
+
 const SurveyType = mongoose.model<ISurveyType>('SurveyType', surveyTypeSchema);
+
+/**
+ * One-off, idempotent: survey types used to hold a single `mainType`. Move it into `mainTypes`
+ * and drop the old field. Runs at server start.
+ */
+export const migrateSurveyTypeMainTypes = async (): Promise<void> => {
+  const legacy = await SurveyType.collection
+    .find({ mainType: { $exists: true } }, { projection: { mainType: 1, mainTypes: 1 } })
+    .toArray();
+  if (legacy.length === 0) return;
+  for (const doc of legacy) {
+    const existing: string[] = Array.isArray(doc.mainTypes) ? doc.mainTypes : [];
+    const merged = doc.mainType && !existing.includes(doc.mainType) ? [...existing, doc.mainType] : existing;
+    await SurveyType.collection.updateOne({ _id: doc._id }, { $set: { mainTypes: merged }, $unset: { mainType: '' } });
+  }
+  console.log(`✅ Survey types: moved ${legacy.length} single main type(s) to the multi main type list.`);
+};
 
 export default SurveyType;
