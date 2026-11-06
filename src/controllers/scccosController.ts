@@ -1,3 +1,4 @@
+import { cosVariantFor } from '../config/certificateVariants';
 import { Request, Response } from 'express';
 import { isSigned, recordPublicView, rejectUnsignedPublicPdf, sendAnnotatedPublicPdf, sendDeliverablePdf } from '../services/deliverableAccess';
 import mongoose from 'mongoose';
@@ -101,7 +102,7 @@ export const createSCCCOS = async (req: Request, res: Response): Promise<void> =
       return;
     }
     if (!surveyBookingId || !mongoose.isValidObjectId(surveyBookingId)) {
-      res.status(400).json({ success: false, message: 'Invalid or missing Survey Booking ID.' });
+      res.status(400).json({ success: false, message: 'Invalid or missing visit plan ID.' });
       return;
     }
 
@@ -147,7 +148,7 @@ export const createSCCCOS = async (req: Request, res: Response): Promise<void> =
 
     const surveyBooking = await FirstEntrySurveyBookingModel.findById(surveyBookingId);
     if (!surveyBooking) {
-      res.status(404).json({ success: false, message: 'Survey Booking not found.' });
+      res.status(404).json({ success: false, message: 'Visit plan not found.' });
       return;
     }
 
@@ -188,7 +189,10 @@ export const createSCCCOS = async (req: Request, res: Response): Promise<void> =
       surveyReportId,
       surveyBookingId,
       surveyFindings: findings,
-      typeOfSurvey,
+      vesselCode: vessel.vesselCode,
+      certificateName: cosVariantFor(vessel.vesselCode).shortName,
+      kind: 'cos',
+      typeOfSurvey: typeOfSurvey || cosVariantFor(vessel.vesselCode).defaultTypeOfSurvey,
       nominatedDeparturePoint,
       surveyorName,
       additionalRemarks,
@@ -409,7 +413,7 @@ export const getSCCCOSPreviewPdf = async (req: Request, res: Response): Promise<
       return;
     }
     if (!surveyBookingId || !mongoose.isValidObjectId(surveyBookingId)) {
-      res.status(400).json({ success: false, message: 'Invalid or missing Survey Booking ID.' });
+      res.status(400).json({ success: false, message: 'Invalid or missing visit plan ID.' });
       return;
     }
 
@@ -421,7 +425,7 @@ export const getSCCCOSPreviewPdf = async (req: Request, res: Response): Promise<
 
     const booking = await FirstEntrySurveyBookingModel.findById(surveyBookingId);
     if (!booking) {
-      res.status(404).json({ success: false, message: 'Survey Booking not found.' });
+      res.status(404).json({ success: false, message: 'Visit plan not found.' });
       return;
     }
 

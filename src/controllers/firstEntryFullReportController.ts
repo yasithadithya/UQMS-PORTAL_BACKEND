@@ -7,6 +7,7 @@ import Vessel from '../models/Vessel';
 import ChecklistQuestion from '../models/ChecklistQuestion';
 import SurveyType from '../models/SurveyType';
 import User from '../models/User';
+import Job from '../models/Job';
 import QRCode from 'qrcode';
 import { createDailyReportPdfBuffer } from '../services/dailyReportPdfService';
 import { uploadToR2, deleteFromR2, downloadFromR2, getPresignedGetUrl } from '../services/r2Storage';
@@ -149,13 +150,19 @@ export const generateFullReport = async (surveyReport: any): Promise<any> => {
 };
 
 /**
- * Helper function to filter visitDetails array in bookingId to only contain visits
- * relevant/assigned to the logged-in user.
+ * Limits the booking's visits to the ones assigned to the logged-in user.
+ * Members of the booking's job (lead surveyor or assistants) see every visit, since the
+ * job's people can change after the visits were saved.
  */
-const filterVisitsForUser = (report: any, userId: string): any => {
+const filterVisitsForUser = async (report: any, userId: string): Promise<any> => {
   if (!report || !userId) return report;
   const reportObj = typeof report.toObject === 'function' ? report.toObject() : report;
   if (reportObj.bookingId && typeof reportObj.bookingId === 'object' && reportObj.bookingId.visitDetails) {
+    const isJobMember = mongoose.isValidObjectId(userId) && !!(await Job.exists({
+      booking: reportObj.bookingId._id,
+      $or: [{ surveyor: userId }, { assistantSurveyors: userId }],
+    }));
+    if (isJobMember) return reportObj;
     reportObj.bookingId.visitDetails = reportObj.bookingId.visitDetails.filter((visit: any) => {
       return visit.surveyorAssignments?.some((assign: any) => {
         const sId = assign.surveyorId && typeof assign.surveyorId === 'object'
@@ -185,7 +192,7 @@ export const getAllFirstEntryFullReports = async (req: Request, res: Response): 
       .sort({ createdAt: -1 });
 
     const userId = (req as any).user?.id;
-    const filteredReports = reports.map((r) => filterVisitsForUser(r, userId));
+    const filteredReports = await Promise.all(reports.map((r) => filterVisitsForUser(r, userId)));
 
     res.status(200).json({
       success: true,
@@ -228,7 +235,7 @@ export const getFirstEntryFullReportById = async (req: Request, res: Response): 
     }
 
     const userId = (req as any).user?.id;
-    const filteredReport = filterVisitsForUser(report, userId);
+    const filteredReport = await filterVisitsForUser(report, userId);
 
     res.status(200).json({
       success: true,
@@ -270,7 +277,7 @@ export const getFirstEntryFullReportBySurveyReportId = async (req: Request, res:
     }
 
     const userId = (req as any).user?.id;
-    const filteredReport = filterVisitsForUser(report, userId);
+    const filteredReport = await filterVisitsForUser(report, userId);
 
     res.status(200).json({
       success: true,
@@ -412,7 +419,7 @@ export const updateFirstEntryFullReport = async (req: Request, res: Response): P
       return;
     }
 
-    const filteredReport = filterVisitsForUser(updatedReport, userId);
+    const filteredReport = await filterVisitsForUser(updatedReport, userId);
 
     res.status(200).json({
       success: true,
@@ -490,7 +497,7 @@ export const triggerFullReportGeneration = async (req: Request, res: Response): 
       .populate('remarks.comments.createdBy', 'username email');
 
     const userId = (req as any).user?.id;
-    const filteredReport = filterVisitsForUser(populatedFullReport, userId);
+    const filteredReport = await filterVisitsForUser(populatedFullReport, userId);
 
     res.status(200).json({
       success: true,
@@ -567,7 +574,7 @@ export const renderAndStoreDailyReportPdf = async (req: Request, report: any): P
   // Generate PDF Buffer
   const { buffer: pdfBuffer, signatureField } = await createDailyReportPdfBuffer(report, qrBuffer);
 
-  const filename = `daily-visit-report-${id}.pdf`;
+  const filename = `survey-checklist-${id}.pdf`;
   const key = `daily-visit-reports/daily-visit-report-${id}.pdf`;
 
   // Upload PDF to R2
@@ -639,7 +646,7 @@ export const generateDailyReportPdf = async (req: Request, res: Response): Promi
       report.updatedBy = (req as any).user.id;
     }
 
-    report.$locals.audit = { action: 'document.generate', metadata: { file: report.dailyReportPdfFilename, document: 'Daily visit report' } };
+    report.$locals.audit = { action: 'document.generate', metadata: { file: report.dailyReportPdfFilename, document: 'Survey checklist' } };
     await report.save();
 
     const populatedReport = await FirstEntryFullReport.findById(report._id)
@@ -653,11 +660,11 @@ export const generateDailyReportPdf = async (req: Request, res: Response): Promi
       .populate('remarks.comments.createdBy', 'username email');
 
     const userId = (req as any).user?.id;
-    const filteredReport = filterVisitsForUser(populatedReport, userId);
+    const filteredReport = await filterVisitsForUser(populatedReport, userId);
 
     res.status(200).json({
       success: true,
-      message: 'Daily Visit Report PDF generated successfully.',
+      message: 'Survey Checklist PDF generated successfully.',
       data: filteredReport,
     });
   } catch (error: any) {
@@ -709,7 +716,7 @@ export const getDailyReportPdfPreview = async (req: Request, res: Response): Pro
     const { buffer: pdfBuffer } = await createDailyReportPdfBuffer(report, qrBuffer);
 
     // Unsaved drafts are never signed, so previews always carry the PREVIEW watermark.
-    await sendDeliverablePdf(req, res, { buffer: pdfBuffer, filename: 'daily-report-preview.pdf', signed: false, record: { docType: 'daily-report', docId: String(id) } });
+    await sendDeliverablePdf(req, res, { buffer: pdfBuffer, filename: 'survey-checklist-preview.pdf', signed: false, record: { docType: 'daily-report', docId: String(id) } });
   } catch (error: any) {
     res.status(500).json({
       success: false,
@@ -719,8 +726,72 @@ export const getDailyReportPdfPreview = async (req: Request, res: Response): Pro
   }
 };
 
+/** Visit labels as the checklist stores them: the visit's number, or "Visit n" by position. */
+export const bookingVisitLabels = (booking: any): { label: string; visit: any }[] =>
+  ((booking?.visitDetails || []) as any[]).map((visit, idx) => ({ label: visit.visitNo || `Visit ${idx + 1}`, visit }));
+
 /**
- * Stream the generated (stored) Daily Visit Report PDF to an authenticated user.
+ * Daily Visit Report for one visit, generated on demand from the checklist items recorded against that
+ * visit: GET /:id/visit-report-pdf?visit=<visit label>.
+ */
+export const getDailyVisitReportPdf = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const visitLabel = String(req.query.visit || '').trim();
+    if (!mongoose.isValidObjectId(id)) {
+      res.status(400).json({ success: false, message: 'Invalid full report ID format.' });
+      return;
+    }
+    if (!visitLabel) {
+      res.status(400).json({ success: false, message: 'Choose the visit.' });
+      return;
+    }
+
+    const report = await FirstEntryFullReport.findById(id)
+      .populate('firstEntrySurveyReportId')
+      .populate('bookingId')
+      .populate('vesselId')
+      .populate('checklist.checklistQuestionId');
+    if (!report) {
+      res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      return;
+    }
+
+    const match = bookingVisitLabels(report.bookingId).find((v) => v.label === visitLabel);
+    if (!match) {
+      res.status(404).json({ success: false, message: 'Visit not found in the visit plan.' });
+      return;
+    }
+
+    const items = (report.checklist || []).filter((item: any) => String(item.visitNumber || '') === visitLabel);
+    const surveyorIds = ((match.visit.surveyorAssignments || []) as any[]).map((a) => a.surveyorId).filter(Boolean);
+    const users = surveyorIds.length
+      ? await User.find({ _id: { $in: surveyorIds } }).select('fullName nameWithInitials username').lean()
+      : [];
+    const names = new Set<string>(users.map((u: any) => u.fullName || u.nameWithInitials || u.username).filter(Boolean));
+    items.forEach((item: any) => item.surveyorName && names.add(item.surveyorName));
+
+    const publicUrl = buildPublicApiUrl(req, `/api/first-entry-full-reports/public-pdf/${id}`);
+    const qrBuffer = await QRCode.toBuffer(publicUrl, { margin: 1, errorCorrectionLevel: 'M' });
+    const { buffer } = await createDailyReportPdfBuffer(report, qrBuffer, {
+      kind: 'visit',
+      visit: { label: visitLabel, date: match.visit.visitDate, location: match.visit.location, surveyors: [...names] },
+    });
+
+    const safe = visitLabel.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+    await sendDeliverablePdf(req, res, {
+      buffer,
+      filename: `daily-visit-report-${safe}-${id}.pdf`,
+      signed: false,
+      record: { docType: 'daily-report', docId: String(id) },
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Error generating the Daily Visit Report.', error: error.message });
+  }
+};
+
+/**
+ * Stream the generated (stored) Survey Checklist PDF to an authenticated user.
  */
 export const getDailyReportPdf = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -744,7 +815,7 @@ export const getDailyReportPdf = async (req: Request, res: Response): Promise<vo
 
     await sendDeliverablePdf(req, res, {
       buffer: pdfBuffer,
-      filename: report.dailyReportPdfFilename || 'daily-visit-report.pdf',
+      filename: report.dailyReportPdfFilename || 'survey-checklist.pdf',
       signed: isSigned(report),
       annotationsFor: { docType: 'daily-report', docId: String(id) },
     });
@@ -847,7 +918,7 @@ export const addGeneralRemark = async (req: Request, res: Response): Promise<voi
     res.status(200).json({
       success: true,
       message: 'General remark added successfully.',
-      data: filterVisitsForUser(updatedReport, userId)
+      data: await filterVisitsForUser(updatedReport, userId)
     });
   } catch (error: any) {
     res.status(500).json({
@@ -908,7 +979,7 @@ export const editGeneralRemark = async (req: Request, res: Response): Promise<vo
     res.status(200).json({
       success: true,
       message: 'General remark updated successfully.',
-      data: filterVisitsForUser(updatedReport, userId)
+      data: await filterVisitsForUser(updatedReport, userId)
     });
   } catch (error: any) {
     res.status(500).json({
@@ -958,7 +1029,7 @@ export const toggleCloseGeneralRemark = async (req: Request, res: Response): Pro
     res.status(200).json({
       success: true,
       message: `General remark ${remark.isClosed ? 'closed' : 'reopened'} successfully.`,
-      data: filterVisitsForUser(updatedReport, userId)
+      data: await filterVisitsForUser(updatedReport, userId)
     });
   } catch (error: any) {
     res.status(500).json({
@@ -1026,7 +1097,7 @@ export const addRemarkComment = async (req: Request, res: Response): Promise<voi
     res.status(200).json({
       success: true,
       message: 'Comment added successfully.',
-      data: filterVisitsForUser(updatedReport, userId)
+      data: await filterVisitsForUser(updatedReport, userId)
     });
   } catch (error: any) {
     res.status(500).json({
@@ -1093,7 +1164,7 @@ export const editRemarkComment = async (req: Request, res: Response): Promise<vo
     res.status(200).json({
       success: true,
       message: 'Comment updated successfully.',
-      data: filterVisitsForUser(updatedReport, userId)
+      data: await filterVisitsForUser(updatedReport, userId)
     });
   } catch (error: any) {
     res.status(500).json({

@@ -1,0 +1,7 @@
+{
+  "_comment": "Copy to surveyTypeMapping.json and fill in. Keys are survey type codes. mainTypes: list of first-entry | periodical | occasional | new-construction | audit | industrial-audit | industrial-survey (a sub type can belong to several; [] = unmapped). sector: marine | industrial | both. This can also be done in the portal under Admin → Survey Configuration.",
+  "ST01": { "mainTypes": ["first-entry", "new-construction"], "sector": "marine" },
+  "ST02": { "mainTypes": ["periodical"], "sector": "marine" },
+  "ST06": { "mainTypes": ["occasional"], "sector": "marine" },
+  "ST27": { "mainTypes": ["audit"], "sector": "marine" }
+}

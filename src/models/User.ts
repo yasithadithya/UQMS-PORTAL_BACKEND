@@ -2,6 +2,15 @@ import mongoose, { Schema, Document } from 'mongoose';
 import bcrypt from 'bcrypt';
 
 import { auditPlugin } from '../plugins/auditPlugin';
+
+export const DASHBOARD_WIDGET_SIZES = ['sm', 'md', 'lg'] as const;
+export type DashboardWidgetSize = (typeof DASHBOARD_WIDGET_SIZES)[number];
+export interface IDashboardWidget {
+  /** Widget id from the frontend catalogue (e.g. "jobs.my-open"). */
+  id: string;
+  size: DashboardWidgetSize;
+}
+
 export interface IUser extends Document {
   username: string;
   email: string;
@@ -13,6 +22,8 @@ export interface IUser extends Document {
   address?: string;
   dob?: Date | null;
   empNumber?: string;
+  /** The user's own home dashboard: widget ids in display order. Unset = the default layout. */
+  dashboardLayout?: IDashboardWidget[];
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -70,6 +81,20 @@ const userSchema: Schema = new Schema(
     empNumber: {
       type: String,
       trim: true,
+    },
+    // Not returned with the user record; read through /users/me/dashboard.
+    dashboardLayout: {
+      type: [
+        new Schema(
+          {
+            id: { type: String, required: true, trim: true },
+            size: { type: String, enum: DASHBOARD_WIDGET_SIZES, default: 'md' },
+          },
+          { _id: false }
+        ),
+      ],
+      default: undefined,
+      select: false,
     },
   },
   {

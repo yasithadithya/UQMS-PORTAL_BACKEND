@@ -7,6 +7,7 @@ import {
   deleteUser,
   getUserDirectory,
 } from '../controllers/userController';
+import { getMyDashboard, saveMyDashboard } from '../controllers/dashboardLayoutController';
 import authMiddleware from '../middleware/auth';
 import { requirePermission } from '../middleware/permission';
 
@@ -116,6 +117,25 @@ router.get('/', requirePermission('admin.users', 'read'), getAllUsers);
  *         description: User directory
  */
 router.get('/directory', getUserDirectory);
+
+/**
+ * @swagger
+ * /api/users/me/dashboard:
+ *   get:
+ *     summary: The signed-in user's home dashboard layout (null = default layout)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *   put:
+ *     summary: Save the signed-in user's dashboard layout
+ *     description: "Body: { widgets: [{ id, size: 'sm' | 'md' | 'lg' }] } in display order, or { widgets: null } to reset."
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ */
+// Registered before /:id so "me" isn't read as a user id.
+router.get('/me/dashboard', getMyDashboard);
+router.put('/me/dashboard', saveMyDashboard);
 
 /**
  * @swagger

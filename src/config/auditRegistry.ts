@@ -107,6 +107,10 @@ export const AUDIT_ENTITIES: Record<string, AuditEntityConfig> = {
   'vessel-code': { label: 'Vessel code', model: 'VesselCode', module: 'admin.master-data', refField: 'code' },
   'rec-equip-ques': { label: 'Equipment question', model: 'RecEquipQues', module: 'admin.master-data', refField: 'codeRefNo' },
   'document-template': { label: 'Document template', model: 'DocumentTemplate', module: 'admin.master-data', refField: 'documentName' },
+  'survey-type': {
+    label: 'Survey type', model: 'SurveyType', module: 'admin.survey-config', refField: ['code', 'name'],
+    fieldLabels: { mainTypes: 'Main survey types' },
+  },
 
   // ── Survey / marine ──────────────────────────────────────────────────────
   request: {
@@ -127,7 +131,7 @@ export const AUDIT_ENTITIES: Record<string, AuditEntityConfig> = {
   },
   'vessel-type': { label: 'Vessel type', model: 'VesselType', module: 'marine.entries', refField: 'name' },
   booking: {
-    label: 'Survey booking', model: 'FirstEntrySurveyBooking', module: 'marine.bookings', refField: ['reportNo', 'shipName'],
+    label: 'Visit planning', model: 'FirstEntrySurveyBooking', module: 'marine.bookings', refField: ['reportNo', 'shipName'],
     displayRefs: { surveyorId: 'User', vesselId: 'Vessel', requestIds: 'Request' },
     fieldLabels: { 'visitDetails.surveyorAssignments.surveyorId': 'Surveyor' },
     classify: (changes) =>
@@ -162,6 +166,30 @@ export const AUDIT_ENTITIES: Record<string, AuditEntityConfig> = {
     label: 'Equipment record', model: 'VesselEquipmentRecord', module: 'marine.reports',
     displayRefs: { vesselId: 'Vessel', questionId: 'RecEquipQues' },
     arrayKeys: { equipmentRecords: 'questionId' },
+  },
+
+  // ── V2 jobs / QMS ────────────────────────────────────────────────────────
+  job: {
+    label: 'Job', model: 'Job', module: 'jobs', refField: ['jobNumber', 'requestNumber'],
+    ignore: ['statusHistory'],
+    displayRefs: {
+      surveyor: 'User', assistantSurveyors: 'User', vessel: 'Vessel', request: 'Request',
+      surveyTypes: 'SurveyType', allocatedBy: 'User', submittedBy: 'User', uploadedBy: 'User',
+    },
+    fieldLabels: { mainSurveyType: 'Main survey type', mssProofRequired: 'MSS proof required', assistantSurveyors: 'Assistant surveyors' },
+    classify: (changes) =>
+      changed(changes, /^(surveyor|assistantSurveyors)$/) ? 'job.surveyor.assign' : changed(changes, /^status$/) ? 'job.status' : undefined,
+  },
+  'approval-request': {
+    label: 'Approval request', model: 'ApprovalRequest', module: 'approvals', refField: ['summary', 'entityType'],
+    ignore: ['history'],
+    displayRefs: { requestedBy: 'User', reviewedBy: 'User', approvedBy: 'User', acceptedBy: 'User', rejectedBy: 'User' },
+  },
+  'previous-document': {
+    label: 'Manual survey document', model: 'PreviousDocument', module: 'previous-docs', refField: ['uqmsNumber', 'vesselName'],
+  },
+  'library-document': {
+    label: 'Library document', model: 'LibraryDocument', module: '', refField: ['title', 'referenceNumber'],
   },
 
   // ── Finance ──────────────────────────────────────────────────────────────
@@ -246,6 +274,24 @@ export const AUDIT_ACTIONS: Record<string, AuditActionDef> = {
   'document.print': { label: 'Document printed', operation: 'print' },
   'document.email': { label: 'Document emailed', operation: 'email' },
   'document.upload': { label: 'File uploaded', operation: 'upload' },
+
+  // V2 jobs
+  'job.allocate': { label: 'Surveyor booked', operation: 'assign' },
+  'job.surveyor.assign': { label: 'Job surveyors changed', operation: 'assign' },
+  'job.status': { label: 'Job status changed', operation: 'status' },
+  'job.submit': { label: 'Reporting submitted for surveyor review', operation: 'status' },
+  'job.review.approve': { label: 'Reporting approved by surveyor', operation: 'approve' },
+  'job.review.reject': { label: 'Reporting rejected by surveyor', operation: 'status' },
+  'job.authorize.approve': { label: 'Job authorized by manager', operation: 'approve' },
+  'job.authorize.reject': { label: 'Job rejected by manager', operation: 'status' },
+  'job.last-visit.unmark': { label: 'Last visit unmarked', operation: 'update' },
+  'job.document.add': { label: 'Supporting document added', operation: 'upload' },
+  'job.document.delete': { label: 'Supporting document removed', operation: 'delete' },
+
+  // QMS approvals
+  'approval-request.approve': { label: 'QMS change approved', operation: 'approve' },
+  'approval-request.accept': { label: 'QMS change accepted (in effect)', operation: 'approve' },
+  'approval-request.reject': { label: 'QMS change rejected', operation: 'status' },
 
   // Quotations
   'quotation.discount': { label: 'Quotation discount', operation: 'update' },

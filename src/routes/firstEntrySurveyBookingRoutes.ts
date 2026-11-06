@@ -8,6 +8,7 @@ import {
 } from '../controllers/firstEntrySurveyBookingController';
 import authMiddleware from '../middleware/auth';
 import { requireAny, requirePermission } from '../middleware/permission';
+import { jobLock } from '../middleware/jobLock';
 
 // Survey reports and certificates are built from a booking, so their users may read bookings too.
 const canReadBookings = requireAny(['marine.bookings', 'marine.reports', 'marine.certificates'], ['read']);
@@ -113,7 +114,7 @@ router.get('/:id', canReadBookings, getFirstEntrySurveyBookingById);
  *       404:
  *         description: Booking not found
  */
-router.put('/:id', requirePermission('marine.bookings', 'update'), updateFirstEntrySurveyBooking);
+router.put('/:id', requirePermission('marine.bookings', 'update'), jobLock.bookingParam, updateFirstEntrySurveyBooking);
 
 /**
  * @swagger
@@ -135,6 +136,6 @@ router.put('/:id', requirePermission('marine.bookings', 'update'), updateFirstEn
  *       404:
  *         description: Booking not found
  */
-router.delete('/:id', requirePermission('marine.bookings', 'delete'), deleteFirstEntrySurveyBooking);
+router.delete('/:id', requirePermission('marine.bookings', 'delete'), jobLock.bookingParam, deleteFirstEntrySurveyBooking);
 
 export default router;

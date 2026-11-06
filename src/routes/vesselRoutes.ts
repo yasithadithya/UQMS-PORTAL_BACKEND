@@ -9,6 +9,7 @@ import {
 } from '../controllers/vesselController';
 import authMiddleware from '../middleware/auth';
 import { requirePermission, requireAny } from '../middleware/permission';
+import { jobLock } from '../middleware/jobLock';
 import { MARINE_KEYS } from '../config/permissionRegistry';
 
 const router = Router();
@@ -158,7 +159,7 @@ router.get('/:id', requireAny(MARINE_KEYS, ['read']), getVesselById);
  *       401:
  *         description: Unauthorized
  */
-router.put('/:id', requirePermission('marine.entries', 'update'), updateVessel);
+router.put('/:id', requirePermission('marine.entries', 'update'), jobLock.vesselParam, updateVessel);
 
 /**
  * @swagger

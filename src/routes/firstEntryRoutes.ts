@@ -13,6 +13,7 @@ import {
 } from '../controllers/firstEntryController';
 import authMiddleware from '../middleware/auth';
 import { requirePermission } from '../middleware/permission';
+import { jobLock } from '../middleware/jobLock';
 
 const router = Router();
 
@@ -126,7 +127,7 @@ router.get('/:id', requirePermission('marine.entries', 'read'), getFirstEntryByI
  *       200:
  *         description: First entry updated successfully
  */
-router.put('/:id', requirePermission('marine.entries', 'update'), updateFirstEntry);
+router.put('/:id', requirePermission('marine.entries', 'update'), jobLock.firstEntryParam, updateFirstEntry);
 
 /**
  * @swagger
@@ -146,7 +147,7 @@ router.put('/:id', requirePermission('marine.entries', 'update'), updateFirstEnt
  *       200:
  *         description: First entry deleted successfully
  */
-router.delete('/:id', requirePermission('marine.entries', 'delete'), deleteFirstEntry);
+router.delete('/:id', requirePermission('marine.entries', 'delete'), jobLock.firstEntryParam, deleteFirstEntry);
 
 // ==========================================
 // SCHEDULE II ROUTES
@@ -177,7 +178,7 @@ router.delete('/:id', requirePermission('marine.entries', 'delete'), deleteFirst
  *       201:
  *         description: Schedule II created successfully
  */
-router.post('/schedule2', requirePermission('marine.entries', 'update'), createScheduleII);
+router.post('/schedule2', requirePermission('marine.entries', 'update'), jobLock.firstEntryBody, createScheduleII);
 
 /**
  * @swagger
@@ -226,7 +227,7 @@ router.get('/schedule2/:scheduleId', requirePermission('marine.entries', 'read')
  *       200:
  *         description: Schedule II updated successfully
  */
-router.put('/schedule2/:scheduleId', requirePermission('marine.entries', 'update'), updateScheduleII);
+router.put('/schedule2/:scheduleId', requirePermission('marine.entries', 'update'), jobLock.scheduleParam, updateScheduleII);
 
 /**
  * @swagger
@@ -246,7 +247,7 @@ router.put('/schedule2/:scheduleId', requirePermission('marine.entries', 'update
  *       200:
  *         description: Schedule II deleted successfully
  */
-router.delete('/schedule2/:scheduleId', requirePermission('marine.entries', 'update'), deleteScheduleII);
+router.delete('/schedule2/:scheduleId', requirePermission('marine.entries', 'update'), jobLock.scheduleParam, deleteScheduleII);
 
 /**
  * @swagger

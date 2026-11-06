@@ -13,6 +13,7 @@ import {
 } from '../services/signableDocuments';
 import { isElectronicallySigned } from '../services/eSignatureLock';
 import { convertFullNameToInitials } from './surveyReportController';
+import { jobDocumentSignBlockReason, onJobDocumentRevoked } from '../services/jobWorkflow';
 
 const MAX_LOCATION_LENGTH = 120;
 const NOT_ASSIGNED_MESSAGE = 'Only a surveyor assigned to this survey can sign this document.';
@@ -163,6 +164,13 @@ export const signDocument = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
+    // V2: a job's survey report, docking report and certificate are signed by the surveyor once the reporting is ready.
+    const jobReason = await jobDocumentSignBlockReason(req as AuthRequest, String(req.params.docType), doc);
+    if (jobReason) {
+      res.status(409).json({ success: false, message: jobReason });
+      return;
+    }
+
     const booking = await handler.loadBooking(doc);
     const signerOptions = await signerOptionsFor(req as AuthRequest, booking, userId, moduleKey);
     if (signerOptions.length === 0) {
@@ -259,6 +267,7 @@ export const revokeSignature = async (req: Request, res: Response): Promise<void
       audit: { action: 'document.sign.revoke', reason, metadata: { previousSigner: (doc as any).eSignature?.signedByName } },
     });
     await handler.regeneratePdf(req, id);
+    await onJobDocumentRevoked(String(req.params.docType), doc, userId, reason);
 
     const unsignedDoc = await handler.model.findById(id);
     res.status(200).json({

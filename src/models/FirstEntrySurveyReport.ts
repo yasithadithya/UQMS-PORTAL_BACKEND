@@ -55,7 +55,7 @@ const firstEntrySurveyReportSchema: Schema = new Schema(
     bookingId: { 
       type: Schema.Types.ObjectId, 
       ref: 'FirstEntrySurveyBooking', 
-      required: [true, 'First Entry Survey Booking reference is required'] 
+      required: [true, 'Visit plan reference is required'] 
     },
     vesselId: { 
       type: Schema.Types.ObjectId, 

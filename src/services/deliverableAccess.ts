@@ -73,12 +73,17 @@ export const sendDeliverablePdf = async (
   }
 ): Promise<void> => {
   const download = wantsDownload(req);
+  const target = record ?? annotationsFor;
+  // V2: reports that are never e-signed become final when the manager approves their job.
+  if (!signed && target) {
+    const { isReleasedByCompletedJob } = await import('./jobWorkflow');
+    signed = await isReleasedByCompletedJob(target.docType, target.docId);
+  }
   if (!signed && download) {
     res.status(403).json({ success: false, message: PREVIEW_ONLY_MESSAGE });
     return;
   }
 
-  const target = record ?? annotationsFor;
   if (target) {
     await audit.event({
       action: signed && download ? 'document.download' : 'document.view',

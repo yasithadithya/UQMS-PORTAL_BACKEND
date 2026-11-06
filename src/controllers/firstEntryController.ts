@@ -4,8 +4,10 @@ import FirstEntryModel from '../models/FirstEntry';
 import ScheduleIIModel from '../models/ScheduleII';
 import RequestModel from '../models/Request';
 import VesselModel from '../models/Vessel';
+import JobModel from '../models/Job';
 import { getNextDocumentNumber } from '../services/documentNumberService';
 import nodemailer from 'nodemailer';
+import { scheduleIILabelFor } from '../config/certificateVariants';
 import { paginate } from '../utils/pagination';
 
 // ==========================================
@@ -218,9 +220,11 @@ export const createScheduleII = async (req: Request, res: Response): Promise<voi
     firstEntryExists.scheduleII = newScheduleII._id as mongoose.Types.ObjectId;
     await firstEntryExists.save();
 
-    // Generate and assign UQMS number to the vessel if not already present
+    // Pre-V2 flow only: assign the UQMS number when Schedule II is created. V2 jobs get their
+    // number at Surveyor Allocation instead.
     try {
-      const vessel = await VesselModel.findById(firstEntryExists.vessel);
+      const hasJob = await JobModel.exists({ request: firstEntryExists.request });
+      const vessel = hasJob ? null : await VesselModel.findById(firstEntryExists.vessel);
       if (vessel && !vessel.uqmsNumber) {
         const uqmsNumber = await getNextDocumentNumber('UQMS');
         vessel.uqmsNumber = uqmsNumber;
@@ -361,6 +365,7 @@ export const sendScheduleIIEmail = async (req: Request, res: Response): Promise<
 
     const firstEntry: any = schedule.firstEntry;
     const vesselName = firstEntry?.vessel?.vesselName || 'Unknown Vessel';
+    const scheduleLabel = scheduleIILabelFor(firstEntry?.vessel?.vesselCode);
 
     const attachments = (schedule.documents || []).map(doc => ({
       filename: doc.name,
@@ -383,8 +388,8 @@ export const sendScheduleIIEmail = async (req: Request, res: Response): Promise<
     const mailOptions = {
       from: process.env.SENDER_EMAIL,
       to: process.env.DSSC_EMAIL,
-      subject: `Schedule II Documents - ${vesselName}`,
-      text: `Please find the attached Schedule II documents for the vessel: ${vesselName}.`,
+      subject: `${scheduleLabel} Documents - ${vesselName}`,
+      text: `Please find the attached ${scheduleLabel} documents for the vessel: ${vesselName}.`,
       attachments,
     };
 

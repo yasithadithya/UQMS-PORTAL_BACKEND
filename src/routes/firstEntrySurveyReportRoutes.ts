@@ -9,6 +9,7 @@ import {
 } from '../controllers/firstEntrySurveyReportController';
 import authMiddleware from '../middleware/auth';
 import { requirePermission } from '../middleware/permission';
+import { jobLock } from '../middleware/jobLock';
 
 const router = Router();
 
@@ -76,7 +77,7 @@ router.use(authMiddleware);
  *       404:
  *         description: Booking not found
  */
-router.post('/', requirePermission('marine.reports', 'create'), createFirstEntrySurveyReport);
+router.post('/', requirePermission('marine.reports', 'create'), jobLock.bookingBody, createFirstEntrySurveyReport);
 
 /**
  * @swagger
@@ -169,7 +170,7 @@ router.get('/:id', requirePermission('marine.reports', 'read'), getFirstEntrySur
  *       404:
  *         description: Report not found
  */
-router.put('/:id', requirePermission('marine.reports', 'update'), updateFirstEntrySurveyReport);
+router.put('/:id', requirePermission('marine.reports', 'update'), jobLock.surveyReportParam(), updateFirstEntrySurveyReport);
 
 /**
  * @swagger
@@ -193,6 +194,6 @@ router.put('/:id', requirePermission('marine.reports', 'update'), updateFirstEnt
  *       404:
  *         description: Report not found
  */
-router.delete('/:id', requirePermission('marine.reports', 'delete'), deleteFirstEntrySurveyReport);
+router.delete('/:id', requirePermission('marine.reports', 'delete'), jobLock.surveyReportParam(), deleteFirstEntrySurveyReport);
 
 export default router;

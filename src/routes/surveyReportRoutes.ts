@@ -11,6 +11,7 @@ import {
 } from '../controllers/surveyReportController';
 import authMiddleware from '../middleware/auth';
 import { requirePermission } from '../middleware/permission';
+import { jobLock } from '../middleware/jobLock';
 
 const router = Router();
 
@@ -21,12 +22,12 @@ router.get('/public-pdf/:id', getPublicSurveyReportPdf);
 router.use(authMiddleware);
 
 // Standard CRUD endpoints
-router.post('/', requirePermission('marine.certificates', 'create'), createSurveyReport);
+router.post('/', requirePermission('marine.certificates', 'create'), jobLock.surveyReportBody('firstEntrySurveyReportId'), createSurveyReport);
 router.get('/', requirePermission('marine.certificates', 'read'), getAllSurveyReports);
 router.get('/pre-populate/:firstEntrySurveyReportId', requirePermission('marine.certificates', 'read'), getPrePopulatedReportData);
 router.get('/:id', requirePermission('marine.certificates', 'read'), getSurveyReportById);
-router.put('/:id', requirePermission('marine.certificates', 'update'), updateSurveyReport);
-router.delete('/:id', requirePermission('marine.certificates', 'delete'), deleteSurveyReport);
+router.put('/:id', requirePermission('marine.certificates', 'update'), jobLock.finalReportParam, updateSurveyReport);
+router.delete('/:id', requirePermission('marine.certificates', 'delete'), jobLock.finalReportParam, deleteSurveyReport);
 
 // PDF generation endpoint
 router.get('/pdf/:id', requirePermission('marine.certificates', 'read'), generateSurveyReportPdf);
