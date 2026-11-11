@@ -105,7 +105,7 @@ app.use('/api/public', publicRoutes);
 app.get('/api/health', (_req, res) => {
   res.status(200).json({
     success: true,
-    message: 'UQMS API is running',
+    message: 'UQMS API is running.',
     timestamp: formatDate(),
   });
 });

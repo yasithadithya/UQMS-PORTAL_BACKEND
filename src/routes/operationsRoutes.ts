@@ -230,7 +230,7 @@ router.get('/area-operations/search', searchAreaOperationsByCategory);
  * @swagger
  * /api/operations/survey-types/usage:
  *   get:
- *     summary: How many requests, jobs and checklist questions use each survey type ({ [id]: counts })
+ *     summary: "How many requests, jobs and checklist questions use each survey type ({ [id]: counts })"
  *     tags: [Operations]
  *     security:
  *       - bearerAuth: []

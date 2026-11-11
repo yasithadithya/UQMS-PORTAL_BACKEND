@@ -77,7 +77,7 @@ const vesselSchema: Schema = new Schema(
         imoNumber: { type: String, trim: true },
         mmsiNumber: { type: String, trim: true },
         vesselCode: { type: String, trim: true },
-        vesselName: { type: String, required: [true, 'Vessel name is required'], trim: true },
+        vesselName: { type: String, required: [true, 'Vessel name is required.'], trim: true },
         vesselType: { type: Schema.Types.ObjectId, ref: 'VesselType' },
         areaOfOperation: { type: Schema.Types.ObjectId, ref: 'AreaOfOperation' },
         description: { type: String, trim: true },

@@ -72,7 +72,7 @@ export const createDockingSurveyCert = async (req: Request, res: Response): Prom
       return;
     }
     if (!surveyReportId || !mongoose.isValidObjectId(surveyReportId)) {
-      res.status(400).json({ success: false, message: 'Invalid or missing Survey Report ID.' });
+      res.status(400).json({ success: false, message: 'Invalid or missing survey report ID.' });
       return;
     }
     if (!surveyBookingId || !mongoose.isValidObjectId(surveyBookingId)) {
@@ -90,7 +90,7 @@ export const createDockingSurveyCert = async (req: Request, res: Response): Prom
     if (existingCertificate) {
       res.status(400).json({
         success: false,
-        message: 'A Docking Survey Certificate has already been generated for this Survey Report.',
+        message: 'A docking survey certificate has already been generated for this survey report.',
       });
       return;
     }
@@ -105,14 +105,14 @@ export const createDockingSurveyCert = async (req: Request, res: Response): Prom
 
     const surveyReport = await FirstEntrySurveyReportModel.findById(surveyReportId);
     if (!surveyReport) {
-      res.status(404).json({ success: false, message: 'Survey Report not found.' });
+      res.status(404).json({ success: false, message: 'Survey report not found.' });
       return;
     }
 
     if (!surveyReport.reportNo) {
       res.status(400).json({
         success: false,
-        message: 'Cannot generate certificate. The Survey Report does not have a report number assigned.',
+        message: 'Cannot generate certificate. The survey report does not have a report number assigned.',
       });
       return;
     }
@@ -174,13 +174,13 @@ export const createDockingSurveyCert = async (req: Request, res: Response): Prom
 
     res.status(201).json({
       success: true,
-      message: 'Docking Survey Certificate created successfully.',
+      message: 'Docking survey certificate created.',
       data: populatedCert,
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error creating Docking Survey Certificate.',
+      message: 'Could not create docking survey certificate.',
       error: error.message,
     });
   }
@@ -203,7 +203,7 @@ export const getDockingSurveyCertById = async (req: Request, res: Response): Pro
       .populate('updatedBy', 'username email');
 
     if (!certificate) {
-      res.status(404).json({ success: false, message: 'Docking Survey Certificate not found.' });
+      res.status(404).json({ success: false, message: 'Docking survey certificate not found.' });
       return;
     }
 
@@ -214,7 +214,7 @@ export const getDockingSurveyCertById = async (req: Request, res: Response): Pro
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error retrieving Docking Survey Certificate.',
+      message: 'Could not load docking survey certificate.',
       error: error.message,
     });
   }
@@ -248,7 +248,7 @@ export const updateDockingSurveyCert = async (req: Request, res: Response): Prom
     );
 
     if (!savedCertificate) {
-      res.status(404).json({ success: false, message: 'Docking Survey Certificate not found.' });
+      res.status(404).json({ success: false, message: 'Docking survey certificate not found.' });
       return;
     }
 
@@ -264,13 +264,13 @@ export const updateDockingSurveyCert = async (req: Request, res: Response): Prom
 
     res.status(200).json({
       success: true,
-      message: 'Docking Survey Certificate updated successfully.',
+      message: 'Docking survey certificate updated.',
       data: updatedCertificate,
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error updating Docking Survey Certificate.',
+      message: 'Could not update docking survey certificate.',
       error: error.message,
     });
   }
@@ -288,7 +288,7 @@ export const deleteDockingSurveyCert = async (req: Request, res: Response): Prom
 
     const certificate = await DockingSurveyCertModel.findByIdAndDelete(id);
     if (!certificate) {
-      res.status(404).json({ success: false, message: 'Docking Survey Certificate not found.' });
+      res.status(404).json({ success: false, message: 'Docking survey certificate not found.' });
       return;
     }
 
@@ -296,12 +296,12 @@ export const deleteDockingSurveyCert = async (req: Request, res: Response): Prom
 
     res.status(200).json({
       success: true,
-      message: 'Docking Survey Certificate deleted successfully.',
+      message: 'Docking survey certificate deleted.',
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error deleting Docking Survey Certificate.',
+      message: 'Could not delete docking survey certificate.',
       error: error.message,
     });
   }
@@ -364,7 +364,7 @@ export const getDockingSurveyPreviewPdf = async (req: Request, res: Response): P
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error generating Docking Survey Preview PDF.',
+      message: 'Could not generate docking survey preview PDF.',
       error: error.message,
     });
   }
@@ -380,13 +380,13 @@ export const getDockingSurveyFinalPdf = async (req: Request, res: Response): Pro
 
     const certificate = await DockingSurveyCertModel.findById(id).select('certificateNumber pdf eSignature');
     if (!certificate) {
-      res.status(404).json({ success: false, message: 'Docking Survey Certificate not found.' });
+      res.status(404).json({ success: false, message: 'Docking survey certificate not found.' });
       return;
     }
 
     const pdfBuffer = await readStoredPdf(certificate.pdf, () => renderAndStoreDockingSurveyPdf(req, id));
     if (!pdfBuffer) {
-      res.status(404).json({ success: false, message: 'Docking Survey Certificate not found.' });
+      res.status(404).json({ success: false, message: 'Docking survey certificate not found.' });
       return;
     }
 
@@ -399,7 +399,7 @@ export const getDockingSurveyFinalPdf = async (req: Request, res: Response): Pro
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error generating Docking Survey Final PDF.',
+      message: 'Could not generate docking survey final PDF.',
       error: error.message,
     });
   }
@@ -445,7 +445,7 @@ export const getDockingSurveyCertBySurveyReportId = async (req: Request, res: Re
   try {
     const { surveyReportId } = req.params;
     if (!mongoose.isValidObjectId(surveyReportId)) {
-      res.status(400).json({ success: false, message: 'Invalid Survey Report ID format.' });
+      res.status(400).json({ success: false, message: 'Invalid survey report ID format.' });
       return;
     }
 
@@ -458,7 +458,7 @@ export const getDockingSurveyCertBySurveyReportId = async (req: Request, res: Re
       .populate('updatedBy', 'username email');
 
     if (!certificate) {
-      res.status(404).json({ success: false, message: 'Certificate not found for this Survey Report.' });
+      res.status(404).json({ success: false, message: 'Certificate not found for this survey report.' });
       return;
     }
 
@@ -469,7 +469,7 @@ export const getDockingSurveyCertBySurveyReportId = async (req: Request, res: Re
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error retrieving Certificate by Survey Report ID.',
+      message: 'Could not load certificate by survey report ID.',
       error: error.message,
     });
   }

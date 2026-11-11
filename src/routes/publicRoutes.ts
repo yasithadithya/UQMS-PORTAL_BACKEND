@@ -19,7 +19,7 @@ const publicIntakeLimiter = rateLimit({
   limit: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, message: 'Too many requests. Please try again later.' },
+  message: { success: false, message: 'Too many requests. Try again later.' },
 });
 
 const maxMb = Number(process.env.UPLOAD_MAX_MB || 10);

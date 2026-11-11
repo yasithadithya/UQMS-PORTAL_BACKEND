@@ -202,7 +202,7 @@ export const getAllFirstEntryFullReports = async (req: Request, res: Response): 
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching First Entry Full Reports.',
+      message: 'Could not load first entry full reports.',
       error: error.message
     });
   }
@@ -230,7 +230,7 @@ export const getFirstEntryFullReportById = async (req: Request, res: Response): 
       .populate('remarks.comments.createdBy', 'username email');
 
     if (!report) {
-      res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      res.status(404).json({ success: false, message: 'First entry full report not found.' });
       return;
     }
 
@@ -244,7 +244,7 @@ export const getFirstEntryFullReportById = async (req: Request, res: Response): 
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching First Entry Full Report.',
+      message: 'Could not load first entry full report.',
       error: error.message
     });
   }
@@ -272,7 +272,7 @@ export const getFirstEntryFullReportBySurveyReportId = async (req: Request, res:
       .populate('remarks.comments.createdBy', 'username email');
 
     if (!report) {
-      res.status(404).json({ success: false, message: 'First Entry Full Report not found for this survey report.' });
+      res.status(404).json({ success: false, message: 'First entry full report not found for this survey report.' });
       return;
     }
 
@@ -286,7 +286,7 @@ export const getFirstEntryFullReportBySurveyReportId = async (req: Request, res:
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching First Entry Full Report by survey report ID.',
+      message: 'Could not load first entry full report by survey report ID.',
       error: error.message
     });
   }
@@ -304,7 +304,7 @@ export const updateFirstEntryFullReport = async (req: Request, res: Response): P
 
     const existingReport = await FirstEntryFullReport.findById(id);
     if (!existingReport) {
-      res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      res.status(404).json({ success: false, message: 'First entry full report not found.' });
       return;
     }
 
@@ -415,7 +415,7 @@ export const updateFirstEntryFullReport = async (req: Request, res: Response): P
       .populate('remarks.comments.createdBy', 'username email');
 
     if (!updatedReport) {
-      res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      res.status(404).json({ success: false, message: 'First entry full report not found.' });
       return;
     }
 
@@ -423,13 +423,13 @@ export const updateFirstEntryFullReport = async (req: Request, res: Response): P
 
     res.status(200).json({
       success: true,
-      message: 'First Entry Full Report updated successfully.',
+      message: 'First entry full report updated.',
       data: filteredReport
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error updating First Entry Full Report.',
+      message: 'Could not update first entry full report.',
       error: error.message
     });
   }
@@ -450,18 +450,18 @@ export const deleteFirstEntryFullReport = async (req: Request, res: Response): P
 
     const report = await FirstEntryFullReport.findByIdAndDelete(id);
     if (!report) {
-      res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      res.status(404).json({ success: false, message: 'First entry full report not found.' });
       return;
     }
 
     res.status(200).json({
       success: true,
-      message: 'First Entry Full Report deleted successfully.'
+      message: 'First entry full report deleted.'
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error deleting First Entry Full Report.',
+      message: 'Could not delete first entry full report.',
       error: error.message
     });
   }
@@ -480,7 +480,7 @@ export const triggerFullReportGeneration = async (req: Request, res: Response): 
 
     const surveyReport = await FirstEntrySurveyReport.findById(surveyReportId);
     if (!surveyReport) {
-      res.status(404).json({ success: false, message: 'First Entry Survey Report not found.' });
+      res.status(404).json({ success: false, message: 'First entry survey report not found.' });
       return;
     }
 
@@ -501,13 +501,13 @@ export const triggerFullReportGeneration = async (req: Request, res: Response): 
 
     res.status(200).json({
       success: true,
-      message: 'First Entry Full Report generated successfully.',
+      message: 'First entry full report generated.',
       data: filteredReport
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error generating First Entry Full Report.',
+      message: 'Could not generate first entry full report.',
       error: error.message
     });
   }
@@ -518,7 +518,7 @@ export const triggerFullReportGeneration = async (req: Request, res: Response): 
  */
 const validatePdfGenerationRemarks = (report: any): void => {
   if (!report.remarks || report.remarks.length === 0) {
-    throw new Error('Cannot generate Daily Visit Report PDF without adding a general remark first.');
+    throw new Error('Cannot generate daily visit report PDF without adding a general remark first.');
   }
 
   // Find latest checklist update time
@@ -554,7 +554,7 @@ const validatePdfGenerationRemarks = (report: any): void => {
   }
 
   if (latestChecklistUpdate.getTime() > latestRemarkActivity.getTime()) {
-    throw new Error('You have modified checklist items since the last remark activity. Please add a new remark or close/reopen a remark before generating the report.');
+    throw new Error('You have modified checklist items since the last remark activity. Add a new remark or close/reopen a remark before generating the report.');
   }
 };
 
@@ -625,7 +625,7 @@ export const generateDailyReportPdf = async (req: Request, res: Response): Promi
       .populate('checklist.checklistQuestionId');
 
     if (!report) {
-      res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      res.status(404).json({ success: false, message: 'First entry full report not found.' });
       return;
     }
 
@@ -664,13 +664,13 @@ export const generateDailyReportPdf = async (req: Request, res: Response): Promi
 
     res.status(200).json({
       success: true,
-      message: 'Survey Checklist PDF generated successfully.',
+      message: 'Survey checklist PDF generated.',
       data: filteredReport,
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error generating Daily Visit Report PDF.',
+      message: 'Could not generate daily visit report PDF.',
       error: error.message,
     });
   }
@@ -694,7 +694,7 @@ export const getDailyReportPdfPreview = async (req: Request, res: Response): Pro
       .populate('checklist.checklistQuestionId');
 
     if (!report) {
-      res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      res.status(404).json({ success: false, message: 'First entry full report not found.' });
       return;
     }
 
@@ -720,7 +720,7 @@ export const getDailyReportPdfPreview = async (req: Request, res: Response): Pro
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error generating PDF preview.',
+      message: 'Could not generate PDF preview.',
       error: error.message,
     });
   }
@@ -753,7 +753,7 @@ export const getDailyVisitReportPdf = async (req: Request, res: Response): Promi
       .populate('vesselId')
       .populate('checklist.checklistQuestionId');
     if (!report) {
-      res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      res.status(404).json({ success: false, message: 'First entry full report not found.' });
       return;
     }
 
@@ -786,7 +786,7 @@ export const getDailyVisitReportPdf = async (req: Request, res: Response): Promi
       record: { docType: 'daily-report', docId: String(id) },
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error generating the Daily Visit Report.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not generate the daily visit report.', error: error.message });
   }
 };
 
@@ -803,7 +803,7 @@ export const getDailyReportPdf = async (req: Request, res: Response): Promise<vo
 
     const report = await FirstEntryFullReport.findById(id).select('dailyReportPdfKey dailyReportPdfBucket dailyReportPdfFilename eSignature');
     if (!report) {
-      res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      res.status(404).json({ success: false, message: 'First entry full report not found.' });
       return;
     }
     if (!report.dailyReportPdfKey) {
@@ -822,7 +822,7 @@ export const getDailyReportPdf = async (req: Request, res: Response): Promise<vo
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error retrieving Daily Visit Report PDF.',
+      message: 'Could not load daily visit report PDF.',
       error: error.message,
     });
   }
@@ -887,7 +887,7 @@ export const addGeneralRemark = async (req: Request, res: Response): Promise<voi
 
     const report = await FirstEntryFullReport.findById(id);
     if (!report) {
-      res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      res.status(404).json({ success: false, message: 'First entry full report not found.' });
       return;
     }
 
@@ -917,13 +917,13 @@ export const addGeneralRemark = async (req: Request, res: Response): Promise<voi
 
     res.status(200).json({
       success: true,
-      message: 'General remark added successfully.',
+      message: 'General remark added.',
       data: await filterVisitsForUser(updatedReport, userId)
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error adding general remark.',
+      message: 'Could not add general remark.',
       error: error.message
     });
   }
@@ -945,7 +945,7 @@ export const editGeneralRemark = async (req: Request, res: Response): Promise<vo
 
     const report = await FirstEntryFullReport.findById(id);
     if (!report) {
-      res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      res.status(404).json({ success: false, message: 'First entry full report not found.' });
       return;
     }
 
@@ -978,13 +978,13 @@ export const editGeneralRemark = async (req: Request, res: Response): Promise<vo
 
     res.status(200).json({
       success: true,
-      message: 'General remark updated successfully.',
+      message: 'General remark updated.',
       data: await filterVisitsForUser(updatedReport, userId)
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error updating general remark.',
+      message: 'Could not update general remark.',
       error: error.message
     });
   }
@@ -1000,7 +1000,7 @@ export const toggleCloseGeneralRemark = async (req: Request, res: Response): Pro
 
     const report = await FirstEntryFullReport.findById(id);
     if (!report) {
-      res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      res.status(404).json({ success: false, message: 'First entry full report not found.' });
       return;
     }
 
@@ -1028,13 +1028,13 @@ export const toggleCloseGeneralRemark = async (req: Request, res: Response): Pro
 
     res.status(200).json({
       success: true,
-      message: `General remark ${remark.isClosed ? 'closed' : 'reopened'} successfully.`,
+      message: `General remark ${remark.isClosed ? 'closed' : 'reopened'}.`,
       data: await filterVisitsForUser(updatedReport, userId)
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error toggling remark closed status.',
+      message: 'Could not toggle remark closed status.',
       error: error.message
     });
   }
@@ -1062,7 +1062,7 @@ export const addRemarkComment = async (req: Request, res: Response): Promise<voi
 
     const report = await FirstEntryFullReport.findById(id);
     if (!report) {
-      res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      res.status(404).json({ success: false, message: 'First entry full report not found.' });
       return;
     }
 
@@ -1096,13 +1096,13 @@ export const addRemarkComment = async (req: Request, res: Response): Promise<voi
 
     res.status(200).json({
       success: true,
-      message: 'Comment added successfully.',
+      message: 'Comment added.',
       data: await filterVisitsForUser(updatedReport, userId)
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error adding comment to remark.',
+      message: 'Could not add comment to remark.',
       error: error.message
     });
   }
@@ -1124,7 +1124,7 @@ export const editRemarkComment = async (req: Request, res: Response): Promise<vo
 
     const report = await FirstEntryFullReport.findById(id);
     if (!report) {
-      res.status(404).json({ success: false, message: 'First Entry Full Report not found.' });
+      res.status(404).json({ success: false, message: 'First entry full report not found.' });
       return;
     }
 
@@ -1163,13 +1163,13 @@ export const editRemarkComment = async (req: Request, res: Response): Promise<vo
 
     res.status(200).json({
       success: true,
-      message: 'Comment updated successfully.',
+      message: 'Comment updated.',
       data: await filterVisitsForUser(updatedReport, userId)
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error updating comment.',
+      message: 'Could not update comment.',
       error: error.message
     });
   }

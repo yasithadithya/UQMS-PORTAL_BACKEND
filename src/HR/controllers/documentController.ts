@@ -51,7 +51,7 @@ export const uploadDocument = async (req: AuthRequest, res: Response): Promise<v
       notes,
     });
 
-    res.status(201).json({ success: true, data: document, message: 'Document uploaded successfully' });
+    res.status(201).json({ success: true, data: document, message: 'Document uploaded.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -67,7 +67,7 @@ export const getExpiringDocuments = async (req: Request, res: Response): Promise
       .populate('employee', 'firstName lastName employeeId')
       .sort({ expiryDate: 1 });
 
-    res.status(200).json({ success: true, data: documents, message: 'Expiring documents fetched successfully' });
+    res.status(200).json({ success: true, data: documents, message: 'Expiring documents fetched.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -76,7 +76,7 @@ export const getExpiringDocuments = async (req: Request, res: Response): Promise
 export const getEmployeeDocuments = async (req: Request, res: Response): Promise<void> => {
   try {
     const documents = await EmployeeDocument.find({ employee: req.params.employeeId }).sort({ createdAt: -1 });
-    res.status(200).json({ success: true, data: documents, message: 'Documents fetched successfully' });
+    res.status(200).json({ success: true, data: documents, message: 'Documents fetched.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -97,7 +97,7 @@ export const deleteDocument = async (req: Request, res: Response): Promise<void>
     }
     await document.deleteOne();
 
-    res.status(200).json({ success: true, data: document, message: 'Document deleted successfully' });
+    res.status(200).json({ success: true, data: document, message: 'Document deleted.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }

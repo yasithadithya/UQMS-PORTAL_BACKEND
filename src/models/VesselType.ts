@@ -12,13 +12,13 @@ const vesselTypeSchema: Schema = new Schema(
   {
     group: {
       type: String,
-      required: [true, 'Vessel type group is required'],
+      required: [true, 'Vessel type group is required.'],
       unique: true,
       trim: true,
     },
     name: {
       type: String,
-      required: [true, 'Vessel type name is required'],
+      required: [true, 'Vessel type name is required.'],
       trim: true,
     },
   },

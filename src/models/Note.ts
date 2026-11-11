@@ -22,29 +22,29 @@ export interface INote extends Document {
 const noteItemSchema = new Schema<INoteItem>({
     noteCategory: {
         type: String,
-        required: [true, 'Note category is required'],
+        required: [true, 'Note category is required.'],
         enum: ['Additional Information', 'Statutory Conditions'],
         trim: true
     },
     noteCode: {
         type: String,
-        required: [true, 'Note code is required'],
+        required: [true, 'Note code is required.'],
         trim: true
     },
     description: {
         type: String,
-        required: [true, 'Description is required'],
+        required: [true, 'Description is required.'],
         trim: true
     },
     type: {
         type: String,
-        required: [true, 'Type is required'],
+        required: [true, 'Type is required.'],
         enum: ['Hull', 'Machinery', 'Equipment'],
         trim: true
     },
     status: {
         type: String,
-        required: [true, 'Status is required'],
+        required: [true, 'Status is required.'],
         enum: ['new', 'modified', 'deleted', 'retained'],
         default: 'new',
         trim: true
@@ -59,7 +59,7 @@ const noteSchema: Schema = new Schema(
         vesselId: {
             type: Schema.Types.ObjectId,
             ref: 'Vessel',
-            required: [true, 'Vessel ID reference is required'],
+            required: [true, 'Vessel ID reference is required.'],
             unique: true
         },
         notes: {

@@ -95,7 +95,7 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
 
     res.status(201).json({
       success: true,
-      message: 'File uploaded successfully.',
+      message: 'File uploaded.',
       data: {
         key: uploadResult.key,
         bucket: uploadResult.bucket,

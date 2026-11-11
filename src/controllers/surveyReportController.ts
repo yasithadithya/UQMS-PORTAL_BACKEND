@@ -104,7 +104,7 @@ export const getPrePopulatedReportData = async (req: Request, res: Response): Pr
   try {
     const firstEntrySurveyReportId = req.params.firstEntrySurveyReportId;
     if (!mongoose.isValidObjectId(firstEntrySurveyReportId)) {
-      res.status(400).json({ success: false, message: 'Invalid First Entry Survey Report ID.' });
+      res.status(400).json({ success: false, message: 'Invalid first entry survey report ID.' });
       return;
     }
 
@@ -114,13 +114,13 @@ export const getPrePopulatedReportData = async (req: Request, res: Response): Pr
     // 2. Fetch FirstEntrySurveyReport
     const firstEntryReport = await FirstEntrySurveyReportModel.findById(firstEntrySurveyReportId);
     if (!firstEntryReport) {
-      res.status(404).json({ success: false, message: 'First Entry Survey Report not found.' });
+      res.status(404).json({ success: false, message: 'First entry survey report not found.' });
       return;
     }
 
     const vesselId = firstEntryReport.vesselId;
     if (!vesselId) {
-      res.status(400).json({ success: false, message: 'Vessel reference not found in First Entry Survey Report.' });
+      res.status(400).json({ success: false, message: 'Vessel reference not found in first entry survey report.' });
       return;
     }
 
@@ -237,7 +237,7 @@ export const getPrePopulatedReportData = async (req: Request, res: Response): Pr
 
     res.status(200).json({
       success: true,
-      message: 'Pre-populated survey report data retrieved successfully.',
+      message: 'Pre-populated survey report data retrieved.',
       data: {
         exists: !!existingReport,
         existingReportId: existingReport ? existingReport._id : null,
@@ -249,7 +249,7 @@ export const getPrePopulatedReportData = async (req: Request, res: Response): Pr
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error pre-populating survey report.',
+      message: 'Could not fill in the survey report.',
       error: error.message,
     });
   }
@@ -310,13 +310,13 @@ export const createSurveyReport = async (req: Request, res: Response): Promise<v
 
     res.status(201).json({
       success: true,
-      message: 'Survey Report created successfully.',
+      message: 'Survey report created.',
       data: await SurveyReportModel.findById(reportId),
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error creating Survey Report.',
+      message: 'Could not create survey report.',
       error: error.message,
     });
   }
@@ -343,7 +343,7 @@ export const getAllSurveyReports = async (_req: Request, res: Response): Promise
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching Survey Reports.',
+      message: 'Could not load survey reports.',
       error: error.message,
     });
   }
@@ -356,7 +356,7 @@ export const getSurveyReportById = async (req: Request, res: Response): Promise<
   try {
     const id = req.params.id;
     if (!mongoose.isValidObjectId(id)) {
-      res.status(400).json({ success: false, message: 'Invalid Survey Report ID format.' });
+      res.status(400).json({ success: false, message: 'Invalid survey report ID format.' });
       return;
     }
 
@@ -368,7 +368,7 @@ export const getSurveyReportById = async (req: Request, res: Response): Promise<
       .populate('updatedBy', 'username email');
 
     if (!report) {
-      res.status(404).json({ success: false, message: 'Survey Report not found.' });
+      res.status(404).json({ success: false, message: 'Survey report not found.' });
       return;
     }
 
@@ -379,7 +379,7 @@ export const getSurveyReportById = async (req: Request, res: Response): Promise<
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching Survey Report.',
+      message: 'Could not load survey report.',
       error: error.message,
     });
   }
@@ -394,7 +394,7 @@ export const updateSurveyReport = async (req: Request, res: Response): Promise<v
     const userId = (req as any).user?.id;
 
     if (!mongoose.isValidObjectId(id)) {
-      res.status(400).json({ success: false, message: 'Invalid Survey Report ID format.' });
+      res.status(400).json({ success: false, message: 'Invalid survey report ID format.' });
       return;
     }
 
@@ -456,7 +456,7 @@ export const updateSurveyReport = async (req: Request, res: Response): Promise<v
     );
 
     if (!savedReport) {
-      res.status(404).json({ success: false, message: 'Survey Report not found.' });
+      res.status(404).json({ success: false, message: 'Survey report not found.' });
       return;
     }
 
@@ -465,13 +465,13 @@ export const updateSurveyReport = async (req: Request, res: Response): Promise<v
 
     res.status(200).json({
       success: true,
-      message: 'Survey Report updated successfully.',
+      message: 'Survey report updated.',
       data: updatedReport,
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error updating Survey Report.',
+      message: 'Could not update survey report.',
       error: error.message,
     });
   }
@@ -484,7 +484,7 @@ export const deleteSurveyReport = async (req: Request, res: Response): Promise<v
   try {
     const id = req.params.id;
     if (!mongoose.isValidObjectId(id)) {
-      res.status(400).json({ success: false, message: 'Invalid Survey Report ID format.' });
+      res.status(400).json({ success: false, message: 'Invalid survey report ID format.' });
       return;
     }
 
@@ -492,7 +492,7 @@ export const deleteSurveyReport = async (req: Request, res: Response): Promise<v
 
     const report = await SurveyReportModel.findByIdAndDelete(id);
     if (!report) {
-      res.status(404).json({ success: false, message: 'Survey Report not found.' });
+      res.status(404).json({ success: false, message: 'Survey report not found.' });
       return;
     }
 
@@ -500,12 +500,12 @@ export const deleteSurveyReport = async (req: Request, res: Response): Promise<v
 
     res.status(200).json({
       success: true,
-      message: 'Survey Report deleted successfully.',
+      message: 'Survey report deleted.',
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error deleting Survey Report.',
+      message: 'Could not delete survey report.',
       error: error.message,
     });
   }
@@ -518,19 +518,19 @@ export const generateSurveyReportPdf = async (req: Request, res: Response): Prom
   try {
     const id = req.params.id as string;
     if (!mongoose.isValidObjectId(id)) {
-      res.status(400).json({ success: false, message: 'Invalid Survey Report ID format.' });
+      res.status(400).json({ success: false, message: 'Invalid survey report ID format.' });
       return;
     }
 
     const report = await SurveyReportModel.findById(id).select('pdf eSignature');
     if (!report) {
-      res.status(404).json({ success: false, message: 'Survey Report not found.' });
+      res.status(404).json({ success: false, message: 'Survey report not found.' });
       return;
     }
 
     const pdfBuffer = await readStoredPdf(report.pdf, () => renderAndStoreSurveyReportPdf(req, id));
     if (!pdfBuffer) {
-      res.status(404).json({ success: false, message: 'Survey Report not found.' });
+      res.status(404).json({ success: false, message: 'Survey report not found.' });
       return;
     }
 
@@ -538,7 +538,7 @@ export const generateSurveyReportPdf = async (req: Request, res: Response): Prom
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error generating PDF.',
+      message: 'Could not generate PDF.',
       error: error.message,
     });
   }

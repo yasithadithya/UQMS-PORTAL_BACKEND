@@ -38,8 +38,8 @@ const fileSchema = new Schema(
 
 const previousDocumentSchema = new Schema(
   {
-    uqmsNumber: { type: String, required: [true, 'UQMS number is required'], trim: true, index: true },
-    vesselName: { type: String, required: [true, 'Vessel name is required'], trim: true },
+    uqmsNumber: { type: String, required: [true, 'UQMS number is required.'], trim: true, index: true },
+    vesselName: { type: String, required: [true, 'Vessel name is required.'], trim: true },
     vesselCode: { type: String, trim: true },
     remarks: { type: String, trim: true },
     documents: { type: [fileSchema], default: [] },

@@ -33,14 +33,14 @@ const userSchema: Schema = new Schema(
   {
     username: {
       type: String,
-      required: [true, 'Username is required'],
+      required: [true, 'Username is required.'],
       unique: true,
       trim: true,
       minlength: [3, 'Username must be at least 3 characters'],
     },
     email: {
       type: String,
-      required: [true, 'Email is required'],
+      required: [true, 'Email is required.'],
       unique: true,
       trim: true,
       lowercase: true,
@@ -48,17 +48,17 @@ const userSchema: Schema = new Schema(
     },
     password: {
       type: String,
-      required: [true, 'Password is required'],
+      required: [true, 'Password is required.'],
       minlength: [6, 'Password must be at least 6 characters'],
     },
     role: {
       type: Schema.Types.ObjectId,
       ref: 'Role',
-      required: [true, 'Role is required'],
+      required: [true, 'Role is required.'],
     },
     fullName: {
       type: String,
-      required: [true, 'Full name is required'],
+      required: [true, 'Full name is required.'],
       trim: true,
     },
     nameWithInitials: {
@@ -67,7 +67,7 @@ const userSchema: Schema = new Schema(
     },
     phoneNumber: {
       type: String,
-      required: [true, 'Phone number is required'],
+      required: [true, 'Phone number is required.'],
       trim: true,
     },
     address: {

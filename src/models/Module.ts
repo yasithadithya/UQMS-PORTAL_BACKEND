@@ -23,7 +23,7 @@ const moduleSchema: Schema = new Schema(
   {
     name: {
       type: String,
-      required: [true, 'Module name is required'],
+      required: [true, 'Module name is required.'],
       unique: true,
       trim: true,
     },

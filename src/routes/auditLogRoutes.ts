@@ -97,7 +97,7 @@ router.get('/', requirePermission('admin.audit-log', 'read'), async (req: AuthRe
     }) as any;
     res.status(200).json(result);
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error fetching audit log.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load audit log.', error: error.message });
   }
 });
 
@@ -127,7 +127,7 @@ router.get('/meta', requirePermission('admin.audit-log', 'read'), async (_req: A
       data: { ...meta, operations: AUDIT_OPERATIONS, users: users.map((u) => ({ _id: u._id, name: u.name || u.email, email: u.email })) },
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error fetching audit log metadata.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load audit log metadata.', error: error.message });
   }
 });
 
@@ -191,7 +191,7 @@ router.get('/export', requirePermission('admin.audit-log', 'export'), async (req
     res.setHeader('Content-Disposition', `attachment; filename="audit-log-${stamp}.csv"`);
     res.status(200).send(`﻿${lines.join('\r\n')}`);
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error exporting audit log.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not export audit log.', error: error.message });
   }
 });
 
@@ -217,7 +217,7 @@ router.get('/:id', requirePermission('admin.audit-log', 'read'), async (req: Aut
     }
     res.status(200).json({ success: true, data: entry });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error fetching audit entry.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load audit entry.', error: error.message });
   }
 });
 

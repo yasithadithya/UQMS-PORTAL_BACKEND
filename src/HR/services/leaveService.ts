@@ -42,14 +42,14 @@ export const submitLeave = async (
 ) => {
   const totalDays = await calculateLeaveDays(startDate, endDate);
   if (totalDays <= 0) {
-    throw new Error('Invalid date range or no working days selected');
+    throw new Error('Invalid date range or no working days selected.');
   }
 
   const year = startDate.getFullYear();
   const balance = await LeaveBalance.findOne({ employee, leaveType, year });
 
   if (!balance || balance.remainingDays < totalDays) {
-    throw new Error('Insufficient leave balance');
+    throw new Error('Insufficient leave balance.');
   }
 
   const request = new LeaveRequest({
@@ -67,7 +67,7 @@ export const submitLeave = async (
 export const approveLeave = async (leaveRequestId: string, approvedBy: string) => {
   const request = await LeaveRequest.findById(leaveRequestId);
   if (!request || request.status !== 'Pending') {
-    throw new Error('Leave request not found or not in pending state');
+    throw new Error('Leave request not found or not in pending state.');
   }
 
   const balance = await LeaveBalance.findOne({
@@ -77,11 +77,11 @@ export const approveLeave = async (leaveRequestId: string, approvedBy: string) =
   });
 
   if (!balance) {
-    throw new Error('Leave balance not found');
+    throw new Error('Leave balance not found.');
   }
 
   if (balance.pendingDays < request.totalDays) {
-    throw new Error('Inconsistent pending days');
+    throw new Error('Inconsistent pending days.');
   }
 
   balance.pendingDays -= request.totalDays;
@@ -134,7 +134,7 @@ export const approveLeave = async (leaveRequestId: string, approvedBy: string) =
 export const rejectOrCancelLeave = async (leaveRequestId: string, newStatus: 'Rejected' | 'Cancelled', userId?: string, reason?: string) => {
   const request = await LeaveRequest.findById(leaveRequestId);
   if (!request) {
-    throw new Error('Leave request not found');
+    throw new Error('Leave request not found.');
   }
 
   if (request.status === 'Approved') {

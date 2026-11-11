@@ -72,7 +72,7 @@ router.get('/', async (req: Request, res: Response) => {
     }
     res.status(200).json(await paginate(LibraryDocument, filter, req, [], { issueDate: -1, createdAt: -1 }));
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error loading documents.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load documents.', error: error.message });
   }
 });
 
@@ -89,7 +89,7 @@ router.post('/', async (req: Request, res: Response) => {
     res.status(201).json({ success: true, message: 'Document saved.', data: doc });
   } catch (error: any) {
     const status = error?.name === 'ValidationError' ? 400 : 500;
-    res.status(status).json({ success: false, message: status === 400 ? error.message : 'Error saving the document.', error: error.message });
+    res.status(status).json({ success: false, message: status === 400 ? error.message : 'Could not save the document.', error: error.message });
   }
 });
 
@@ -112,7 +112,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     res.status(200).json({ success: true, message: 'Saved.', data: doc });
   } catch (error: any) {
     const status = error?.name === 'ValidationError' ? 400 : 500;
-    res.status(status).json({ success: false, message: status === 400 ? error.message : 'Error saving.', error: error.message });
+    res.status(status).json({ success: false, message: status === 400 ? error.message : 'Could not save.', error: error.message });
   }
 });
 

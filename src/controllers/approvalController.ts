@@ -225,7 +225,7 @@ export const createApprovalRequest = async (req: Request, res: Response): Promis
 
     res.status(201).json({ success: true, message: 'Change sent for approval.', data: approval });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error submitting the change.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not submit the change.', error: error.message });
   }
 };
 
@@ -297,7 +297,7 @@ export const getApprovalRequests = async (req: Request, res: Response): Promise<
     const result = await paginate(ApprovalRequest, filter, req);
     res.status(200).json({ ...result, data: await Promise.all(result.data.map((a) => withChanges(a))) });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error loading approvals.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load approvals.', error: error.message });
   }
 };
 
@@ -324,7 +324,7 @@ export const getRevisionHistory = async (req: Request, res: Response): Promise<v
     const result = await paginate(ApprovalRequest, filter, req, [], { updatedAt: -1 });
     res.status(200).json({ ...result, data: await Promise.all(result.data.map((a) => withChanges(a))) });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error loading the revision history.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load the revision history.', error: error.message });
   }
 };
 
@@ -391,7 +391,7 @@ export const decideApprovalRequest = async (req: Request, res: Response): Promis
     );
     res.status(200).json({ success: true, message: 'Change approved. It now needs to be accepted.', data: await ApprovalRequest.findById(approval._id) });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error deciding the approval.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not record the approval decision.', error: error.message });
   }
 };
 
@@ -431,7 +431,7 @@ export const acceptApprovalRequest = async (req: Request, res: Response): Promis
     }
     res.status(200).json({ success: true, message: 'Change accepted and now in effect.', data: await ApprovalRequest.findById(approval._id) });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error accepting the change.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not accept the change.', error: error.message });
   }
 };
 

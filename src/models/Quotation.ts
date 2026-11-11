@@ -125,7 +125,7 @@ const lineItemSchema = new Schema(
     },
     description: {
       type: String,
-      required: [true, 'Line description is required'],
+      required: [true, 'Line description is required.'],
       trim: true,
     },
     currency: {
@@ -184,7 +184,7 @@ const quotationSchema: Schema = new Schema(
     request: {
       type: Schema.Types.ObjectId,
       ref: 'Request',
-      required: [true, 'Request reference is required'],
+      required: [true, 'Request reference is required.'],
       index: true,
     },
     requestNumber: {
@@ -220,7 +220,7 @@ const quotationSchema: Schema = new Schema(
     },
     title: {
       type: String,
-      required: [true, 'Title is required'],
+      required: [true, 'Title is required.'],
       trim: true,
     },
     vesselName: {
@@ -236,7 +236,7 @@ const quotationSchema: Schema = new Schema(
       default: [],
     },
     client: {
-      companyName: { type: String, required: [true, 'Client company name is required'], trim: true },
+      companyName: { type: String, required: [true, 'Client company name is required.'], trim: true },
       address: { type: String, trim: true },
       contactPerson: { type: String, trim: true },
       email: { type: String, trim: true },
@@ -248,14 +248,14 @@ const quotationSchema: Schema = new Schema(
     },
     exchangeRate: {
       type: Number,
-      required: [true, 'Conversion rate is required'],
+      required: [true, 'Conversion rate is required.'],
       min: 0,
     },
     lineItems: {
       type: [lineItemSchema],
       validate: {
         validator: (items: unknown[]) => Array.isArray(items) && items.length > 0,
-        message: 'At least one line item is required',
+        message: 'At least one line item is required.',
       },
     },
     subtotal: {

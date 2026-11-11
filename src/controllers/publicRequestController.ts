@@ -228,7 +228,7 @@ export const createPublicSurveyRequest = async (req: Request, res: Response): Pr
 
     res.status(201).json({
       success: true,
-      message: 'Request created successfully.',
+      message: 'Request created.',
       data: {
         _id: newRequest._id,
         requestNumber: newRequest.requestNumber,
@@ -246,6 +246,6 @@ export const createPublicSurveyRequest = async (req: Request, res: Response): Pr
       return;
     }
 
-    res.status(500).json({ success: false, message: 'Error creating request.' });
+    res.status(500).json({ success: false, message: 'Could not create request.' });
   }
 };

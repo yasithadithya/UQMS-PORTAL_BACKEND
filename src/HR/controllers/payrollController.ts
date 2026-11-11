@@ -21,7 +21,7 @@ export const setSalaryStructure = async (req: Request, res: Response): Promise<v
     });
 
     await newStructure.save();
-    res.status(201).json({ success: true, data: newStructure, message: 'Salary structure updated successfully' });
+    res.status(201).json({ success: true, data: newStructure, message: 'Salary structure updated.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -34,7 +34,7 @@ export const getSalaryStructure = async (req: Request, res: Response): Promise<v
       res.status(404).json({ success: false, error: 'Active salary structure not found', details: [] });
       return;
     }
-    res.status(200).json({ success: true, data: structure, message: 'Salary structure fetched successfully' });
+    res.status(200).json({ success: true, data: structure, message: 'Salary structure fetched.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -52,7 +52,7 @@ export const generateSinglePayroll = async (req: Request, res: Response): Promis
     }
 
     const payroll = await generatePayroll(employeeId, month, year);
-    res.status(201).json({ success: true, data: payroll, message: 'Payroll generated successfully' });
+    res.status(201).json({ success: true, data: payroll, message: 'Payroll generated.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -78,7 +78,7 @@ export const generateBulkPayroll = async (req: Request, res: Response): Promise<
       }
     }
 
-    res.status(200).json({ success: true, data: results, message: 'Bulk generation completed' });
+    res.status(200).json({ success: true, data: results, message: 'Bulk generation completed.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -106,7 +106,7 @@ export const listPayrollRuns = async (req: Request, res: Response): Promise<void
     res.status(200).json({
       success: true,
       data: { runs, total, page, pages: Math.ceil(total / limit) },
-      message: 'Payroll runs fetched successfully'
+      message: 'Payroll runs fetched.'
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
@@ -120,7 +120,7 @@ export const getPayrollRun = async (req: Request, res: Response): Promise<void> 
       res.status(404).json({ success: false, error: 'Payroll run not found', details: [] });
       return;
     }
-    res.status(200).json({ success: true, data: run, message: 'Payroll run fetched successfully' });
+    res.status(200).json({ success: true, data: run, message: 'Payroll run fetched.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -137,7 +137,7 @@ export const approvePayrollRun = async (req: AuthRequest, res: Response): Promis
       res.status(404).json({ success: false, error: 'Payroll run not found', details: [] });
       return;
     }
-    res.status(200).json({ success: true, data: run, message: 'Payroll approved successfully' });
+    res.status(200).json({ success: true, data: run, message: 'Payroll approved.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -154,7 +154,7 @@ export const markPayrollPaid = async (req: Request, res: Response): Promise<void
       res.status(404).json({ success: false, error: 'Payroll run not found', details: [] });
       return;
     }
-    res.status(200).json({ success: true, data: run, message: 'Payroll marked as paid' });
+    res.status(200).json({ success: true, data: run, message: 'Payroll marked as paid.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -168,7 +168,7 @@ export const generatePayslip = async (req: Request, res: Response): Promise<void
       return;
     }
     // Return JSON data suitable for frontend to render PDF
-    res.status(200).json({ success: true, data: run, message: 'Payslip data fetched successfully' });
+    res.status(200).json({ success: true, data: run, message: 'Payslip data fetched.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -182,7 +182,7 @@ export const getPayrollSummary = async (req: Request, res: Response): Promise<vo
       year ? parseInt(year as string) : undefined
     );
 
-    res.status(200).json({ success: true, data: summary, message: 'Payroll summary fetched' });
+    res.status(200).json({ success: true, data: summary, message: 'Payroll summary fetched.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }

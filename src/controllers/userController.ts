@@ -19,7 +19,7 @@ export const getUserDirectory = async (_req: Request, res: Response): Promise<vo
       .lean();
     res.status(200).json({ success: true, count: users.length, data: users.map((u) => ({ ...u, id: String(u._id) })) });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error fetching user directory.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load user directory.', error: error.message });
   }
 };
 
@@ -76,7 +76,7 @@ export const createUser = async (req: AuthRequest, res: Response): Promise<void>
 
     res.status(201).json({
       success: true,
-      message: 'User created successfully.',
+      message: 'User created.',
       data: userResponse,
     });
   } catch (error: any) {
@@ -89,7 +89,7 @@ export const createUser = async (req: AuthRequest, res: Response): Promise<void>
     }
     res.status(500).json({
       success: false,
-      message: 'Error creating user.',
+      message: 'Could not create user.',
       error: error.message,
     });
   }
@@ -111,7 +111,7 @@ export const getAllUsers = async (_req: Request, res: Response): Promise<void> =
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching users.',
+      message: 'Could not load users.',
       error: error.message,
     });
   }
@@ -151,7 +151,7 @@ export const getUserById = async (req: AuthRequest, res: Response): Promise<void
     }
     res.status(500).json({
       success: false,
-      message: 'Error fetching user.',
+      message: 'Could not load user.',
       error: error.message,
     });
   }
@@ -250,7 +250,7 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
 
     res.status(200).json({
       success: true,
-      message: 'User updated successfully.',
+      message: 'User updated.',
       data: updatedUser,
     });
   } catch (error: any) {
@@ -270,7 +270,7 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
     }
     res.status(500).json({
       success: false,
-      message: 'Error updating user.',
+      message: 'Could not update user.',
       error: error.message,
     });
   }
@@ -300,7 +300,7 @@ export const deleteUser = async (req: AuthRequest, res: Response): Promise<void>
 
     res.status(200).json({
       success: true,
-      message: 'User deleted successfully.',
+      message: 'User deleted.',
     });
   } catch (error: any) {
     if (error.kind === 'ObjectId') {
@@ -312,7 +312,7 @@ export const deleteUser = async (req: AuthRequest, res: Response): Promise<void>
     }
     res.status(500).json({
       success: false,
-      message: 'Error deleting user.',
+      message: 'Could not delete user.',
       error: error.message,
     });
   }

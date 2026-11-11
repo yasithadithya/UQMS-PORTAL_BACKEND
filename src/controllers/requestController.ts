@@ -370,7 +370,7 @@ export const createRequest = async (req: Request, res: Response): Promise<void> 
 
     res.status(201).json({
       success: true,
-      message: 'Request created successfully.',
+      message: 'Request created.',
       data: populatedRequest,
     });
   } catch (error: any) {
@@ -378,7 +378,7 @@ export const createRequest = async (req: Request, res: Response): Promise<void> 
       res.status(409).json({ success: false, message: 'Request number already exists.' });
       return;
     }
-    res.status(500).json({ success: false, message: 'Error creating request.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not create request.', error: error.message });
   }
 };
 
@@ -408,7 +408,7 @@ export const getAllRequests = async (req: Request, res: Response): Promise<void>
     const result = await paginate(RequestModel, query, req, requestListPopulateOptions, { requestNumber: -1 });
     res.status(200).json(result);
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error fetching requests.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load requests.', error: error.message });
   }
 };
 
@@ -419,7 +419,7 @@ export const getPendingWebRequests = async (req: Request, res: Response): Promis
     const result = await paginate(RequestModel, query, req, requestListPopulateOptions, { createdAt: 1 });
     res.status(200).json(result);
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error fetching website requests.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load website requests.', error: error.message });
   }
 };
 
@@ -489,7 +489,7 @@ export const acceptWebRequest = async (req: Request, res: Response): Promise<voi
   try {
     await reviewWebRequest(req, res, 'accepted');
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error accepting request.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not accept the request.', error: error.message });
   }
 };
 
@@ -497,7 +497,7 @@ export const rejectWebRequest = async (req: Request, res: Response): Promise<voi
   try {
     await reviewWebRequest(req, res, 'rejected');
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error rejecting request.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not reject request.', error: error.message });
   }
 };
 
@@ -522,7 +522,7 @@ export const getRequestById = async (req: Request, res: Response): Promise<void>
 
     res.status(200).json({ success: true, data: request });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error fetching request.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load request.', error: error.message });
   }
 };
 
@@ -752,11 +752,11 @@ export const updateRequest = async (req: Request, res: Response): Promise<void> 
 
     res.status(200).json({
       success: true,
-      message: 'Request updated successfully.',
+      message: 'Request updated.',
       data: populatedRequest,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error updating request.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not update request.', error: error.message });
   }
 };
 
@@ -855,11 +855,11 @@ export const addRequestDocuments = async (req: Request, res: Response): Promise<
 
     res.status(201).json({
       success: true,
-      message: 'Documents uploaded successfully.',
+      message: 'Documents uploaded.',
       data: populatedRequest,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error uploading documents.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not upload documents.', error: error.message });
   }
 };
 
@@ -965,11 +965,11 @@ export const updateRequestDocument = async (req: Request, res: Response): Promis
 
     res.status(200).json({
       success: true,
-      message: 'Document updated successfully.',
+      message: 'Document updated.',
       data: populatedRequest,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error updating document.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not update document.', error: error.message });
   }
 };
 
@@ -1023,11 +1023,11 @@ export const deleteRequestDocument = async (req: Request, res: Response): Promis
 
     res.status(200).json({
       success: true,
-      message: 'Document deleted successfully.',
+      message: 'Document deleted.',
       data: populatedRequest,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error deleting document.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not delete document.', error: error.message });
   }
 };
 
@@ -1044,9 +1044,9 @@ export const deleteRequest = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    res.status(200).json({ success: true, message: 'Request deleted successfully.' });
+    res.status(200).json({ success: true, message: 'Request deleted.' });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error deleting request.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not delete request.', error: error.message });
   }
 };
 
@@ -1115,7 +1115,7 @@ export const generateRequestSurveyPdf = async (req: Request, res: Response): Pro
 
     res.status(201).json({
       success: true,
-      message: 'Request survey PDF generated successfully.',
+      message: 'Request survey PDF generated.',
       data: {
         _id: storedDocument?._id,
         requestId: storedDocument?.requestId,
@@ -1132,7 +1132,7 @@ export const generateRequestSurveyPdf = async (req: Request, res: Response): Pro
       },
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error generating request survey PDF.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not generate request survey PDF.', error: error.message });
   }
 };
 
@@ -1167,7 +1167,7 @@ export const getRequestSurveyPdf = async (req: Request, res: Response): Promise<
       },
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error fetching request survey PDF.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load request survey PDF.', error: error.message });
   }
 };
 
@@ -1189,7 +1189,7 @@ export const getRequestSurveys = async (req: Request, res: Response): Promise<vo
       data: request.surveyTypes,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error fetching request surveys.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load request surveys.', error: error.message });
   }
 };
 
@@ -1213,7 +1213,7 @@ export const getRequestSurveyPreview = async (req: Request, res: Response): Prom
     res.setHeader('Content-Disposition', 'inline; filename="survey-preview.pdf"');
     res.send(pdfBuffer);
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error generating survey preview.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not generate survey preview.', error: error.message });
   }
 };
 
@@ -1308,7 +1308,7 @@ export const printAndSendRequestSurveyPdf = async (req: Request, res: Response):
 
     res.status(201).json({
       success: true,
-      message: 'Request survey PDF generated and sent to client email successfully.',
+      message: 'Request survey PDF generated and sent to client email.',
       data: {
         _id: storedDocument?._id,
         requestId: storedDocument?.requestId,
@@ -1325,7 +1325,7 @@ export const printAndSendRequestSurveyPdf = async (req: Request, res: Response):
       },
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error generating and sending survey request PDF.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not generate and send survey request PDF.', error: error.message });
   }
 };
 
@@ -1397,11 +1397,11 @@ export const uploadSignedPdf = async (req: Request, res: Response): Promise<void
 
     res.status(200).json({
       success: true,
-      message: 'Signed PDF uploaded successfully.',
+      message: 'Signed PDF uploaded.',
       data: populatedRequest,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error uploading signed PDF.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not upload signed PDF.', error: error.message });
   }
 };
 
@@ -1450,11 +1450,11 @@ export const deleteSignedPdf = async (req: Request, res: Response): Promise<void
 
     res.status(200).json({
       success: true,
-      message: 'Signed PDF deleted successfully.',
+      message: 'Signed PDF deleted.',
       data: populatedRequest,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error deleting signed PDF.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not delete signed PDF.', error: error.message });
   }
 };
 

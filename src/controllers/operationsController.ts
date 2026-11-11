@@ -17,7 +17,7 @@ export const getAllVesselTypes = async (_req: Request, res: Response): Promise<v
     const vesselTypes = await VesselType.find().sort({ group: 1, name: 1 });
     res.status(200).json({ success: true, count: vesselTypes.length, data: vesselTypes });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error fetching vessel types.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load vessel types.', error: error.message });
   }
 };
 
@@ -26,7 +26,7 @@ export const getAllSurveyTypes = async (_req: Request, res: Response): Promise<v
     const surveyTypes = await SurveyType.find().sort({ name: 1, code: 1 });
     res.status(200).json({ success: true, count: surveyTypes.length, data: surveyTypes });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error fetching survey types.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load survey types.', error: error.message });
   }
 };
 
@@ -35,7 +35,7 @@ export const getAllAreaOperations = async (_req: Request, res: Response): Promis
     const areas = await AreaOfOperation.find().sort({ AreaCategory: 1 });
     res.status(200).json({ success: true, count: areas.length, data: areas });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error fetching area operations.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load area operations.', error: error.message });
   }
 };
 
@@ -51,7 +51,7 @@ export const searchVesselTypesByGroup = async (req: Request, res: Response): Pro
     const vesselTypes = await VesselType.find({ group: regex }).sort({ group: 1, name: 1 });
     res.status(200).json({ success: true, count: vesselTypes.length, data: vesselTypes });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error searching vessel types.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not search vessel types.', error: error.message });
   }
 };
 
@@ -77,7 +77,7 @@ export const searchSurveyTypes = async (req: Request, res: Response): Promise<vo
     const surveyTypes = await SurveyType.find(filter).sort({ name: 1, code: 1 });
     res.status(200).json({ success: true, count: surveyTypes.length, data: surveyTypes });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error searching survey types.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not search survey types.', error: error.message });
   }
 };
 
@@ -93,7 +93,7 @@ export const searchAreaOperationsByCategory = async (req: Request, res: Response
     const areas = await AreaOfOperation.find({ AreaCategory: regex }).sort({ AreaCategory: 1 });
     res.status(200).json({ success: true, count: areas.length, data: areas });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error searching area operations.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not search areas of operation.', error: error.message });
   }
 };
 
@@ -160,7 +160,7 @@ export const createSurveyType = async (req: Request, res: Response): Promise<voi
       res.status(409).json({ success: false, message: duplicateMessage(error) });
       return;
     }
-    res.status(500).json({ success: false, message: 'Error creating the survey type.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not create the survey type.', error: error.message });
   }
 };
 
@@ -189,7 +189,7 @@ export const updateSurveyType = async (req: Request, res: Response): Promise<voi
       res.status(409).json({ success: false, message: duplicateMessage(error) });
       return;
     }
-    res.status(500).json({ success: false, message: 'Error saving the survey type.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not save the survey type.', error: error.message });
   }
 };
 
@@ -225,7 +225,7 @@ export const getSurveyTypeUsage = async (_req: Request, res: Response): Promise<
   try {
     res.status(200).json({ success: true, data: await countUsage() });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error counting survey type usage.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not count survey type usage.', error: error.message });
   }
 };
 
@@ -254,6 +254,6 @@ export const deleteSurveyType = async (req: Request, res: Response): Promise<voi
     }
     res.status(200).json({ success: true, message: 'Survey type deleted.' });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error deleting the survey type.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not delete the survey type.', error: error.message });
   }
 };

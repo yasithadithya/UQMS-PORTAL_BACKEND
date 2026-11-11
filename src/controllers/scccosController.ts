@@ -98,7 +98,7 @@ export const createSCCCOS = async (req: Request, res: Response): Promise<void> =
       return;
     }
     if (!surveyReportId || !mongoose.isValidObjectId(surveyReportId)) {
-      res.status(400).json({ success: false, message: 'Invalid or missing Survey Report ID.' });
+      res.status(400).json({ success: false, message: 'Invalid or missing survey report ID.' });
       return;
     }
     if (!surveyBookingId || !mongoose.isValidObjectId(surveyBookingId)) {
@@ -118,7 +118,7 @@ export const createSCCCOS = async (req: Request, res: Response): Promise<void> =
     if (existingCertificate) {
       res.status(400).json({
         success: false,
-        message: 'A certificate has already been generated for this Survey Report.',
+        message: 'A certificate has already been generated for this survey report.',
       });
       return;
     }
@@ -134,14 +134,14 @@ export const createSCCCOS = async (req: Request, res: Response): Promise<void> =
 
     const surveyReport = await FirstEntrySurveyReportModel.findById(surveyReportId);
     if (!surveyReport) {
-      res.status(404).json({ success: false, message: 'Survey Report not found.' });
+      res.status(404).json({ success: false, message: 'Survey report not found.' });
       return;
     }
 
     if (!surveyReport.reportNo) {
       res.status(400).json({
         success: false,
-        message: 'Cannot generate certificate. The Survey Report does not have a report number assigned.',
+        message: 'Cannot generate certificate. The survey report does not have a report number assigned.',
       });
       return;
     }
@@ -223,13 +223,13 @@ export const createSCCCOS = async (req: Request, res: Response): Promise<void> =
 
     res.status(201).json({
       success: true,
-      message: 'SCCCOS Certificate created successfully.',
+      message: 'SSC certificate of survey created.',
       data: populatedSCCCOS,
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error creating SCCCOS Certificate.',
+      message: 'Could not create SSC certificate of survey.',
       error: error.message,
     });
   }
@@ -254,7 +254,7 @@ export const getAllSCCCOS = async (req: Request, res: Response): Promise<void> =
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error retrieving SCCCOS Certificates.',
+      message: 'Could not load SSC certificates of survey.',
       error: error.message,
     });
   }
@@ -280,7 +280,7 @@ export const getSCCCOSById = async (req: Request, res: Response): Promise<void> 
       .populate('updatedBy', 'username email');
 
     if (!certificate) {
-      res.status(404).json({ success: false, message: 'SCCCOS Certificate not found.' });
+      res.status(404).json({ success: false, message: 'SSC certificate of survey not found.' });
       return;
     }
 
@@ -291,7 +291,7 @@ export const getSCCCOSById = async (req: Request, res: Response): Promise<void> 
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error retrieving SCCCOS Certificate.',
+      message: 'Could not load SSC certificate of survey.',
       error: error.message,
     });
   }
@@ -330,7 +330,7 @@ export const updateSCCCOS = async (req: Request, res: Response): Promise<void> =
     );
 
     if (!savedCertificate) {
-      res.status(404).json({ success: false, message: 'SCCCOS Certificate not found.' });
+      res.status(404).json({ success: false, message: 'SSC certificate of survey not found.' });
       return;
     }
 
@@ -347,13 +347,13 @@ export const updateSCCCOS = async (req: Request, res: Response): Promise<void> =
 
     res.status(200).json({
       success: true,
-      message: 'SCCCOS Certificate updated successfully.',
+      message: 'SSC certificate of survey updated.',
       data: updatedCertificate,
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error updating SCCCOS Certificate.',
+      message: 'Could not update SSC certificate of survey.',
       error: error.message,
     });
   }
@@ -374,7 +374,7 @@ export const deleteSCCCOS = async (req: Request, res: Response): Promise<void> =
 
     const certificate = await SCCCOSModel.findByIdAndDelete(id);
     if (!certificate) {
-      res.status(404).json({ success: false, message: 'SCCCOS Certificate not found.' });
+      res.status(404).json({ success: false, message: 'SSC certificate of survey not found.' });
       return;
     }
 
@@ -388,12 +388,12 @@ export const deleteSCCCOS = async (req: Request, res: Response): Promise<void> =
 
     res.status(200).json({
       success: true,
-      message: 'SCCCOS Certificate deleted successfully.',
+      message: 'SSC certificate of survey deleted.',
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error deleting SCCCOS Certificate.',
+      message: 'Could not delete SSC certificate of survey.',
       error: error.message,
     });
   }
@@ -464,7 +464,7 @@ export const getSCCCOSPreviewPdf = async (req: Request, res: Response): Promise<
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error generating SCCCOS Preview PDF.',
+      message: 'Could not generate SSC certificate of survey preview PDF.',
       error: error.message,
     });
   }
@@ -483,13 +483,13 @@ export const getSCCCOSFinalPdf = async (req: Request, res: Response): Promise<vo
 
     const certificate = await SCCCOSModel.findById(id).select('certificateNumber pdf eSignature');
     if (!certificate) {
-      res.status(404).json({ success: false, message: 'SCCCOS Certificate not found.' });
+      res.status(404).json({ success: false, message: 'SSC certificate of survey not found.' });
       return;
     }
 
     const pdfBuffer = await readStoredPdf(certificate.pdf, () => renderAndStoreScccosPdf(req, id));
     if (!pdfBuffer) {
-      res.status(404).json({ success: false, message: 'SCCCOS Certificate not found.' });
+      res.status(404).json({ success: false, message: 'SSC certificate of survey not found.' });
       return;
     }
 
@@ -502,7 +502,7 @@ export const getSCCCOSFinalPdf = async (req: Request, res: Response): Promise<vo
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error generating SCCCOS Final PDF.',
+      message: 'Could not generate SSC certificate of survey final PDF.',
       error: error.message,
     });
   }
@@ -551,7 +551,7 @@ export const getSCCCOSBySurveyReportId = async (req: Request, res: Response): Pr
   try {
     const { surveyReportId } = req.params;
     if (!mongoose.isValidObjectId(surveyReportId)) {
-      res.status(400).json({ success: false, message: 'Invalid Survey Report ID format.' });
+      res.status(400).json({ success: false, message: 'Invalid survey report ID format.' });
       return;
     }
 
@@ -564,7 +564,7 @@ export const getSCCCOSBySurveyReportId = async (req: Request, res: Response): Pr
       .populate('updatedBy', 'username email');
 
     if (!certificate) {
-      res.status(404).json({ success: false, message: 'Certificate not found for this Survey Report.' });
+      res.status(404).json({ success: false, message: 'Certificate not found for this survey report.' });
       return;
     }
 
@@ -575,7 +575,7 @@ export const getSCCCOSBySurveyReportId = async (req: Request, res: Response): Pr
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error retrieving Certificate by Survey Report ID.',
+      message: 'Could not load certificate by survey report ID.',
       error: error.message,
     });
   }

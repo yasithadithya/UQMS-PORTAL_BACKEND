@@ -139,7 +139,7 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
         expiringDocuments,
         announcements: announcementsRes,
       },
-      message: 'Dashboard stats fetched successfully'
+      message: 'Dashboard stats fetched.'
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });

@@ -17,7 +17,7 @@ export const getAllDocumentTemplates = async (_req: Request, res: Response): Pro
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching document templates.',
+      message: 'Could not load document templates.',
       error: error.message,
     });
   }
@@ -52,7 +52,7 @@ export const getDocumentTemplateById = async (req: Request, res: Response): Prom
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching document template.',
+      message: 'Could not load document template.',
       error: error.message,
     });
   }
@@ -115,7 +115,7 @@ export const createDocumentTemplate = async (req: Request, res: Response): Promi
 
     res.status(201).json({
       success: true,
-      message: 'Document template created successfully.',
+      message: 'Document template created.',
       data: newDocumentTemplate,
     });
   } catch (error: any) {
@@ -129,7 +129,7 @@ export const createDocumentTemplate = async (req: Request, res: Response): Promi
     }
     res.status(500).json({
       success: false,
-      message: 'Error creating document template.',
+      message: 'Could not create document template.',
       error: error.message,
     });
   }
@@ -216,7 +216,7 @@ export const updateDocumentTemplate = async (req: Request, res: Response): Promi
 
     res.status(200).json({
       success: true,
-      message: 'Document template updated successfully.',
+      message: 'Document template updated.',
       data: updatedDocumentTemplate,
     });
   } catch (error: any) {
@@ -230,7 +230,7 @@ export const updateDocumentTemplate = async (req: Request, res: Response): Promi
     }
     res.status(500).json({
       success: false,
-      message: 'Error updating document template.',
+      message: 'Could not update document template.',
       error: error.message,
     });
   }
@@ -260,12 +260,12 @@ export const deleteDocumentTemplate = async (req: Request, res: Response): Promi
 
     res.status(200).json({
       success: true,
-      message: 'Document template deleted successfully.',
+      message: 'Document template deleted.',
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error deleting document template.',
+      message: 'Could not delete document template.',
       error: error.message,
     });
   }

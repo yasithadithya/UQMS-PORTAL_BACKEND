@@ -17,7 +17,7 @@ export const getAllVesselCodes = async (_req: Request, res: Response): Promise<v
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching vessel codes.',
+      message: 'Could not load vessel codes.',
       error: error.message,
     });
   }
@@ -52,7 +52,7 @@ export const getVesselCodeById = async (req: Request, res: Response): Promise<vo
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching vessel code.',
+      message: 'Could not load vessel code.',
       error: error.message,
     });
   }
@@ -88,7 +88,7 @@ export const createVesselCode = async (req: Request, res: Response): Promise<voi
 
     res.status(201).json({
       success: true,
-      message: 'Vessel code created successfully.',
+      message: 'Vessel code created.',
       data: newVesselCode,
     });
   } catch (error: any) {
@@ -102,7 +102,7 @@ export const createVesselCode = async (req: Request, res: Response): Promise<voi
     }
     res.status(500).json({
       success: false,
-      message: 'Error creating vessel code.',
+      message: 'Could not create vessel code.',
       error: error.message,
     });
   }
@@ -163,7 +163,7 @@ export const updateVesselCode = async (req: Request, res: Response): Promise<voi
 
     res.status(200).json({
       success: true,
-      message: 'Vessel code updated successfully.',
+      message: 'Vessel code updated.',
       data: updatedVesselCode,
     });
   } catch (error: any) {
@@ -177,7 +177,7 @@ export const updateVesselCode = async (req: Request, res: Response): Promise<voi
     }
     res.status(500).json({
       success: false,
-      message: 'Error updating vessel code.',
+      message: 'Could not update vessel code.',
       error: error.message,
     });
   }
@@ -207,12 +207,12 @@ export const deleteVesselCode = async (req: Request, res: Response): Promise<voi
 
     res.status(200).json({
       success: true,
-      message: 'Vessel code deleted successfully.',
+      message: 'Vessel code deleted.',
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error deleting vessel code.',
+      message: 'Could not delete vessel code.',
       error: error.message,
     });
   }

@@ -75,7 +75,7 @@ router.get('/:docType/:id', async (req: AuthRequest, res: Response) => {
       },
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error loading annotations.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load annotations.', error: error.message });
   }
 });
 
@@ -114,7 +114,7 @@ router.put('/:docType/:id', async (req: AuthRequest, res: Response) => {
       res.status(error.status).json({ success: false, message: error.message });
       return;
     }
-    res.status(500).json({ success: false, message: 'Error saving annotations.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not save annotations.', error: error.message });
   }
 });
 

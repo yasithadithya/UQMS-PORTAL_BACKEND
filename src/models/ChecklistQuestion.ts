@@ -23,7 +23,7 @@ const checklistQuestionSchema: Schema = new Schema(
   {
     item: {
       type: String,
-      required: [true, 'Item text is required'],
+      required: [true, 'Item text is required.'],
       trim: true,
     },
     description: {

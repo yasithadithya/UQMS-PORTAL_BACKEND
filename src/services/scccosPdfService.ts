@@ -239,13 +239,23 @@ export const createScccosPdfBuffer = async (
     doc.font('Helvetica-Bold').fontSize(11).fillColor(HEADING_COLOR).text('CERTIFICATION', innerLeft, currentY);
     currentY += 15;
 
-    const certText = variant.certificationText;
-    doc.font('Helvetica').fontSize(9.5).fillColor('#111827').lineGap(3).text(certText, innerLeft, currentY, {
+    // A certificate may be issued with findings still not satisfactory; the wording then says so
+    // and names them, instead of certifying full compliance.
+    const outstanding = findings
+      .filter((f: any) => String(f.status || '').toUpperCase() === 'NOT SATISFACTORY')
+      .map((f: any) => String(f.category));
+    const certText = outstanding.length
+      ? `${variant.certificationText.replace(/\.\s*$/, '')}, except for the following ${outstanding.length === 1 ? 'item, which was' : 'items, which were'} found not satisfactory and ${outstanding.length === 1 ? 'remains' : 'remain'} outstanding: ${outstanding.join(', ')}.`
+      : variant.certificationText;
+    doc.font('Helvetica').fontSize(9.5).fillColor('#111827').lineGap(3);
+    const certHeight = doc.heightOfString(certText, { width: pageWidth, align: 'justify' });
+    doc.text(certText, innerLeft, currentY, {
       width: pageWidth,
       align: 'justify'
     });
 
-    currentY += 45;
+    // Leave the same gap as before below the (possibly longer) certification text.
+    currentY += Math.max(45, certHeight + 15);
 
     // Keep the additional remarks, the SIGNED line and the electronic signature field together above the footer.
     const remarksHeight = measureAdditionalRemarks(doc, scccos.additionalRemarks, pageWidth);

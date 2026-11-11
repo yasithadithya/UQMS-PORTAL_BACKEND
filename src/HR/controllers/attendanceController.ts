@@ -23,7 +23,7 @@ export const performClockIn = async (employeeMongoId: mongoose.Types.ObjectId) =
   });
 
   if (log && log.clockIn) {
-    throw new Error('Already clocked in today');
+    throw new Error('Already clocked in today.');
   }
 
   if (!log) {
@@ -53,10 +53,10 @@ export const performClockOut = async (employeeMongoId: mongoose.Types.ObjectId) 
   });
 
   if (!log || !log.clockIn) {
-    throw new Error('Not clocked in today');
+    throw new Error('Not clocked in today.');
   }
   if (log.clockOut) {
-    throw new Error('Already clocked out today');
+    throw new Error('Already clocked out today.');
   }
 
   const clockOutTime = new Date();
@@ -81,7 +81,7 @@ export const clockIn = async (req: AuthRequest, res: Response): Promise<void> =>
     }
 
     const log = await performClockIn(employee._id as mongoose.Types.ObjectId);
-    res.status(200).json({ success: true, data: log, message: 'Clocked in successfully' });
+    res.status(200).json({ success: true, data: log, message: 'Clocked in.' });
   } catch (error: any) {
     const code = /Already clocked in/.test(error.message) ? 400 : 500;
     res.status(code).json({ success: false, error: error.message, details: [] });
@@ -98,7 +98,7 @@ export const clockOut = async (req: AuthRequest, res: Response): Promise<void> =
     }
 
     const log = await performClockOut(employee._id as mongoose.Types.ObjectId);
-    res.status(200).json({ success: true, data: log, message: 'Clocked out successfully' });
+    res.status(200).json({ success: true, data: log, message: 'Clocked out.' });
   } catch (error: any) {
     const code = /clocked (in|out) today/.test(error.message) ? 400 : 500;
     res.status(code).json({ success: false, error: error.message, details: [] });
@@ -120,7 +120,7 @@ export const getAttendance = async (req: Request, res: Response): Promise<void> 
     }
 
     const logs = await AttendanceLog.find(filter).sort({ date: -1 });
-    res.status(200).json({ success: true, data: logs, message: 'Attendance fetched successfully' });
+    res.status(200).json({ success: true, data: logs, message: 'Attendance fetched.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -162,7 +162,7 @@ export const getSummary = async (req: Request, res: Response): Promise<void> => 
       summary.totalOvertimeHours += (log.overtimeHours || 0);
     });
 
-    res.status(200).json({ success: true, data: summary, message: 'Summary fetched successfully' });
+    res.status(200).json({ success: true, data: summary, message: 'Summary fetched.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -202,7 +202,7 @@ export const manualEntry = async (req: AuthRequest, res: Response): Promise<void
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
 
-    res.status(200).json({ success: true, data: log, message: 'Manual entry saved successfully' });
+    res.status(200).json({ success: true, data: log, message: 'Manual entry saved.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }

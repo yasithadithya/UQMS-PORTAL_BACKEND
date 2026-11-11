@@ -44,7 +44,7 @@ export const getNotesByVesselId = async (req: Request, res: Response): Promise<v
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching notes for vessel.',
+      message: 'Could not load notes for vessel.',
       error: error.message
     });
   }
@@ -142,13 +142,13 @@ export const upsertVesselNotes = async (req: Request, res: Response): Promise<vo
 
     res.status(200).json({
       success: true,
-      message: 'Vessel notes updated successfully.',
+      message: 'Vessel notes updated.',
       data: savedDoc
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error updating vessel notes.',
+      message: 'Could not update vessel notes.',
       error: error.message
     });
   }

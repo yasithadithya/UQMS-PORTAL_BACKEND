@@ -69,7 +69,7 @@ const resolveRequest = (req: AuthRequest, res: Response): ResolvedRequest | null
     return null;
   }
   if (!userId) {
-    res.status(401).json({ success: false, message: 'Unauthorized' });
+    res.status(401).json({ success: false, message: 'Unauthorized.' });
     return null;
   }
   return { handler, id, userId, moduleKey: moduleKeyFor(String(req.params.docType)) };
@@ -133,7 +133,7 @@ export const getSignatureStatus = async (req: Request, res: Response): Promise<v
 
     res.status(200).json({ success: true, data: await buildStatus(req as AuthRequest, handler, doc, userId, moduleKey) });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error retrieving signature status.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load signature status.', error: error.message });
   }
 };
 
@@ -238,7 +238,7 @@ export const signDocument = async (req: Request, res: Response): Promise<void> =
       data: await buildStatus(req as AuthRequest, handler, signedDoc, userId, moduleKey),
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error signing document.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not sign document.', error: error.message });
   }
 };
 
@@ -276,6 +276,6 @@ export const revokeSignature = async (req: Request, res: Response): Promise<void
       data: await buildStatus(req as AuthRequest, handler, unsignedDoc, userId, moduleKey),
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error revoking signature.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not revoke signature.', error: error.message });
   }
 };

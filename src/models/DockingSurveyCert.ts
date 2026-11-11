@@ -74,24 +74,24 @@ const dockingSurveyCertSchema: Schema = new Schema(
   {
     certificateNumber: {
       type: String,
-      required: [true, 'Certificate number is required'],
+      required: [true, 'Certificate number is required.'],
       unique: true,
       trim: true
     },
     vesselId: {
       type: Schema.Types.ObjectId,
       ref: 'Vessel',
-      required: [true, 'Vessel ID reference is required']
+      required: [true, 'Vessel ID reference is required.']
     },
     surveyReportId: {
       type: Schema.Types.ObjectId,
       ref: 'FirstEntrySurveyReport',
-      required: [true, 'Survey Report ID reference is required']
+      required: [true, 'Survey report ID reference is required.']
     },
     surveyBookingId: {
       type: Schema.Types.ObjectId,
       ref: 'FirstEntrySurveyBooking',
-      required: [true, 'Visit plan reference is required']
+      required: [true, 'Visit plan reference is required.']
     },
     client: { type: String, trim: true, default: '' },
     surveyLocation: { type: String, trim: true, default: '' },
@@ -129,13 +129,13 @@ const dockingSurveyCertSchema: Schema = new Schema(
     additionalRemarks: { type: String, trim: true, default: '' },
     dateOfIssue: {
       type: Date,
-      required: [true, 'Date of issue is required'],
+      required: [true, 'Date of issue is required.'],
       default: Date.now
     },
     issuedBy: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: [true, 'Issued by reference is required']
+      required: [true, 'Issued by reference is required.']
     },
     pdf: {
       type: storedPdfSchema

@@ -36,7 +36,7 @@ export const getMyDashboard = async (req: AuthRequest, res: Response): Promise<v
     }
     res.status(200).json({ success: true, data: { widgets: user.dashboardLayout ?? null } });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error loading your dashboard.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load your dashboard.', error: error.message });
   }
 };
 
@@ -59,6 +59,6 @@ export const saveMyDashboard = async (req: AuthRequest, res: Response): Promise<
     }
     res.status(200).json({ success: true, message: reset ? 'Dashboard reset.' : 'Dashboard saved.', data: { widgets } });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error saving your dashboard.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not save your dashboard.', error: error.message });
   }
 };

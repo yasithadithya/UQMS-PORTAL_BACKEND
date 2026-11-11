@@ -92,7 +92,7 @@ const firstEntrySurveyBookingSchema: Schema = new Schema(
         vesselId: { type: Schema.Types.ObjectId, ref: 'Vessel' },
         
         // Form Fields (Left Pane)
-        shipName: { type: String, required: [true, 'Ship Name is required'], trim: true },
+        shipName: { type: String, required: [true, 'Ship name is required.'], trim: true },
         requestedBy: { type: String, trim: true },
         portOfSurvey: { type: String, trim: true },
         reportNo: { type: String, trim: true },

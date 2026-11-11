@@ -27,6 +27,21 @@ const parseRemarks = (remarks: string, expectedParts = 3): string[] => {
 };
 
 // Structured remarks written by the survey report editor
+/**
+ * Readable vessel group for the PDF. `group` is sometimes a slug (e.g. "vessels_in_private_use_…"),
+ * so prefer the vessel type's name, and keep a proper "Group N" label in front when there is one.
+ */
+const vesselGroupLabel = (vesselType?: { group?: string; name?: string } | null): string => {
+  const group = (vesselType?.group || '').trim();
+  const name = (vesselType?.name || '').trim();
+  if (/^group\s/i.test(group)) return name ? `${group} · ${name}` : group;
+  if (name) return name;
+  if (!group) return '-';
+  // Last resort: turn a slug into words ("vessels_in_private_use" -> "Vessels in private use").
+  const words = group.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+};
+
 const BRIDGE_PREFIX = 'BRIDGE:';
 const PYRO_PREFIX = 'PYRO:';
 
@@ -323,7 +338,7 @@ export const createSurveyReportPdfBuffer = async (data: ISurveyReportPdfData): P
       { label: 'Date of Build', val: vessel?.dateOfBuild || booking?.buildDate || '-' },
       { label: 'Yard Number', val: vessel?.yardNo || booking?.yardNo },
       { label: 'Hull Material', val: vessel?.material },
-      { label: 'Vessel Group', val: vessel?.vesselType?.group || '-' }
+      { label: 'Vessel Group', val: vesselGroupLabel(vessel?.vesselType) }
     ];
 
     const middleFields2 = [

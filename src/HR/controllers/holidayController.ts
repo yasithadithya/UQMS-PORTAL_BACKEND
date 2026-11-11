@@ -4,7 +4,7 @@ import PublicHoliday from '../models/PublicHoliday';
 export const getHolidays = async (req: Request, res: Response): Promise<void> => {
   try {
     const holidays = await PublicHoliday.find().sort({ date: 1 });
-    res.status(200).json({ success: true, data: holidays, message: 'Holidays fetched successfully' });
+    res.status(200).json({ success: true, data: holidays, message: 'Holidays fetched.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -14,7 +14,7 @@ export const addHoliday = async (req: Request, res: Response): Promise<void> => 
   try {
     const holiday = new PublicHoliday(req.body);
     await holiday.save();
-    res.status(201).json({ success: true, data: holiday, message: 'Holiday added successfully' });
+    res.status(201).json({ success: true, data: holiday, message: 'Holiday added.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -27,7 +27,7 @@ export const updateHoliday = async (req: Request, res: Response): Promise<void> 
       res.status(404).json({ success: false, error: 'Holiday not found', details: [] });
       return;
     }
-    res.status(200).json({ success: true, data: holiday, message: 'Holiday updated successfully' });
+    res.status(200).json({ success: true, data: holiday, message: 'Holiday updated.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -40,7 +40,7 @@ export const removeHoliday = async (req: Request, res: Response): Promise<void> 
       res.status(404).json({ success: false, error: 'Holiday not found', details: [] });
       return;
     }
-    res.status(200).json({ success: true, data: holiday, message: 'Holiday removed successfully' });
+    res.status(200).json({ success: true, data: holiday, message: 'Holiday removed.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }

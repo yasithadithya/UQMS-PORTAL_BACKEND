@@ -74,7 +74,7 @@ export const computePayrollSummary = async (month?: number, year?: number) => {
 export const generatePayroll = async (employeeId: string, month: number, year: number) => {
   const salaryStructure = await SalaryStructure.findOne({ employee: employeeId, isActive: true });
   if (!salaryStructure) {
-    throw new Error('Active salary structure not found for employee');
+    throw new Error('Active salary structure not found for employee.');
   }
 
   const startDate = new Date(year, month - 1, 1);
