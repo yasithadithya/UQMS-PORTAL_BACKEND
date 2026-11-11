@@ -19,12 +19,12 @@ const firstEntrySchema: Schema = new Schema(
     request: {
       type: Schema.Types.ObjectId,
       ref: 'Request',
-      required: [true, 'Request reference is required'],
+      required: [true, 'Request reference is required.'],
     },
     vessel: {
       type: Schema.Types.ObjectId,
       ref: 'Vessel',
-      required: [true, 'Vessel reference is required'],
+      required: [true, 'Vessel reference is required.'],
     },
     isQuoted: {
       type: Boolean,

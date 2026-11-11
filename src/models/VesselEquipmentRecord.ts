@@ -38,12 +38,12 @@ const vesselEquipmentRecordSchema: Schema = new Schema(
     vesselId: {
       type: Schema.Types.ObjectId,
       ref: 'Vessel',
-      required: [true, 'Vessel ID is required'],
+      required: [true, 'Vessel ID is required.'],
     },
     surveyReportId: {
       type: Schema.Types.ObjectId,
       ref: 'FirstEntrySurveyReport',
-      required: [true, 'Survey Report ID is required'],
+      required: [true, 'Survey report ID is required.'],
       unique: true,
     },
     equipmentRecords: {

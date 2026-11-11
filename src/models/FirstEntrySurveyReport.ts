@@ -38,7 +38,7 @@ export interface IFirstEntrySurveyReport extends Document {
 
 // Sub-schema for individual survey categories
 const surveyReportCategorySchema = new Schema<ISurveyReportCategory>({
-  surveyCategory: { type: String, required: [true, 'Survey category is required'], trim: true },
+  surveyCategory: { type: String, required: [true, 'Survey category is required.'], trim: true },
   surveyStatus: { type: String, trim: true, default: 'Pending' },
   isPostponed: { type: Boolean, default: false },
   postponeDate: { type: Date },
@@ -55,7 +55,7 @@ const firstEntrySurveyReportSchema: Schema = new Schema(
     bookingId: { 
       type: Schema.Types.ObjectId, 
       ref: 'FirstEntrySurveyBooking', 
-      required: [true, 'Visit plan reference is required'] 
+      required: [true, 'Visit plan reference is required.'] 
     },
     vesselId: { 
       type: Schema.Types.ObjectId, 
@@ -63,7 +63,7 @@ const firstEntrySurveyReportSchema: Schema = new Schema(
     },
     shipName: { 
       type: String, 
-      required: [true, 'Ship Name is required'], 
+      required: [true, 'Ship name is required.'], 
       trim: true 
     },
     managedBy: { 
@@ -82,7 +82,7 @@ const firstEntrySurveyReportSchema: Schema = new Schema(
     },
     reportNo: { 
       type: String, 
-      required: [true, 'Report number is required'], 
+      required: [true, 'Report number is required.'], 
       trim: true 
     },
     portOfSurvey: { 

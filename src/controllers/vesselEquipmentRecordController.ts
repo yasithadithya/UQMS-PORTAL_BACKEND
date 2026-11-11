@@ -12,7 +12,7 @@ export const getEquipmentRecordBySurveyReportId = async (req: Request, res: Resp
     if (!mongoose.isValidObjectId(surveyReportId)) {
       res.status(400).json({
         success: false,
-        message: 'Invalid Survey Report ID format.',
+        message: 'Invalid survey report ID format.',
       });
       return;
     }
@@ -87,7 +87,7 @@ export const getEquipmentRecordBySurveyReportId = async (req: Request, res: Resp
     if (!surveyReport) {
       res.status(404).json({
         success: false,
-        message: 'Survey Report not found.',
+        message: 'Survey report not found.',
       });
       return;
     }
@@ -115,7 +115,7 @@ export const getEquipmentRecordBySurveyReportId = async (req: Request, res: Resp
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching equipment record.',
+      message: 'Could not load equipment record.',
       error: error.message,
     });
   }
@@ -130,7 +130,7 @@ export const upsertEquipmentRecord = async (req: Request, res: Response): Promis
     if (!mongoose.isValidObjectId(surveyReportId)) {
       res.status(400).json({
         success: false,
-        message: 'Invalid Survey Report ID format.',
+        message: 'Invalid survey report ID format.',
       });
       return;
     }
@@ -182,13 +182,13 @@ export const upsertEquipmentRecord = async (req: Request, res: Response): Promis
 
     res.status(200).json({
       success: true,
-      message: 'Vessel equipment record saved successfully.',
+      message: 'Vessel equipment record saved.',
       data: updatedRecord,
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error saving vessel equipment record.',
+      message: 'Could not save vessel equipment record.',
       error: error.message,
     });
   }

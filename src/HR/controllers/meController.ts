@@ -31,7 +31,7 @@ export const getMyProfile = async (req: AuthRequest, res: Response): Promise<voi
       .populate('jobTitle')
       .populate('reportsTo', 'firstName lastName employeeId');
 
-    res.status(200).json({ success: true, data: profile, message: 'Profile fetched successfully' });
+    res.status(200).json({ success: true, data: profile, message: 'Profile fetched.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -59,7 +59,7 @@ export const getMyPayslips = async (req: AuthRequest, res: Response): Promise<vo
     res.status(200).json({
       success: true,
       data: { runs, total, page, pages: Math.ceil(total / limit) },
-      message: 'Payslips fetched successfully'
+      message: 'Payslips fetched.'
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
@@ -81,7 +81,7 @@ export const getMyPayslip = async (req: AuthRequest, res: Response): Promise<voi
       res.status(404).json({ success: false, error: 'Payslip not found', details: [] });
       return;
     }
-    res.status(200).json({ success: true, data: run, message: 'Payslip fetched successfully' });
+    res.status(200).json({ success: true, data: run, message: 'Payslip fetched.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -94,7 +94,7 @@ export const getMyLeaveBalance = async (req: AuthRequest, res: Response): Promis
 
     const year = req.query.year ? parseInt(req.query.year as string) : new Date().getFullYear();
     const balances = await LeaveBalance.find({ employee: me._id, year }).populate('leaveType');
-    res.status(200).json({ success: true, data: balances, message: 'Balances fetched successfully' });
+    res.status(200).json({ success: true, data: balances, message: 'Balances fetched.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -120,7 +120,7 @@ export const getMyLeaveRequests = async (req: AuthRequest, res: Response): Promi
     res.status(200).json({
       success: true,
       data: { requests, total, page, pages: Math.ceil(total / limit) },
-      message: 'Leave requests fetched successfully'
+      message: 'Leave requests fetched.'
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
@@ -134,7 +134,7 @@ export const submitMyLeaveRequest = async (req: AuthRequest, res: Response): Pro
 
     const { leaveType, startDate, endDate, reason } = req.body;
     const request = await submitLeave(String(me._id), leaveType, new Date(startDate), new Date(endDate), reason);
-    res.status(201).json({ success: true, data: request, message: 'Leave request submitted successfully' });
+    res.status(201).json({ success: true, data: request, message: 'Leave request submitted.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -156,7 +156,7 @@ export const cancelMyLeaveRequest = async (req: AuthRequest, res: Response): Pro
     }
 
     const cancelled = await rejectOrCancelLeave(String(request._id), 'Cancelled');
-    res.status(200).json({ success: true, data: cancelled, message: 'Leave request cancelled successfully' });
+    res.status(200).json({ success: true, data: cancelled, message: 'Leave request cancelled.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -168,7 +168,7 @@ export const myClockIn = async (req: AuthRequest, res: Response): Promise<void> 
     if (!me) return notLinked(res);
 
     const log = await performClockIn(me._id as mongoose.Types.ObjectId);
-    res.status(200).json({ success: true, data: log, message: 'Clocked in successfully' });
+    res.status(200).json({ success: true, data: log, message: 'Clocked in.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -180,7 +180,7 @@ export const myClockOut = async (req: AuthRequest, res: Response): Promise<void>
     if (!me) return notLinked(res);
 
     const log = await performClockOut(me._id as mongoose.Types.ObjectId);
-    res.status(200).json({ success: true, data: log, message: 'Clocked out successfully' });
+    res.status(200).json({ success: true, data: log, message: 'Clocked out.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -202,7 +202,7 @@ export const getMyAttendance = async (req: AuthRequest, res: Response): Promise<
     }
 
     const logs = await AttendanceLog.find(filter).sort({ date: -1 }).limit(100);
-    res.status(200).json({ success: true, data: logs, message: 'Attendance fetched successfully' });
+    res.status(200).json({ success: true, data: logs, message: 'Attendance fetched.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -219,7 +219,7 @@ export const getMyAppraisals = async (req: AuthRequest, res: Response): Promise<
       .populate('cycle', 'name periodStart periodEnd')
       .sort({ createdAt: -1 });
 
-    res.status(200).json({ success: true, data: appraisals, message: 'Appraisals fetched successfully' });
+    res.status(200).json({ success: true, data: appraisals, message: 'Appraisals fetched.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -245,7 +245,7 @@ export const acknowledgeMyAppraisal = async (req: AuthRequest, res: Response): P
     appraisal.acknowledgedAt = new Date();
     await appraisal.save();
 
-    res.status(200).json({ success: true, data: appraisal, message: 'Appraisal acknowledged successfully' });
+    res.status(200).json({ success: true, data: appraisal, message: 'Appraisal acknowledged.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -262,7 +262,7 @@ export const getMyAnnouncements = async (req: AuthRequest, res: Response): Promi
       .sort({ priority: -1, publishDate: -1 })
       .limit(10);
 
-    res.status(200).json({ success: true, data: announcements, message: 'Announcements fetched successfully' });
+    res.status(200).json({ success: true, data: announcements, message: 'Announcements fetched.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -280,7 +280,7 @@ export const getMyTrainings = async (req: AuthRequest, res: Response): Promise<v
       })
       .sort({ createdAt: -1 });
 
-    res.status(200).json({ success: true, data: enrollments, message: 'Trainings fetched successfully' });
+    res.status(200).json({ success: true, data: enrollments, message: 'Trainings fetched.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }

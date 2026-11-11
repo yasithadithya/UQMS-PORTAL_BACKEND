@@ -33,7 +33,7 @@ export const hrGuard = (moduleKey: string, options: HrGuardOptions = {}): Reques
       if (await rejectUnlessCan(req, res, moduleKey, action)) return;
       next();
     } catch (error: any) {
-      res.status(500).json({ success: false, message: 'Error checking permissions.', error: error.message });
+      res.status(500).json({ success: false, message: 'Could not check permissions.', error: error.message });
     }
   }) as RequestHandler;
 
@@ -46,6 +46,6 @@ export const anyHrReader: RequestHandler = (async (req: AuthRequest, res: Respon
     }
     res.status(403).json({ success: false, message: 'You do not have access to HR administration.' });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error checking permissions.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not check permissions.', error: error.message });
   }
 }) as RequestHandler;

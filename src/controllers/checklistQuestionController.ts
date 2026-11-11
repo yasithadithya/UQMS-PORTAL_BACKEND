@@ -162,13 +162,13 @@ export const createChecklistQuestion = async (req: Request, res: Response): Prom
 
     res.status(201).json({
       success: true,
-      message: 'Checklist question created successfully.',
+      message: 'Checklist question created.',
       data: populatedQuestion,
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error creating checklist question.',
+      message: 'Could not create checklist question.',
       error: error.message,
     });
   }
@@ -240,7 +240,7 @@ export const getAllChecklistQuestions = async (req: Request, res: Response): Pro
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching checklist questions.',
+      message: 'Could not load checklist questions.',
       error: error.message,
     });
   }
@@ -274,7 +274,7 @@ export const getChecklistQuestionById = async (req: Request, res: Response): Pro
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching checklist question.',
+      message: 'Could not load checklist question.',
       error: error.message,
     });
   }
@@ -452,13 +452,13 @@ export const updateChecklistQuestion = async (req: Request, res: Response): Prom
 
     res.status(200).json({
       success: true,
-      message: 'Checklist question updated successfully.',
+      message: 'Checklist question updated.',
       data: updatedQuestion,
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error updating checklist question.',
+      message: 'Could not update checklist question.',
       error: error.message,
     });
   }
@@ -481,12 +481,12 @@ export const deleteChecklistQuestion = async (req: Request, res: Response): Prom
 
     res.status(200).json({
       success: true,
-      message: 'Checklist question deleted successfully.',
+      message: 'Checklist question deleted.',
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error deleting checklist question.',
+      message: 'Could not delete checklist question.',
       error: error.message,
     });
   }

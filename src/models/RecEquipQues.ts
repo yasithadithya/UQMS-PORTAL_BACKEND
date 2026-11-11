@@ -12,12 +12,12 @@ const recEquipQuesSchema: Schema = new Schema(
   {
     codeRefNo: {
       type: String,
-      required: [true, 'Code Ref. No is required'],
+      required: [true, 'Code Ref. No is required.'],
       trim: true,
     },
     description: {
       type: String,
-      required: [true, 'Description is required'],
+      required: [true, 'Description is required.'],
       trim: true,
     },
   },

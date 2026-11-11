@@ -13,18 +13,18 @@ const documentNumberSchema: Schema = new Schema(
   {
     name: {
       type: String,
-      required: [true, 'Document name is required'],
+      required: [true, 'Document name is required.'],
       unique: true,
       trim: true,
     },
     prefix: {
       type: String,
-      required: [true, 'Prefix is required'],
+      required: [true, 'Prefix is required.'],
       trim: true,
     },
     digits: {
       type: Number,
-      required: [true, 'Digits is required'],
+      required: [true, 'Digits is required.'],
       min: [1, 'Digits must be at least 1'],
     },
     lastNumber: {

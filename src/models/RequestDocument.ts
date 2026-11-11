@@ -22,23 +22,23 @@ const requestDocumentSchema: Schema = new Schema(
     requestId: {
       type: Schema.Types.ObjectId,
       ref: 'Request',
-      required: [true, 'Request ID is required'],
+      required: [true, 'Request ID is required.'],
       unique: true,
       index: true,
     },
     requestNumber: {
       type: String,
-      required: [true, 'Request number is required'],
+      required: [true, 'Request number is required.'],
       trim: true,
     },
     vesselName: {
       type: String,
-      required: [true, 'Vessel name is required'],
+      required: [true, 'Vessel name is required.'],
       trim: true,
     },
     key: {
       type: String,
-      required: [true, 'File key is required'],
+      required: [true, 'File key is required.'],
       unique: true,
       trim: true,
     },
@@ -48,18 +48,18 @@ const requestDocumentSchema: Schema = new Schema(
     },
     bucket: {
       type: String,
-      required: [true, 'Bucket is required'],
+      required: [true, 'Bucket is required.'],
       trim: true,
     },
     mimeType: {
       type: String,
-      required: [true, 'MIME type is required'],
+      required: [true, 'MIME type is required.'],
       default: 'application/pdf',
       trim: true,
     },
     filename: {
       type: String,
-      required: [true, 'Filename is required'],
+      required: [true, 'Filename is required.'],
       trim: true,
     },
     size: {

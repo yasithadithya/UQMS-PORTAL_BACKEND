@@ -14,12 +14,12 @@ const scheduleIIDocumentSchema = new Schema(
   {
     name: {
       type: String,
-      required: [true, 'Document name is required'],
+      required: [true, 'Document name is required.'],
       trim: true,
     },
     key: {
       type: String,
-      required: [true, 'Document key is required'],
+      required: [true, 'Document key is required.'],
       trim: true,
     },
     url: {
@@ -60,7 +60,7 @@ const scheduleIISchema: Schema = new Schema(
     firstEntry: {
       type: Schema.Types.ObjectId,
       ref: 'FirstEntry',
-      required: [true, 'First entry reference is required'],
+      required: [true, 'First entry reference is required.'],
     },
     mssProofDocuments: {
       type: [scheduleIIDocumentSchema],

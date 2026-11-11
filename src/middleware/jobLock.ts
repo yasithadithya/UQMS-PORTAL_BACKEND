@@ -21,7 +21,7 @@ const guard = (resolve: Resolver): RequestHandler => async (req: Request, res: R
     if (ref && (await rejectIfJobLocked(req, res, ref))) return;
     next();
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error checking whether the job is locked.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not check whether the job is locked.', error: error.message });
   }
 };
 
@@ -56,7 +56,7 @@ export const jobLock = {
       if (valid(req.params.id) && (await rejectIfVesselLocked(req, res, req.params.id))) return;
       next();
     } catch (error: any) {
-      res.status(500).json({ success: false, message: 'Error checking whether the vessel is locked.', error: error.message });
+      res.status(500).json({ success: false, message: 'Could not check whether the vessel is locked.', error: error.message });
     }
   }) as RequestHandler,
 };

@@ -110,18 +110,18 @@ const surveyReportSchema: Schema = new Schema(
     vesselId: {
       type: Schema.Types.ObjectId,
       ref: 'Vessel',
-      required: [true, 'Vessel reference is required'],
+      required: [true, 'Vessel reference is required.'],
     },
     firstEntrySurveyReportId: {
       type: Schema.Types.ObjectId,
       ref: 'FirstEntrySurveyReport',
-      required: [true, 'First Entry Survey Report reference is required'],
+      required: [true, 'First entry survey report reference is required.'],
       unique: true,
     },
     vesselEquipmentRecordId: {
       type: Schema.Types.ObjectId,
       ref: 'VesselEquipmentRecord',
-      required: [true, 'Vessel Equipment Record reference is required'],
+      required: [true, 'Vessel Equipment Record reference is required.'],
     },
     certificateNumber: { type: String, trim: true },
     totalPersonsOnboard: { type: Number, default: 0 },
@@ -209,7 +209,7 @@ const surveyReportSchema: Schema = new Schema(
       type: String,
       enum: ['Draft', 'Approved'],
       default: 'Draft',
-      required: [true, 'Status is required'],
+      required: [true, 'Status is required.'],
     },
     pdf: {
       type: storedPdfSchema,

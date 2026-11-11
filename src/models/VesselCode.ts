@@ -12,13 +12,13 @@ const vesselCodeSchema: Schema = new Schema(
   {
     code: {
       type: String,
-      required: [true, 'Vessel code is required'],
+      required: [true, 'Vessel code is required.'],
       unique: true,
       trim: true,
     },
     description: {
       type: String,
-      required: [true, 'Vessel code description is required'],
+      required: [true, 'Vessel code description is required.'],
       trim: true,
     },
   },

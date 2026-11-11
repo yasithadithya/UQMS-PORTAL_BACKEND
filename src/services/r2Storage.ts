@@ -51,7 +51,7 @@ export const downloadFromR2 = async (key: string, bucket?: string): Promise<Buff
   );
 
   if (!result.Body) {
-    throw new Error(`R2 object ${key} has no body`);
+    throw new Error(`R2 object ${key} has no body.`);
   }
 
   return Buffer.from(await result.Body.transformToByteArray());

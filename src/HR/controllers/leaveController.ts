@@ -9,7 +9,7 @@ import { AuthRequest } from '../../middleware/auth';
 export const getLeaveTypes = async (req: Request, res: Response): Promise<void> => {
   try {
     const types = await LeaveType.find();
-    res.status(200).json({ success: true, data: types, message: 'Leave types fetched successfully' });
+    res.status(200).json({ success: true, data: types, message: 'Leave types fetched.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -19,7 +19,7 @@ export const createLeaveType = async (req: Request, res: Response): Promise<void
   try {
     const type = new LeaveType(req.body);
     await type.save();
-    res.status(201).json({ success: true, data: type, message: 'Leave type created successfully' });
+    res.status(201).json({ success: true, data: type, message: 'Leave type created.' });
   } catch (error: any) {
     const code = error.code === 11000 ? 409 : 400;
     res.status(code).json({ success: false, error: error.code === 11000 ? 'Leave type already exists' : error.message, details: [] });
@@ -33,7 +33,7 @@ export const updateLeaveType = async (req: Request, res: Response): Promise<void
       res.status(404).json({ success: false, error: 'Leave type not found', details: [] });
       return;
     }
-    res.status(200).json({ success: true, data: type, message: 'Leave type updated successfully' });
+    res.status(200).json({ success: true, data: type, message: 'Leave type updated.' });
   } catch (error: any) {
     const code = error.code === 11000 ? 409 : 400;
     res.status(code).json({ success: false, error: error.code === 11000 ? 'Leave type already exists' : error.message, details: [] });
@@ -56,7 +56,7 @@ export const deleteLeaveType = async (req: Request, res: Response): Promise<void
       res.status(404).json({ success: false, error: 'Leave type not found', details: [] });
       return;
     }
-    res.status(200).json({ success: true, data: type, message: 'Leave type deleted successfully' });
+    res.status(200).json({ success: true, data: type, message: 'Leave type deleted.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -84,7 +84,7 @@ export const getAllBalances = async (req: Request, res: Response): Promise<void>
     res.status(200).json({
       success: true,
       data: { balances, total, page, pages: Math.ceil(total / limit) },
-      message: 'Leave balances fetched successfully'
+      message: 'Leave balances fetched.'
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
@@ -96,7 +96,7 @@ export const getLeaveBalance = async (req: Request, res: Response): Promise<void
     const { employeeId } = req.params;
     const year = new Date().getFullYear();
     const balances = await LeaveBalance.find({ employee: employeeId, year }).populate('leaveType');
-    res.status(200).json({ success: true, data: balances, message: 'Balances fetched successfully' });
+    res.status(200).json({ success: true, data: balances, message: 'Balances fetched.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -106,7 +106,7 @@ export const submitLeaveRequest = async (req: Request, res: Response): Promise<v
   try {
     const { employee, leaveType, startDate, endDate, reason } = req.body;
     const request = await submitLeave(employee, leaveType, new Date(startDate), new Date(endDate), reason);
-    res.status(201).json({ success: true, data: request, message: 'Leave request submitted successfully' });
+    res.status(201).json({ success: true, data: request, message: 'Leave request submitted.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -134,7 +134,7 @@ export const getLeaveRequests = async (req: Request, res: Response): Promise<voi
     res.status(200).json({
       success: true,
       data: { requests, total, page, pages: Math.ceil(total / limit) },
-      message: 'Leave requests fetched successfully'
+      message: 'Leave requests fetched.'
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
@@ -145,7 +145,7 @@ export const approveRequest = async (req: AuthRequest, res: Response): Promise<v
   try {
     const userId = req.user?.id; // from auth middleware
     const request = await approveLeave(req.params.id as string, userId as string);
-    res.status(200).json({ success: true, data: request, message: 'Leave approved successfully' });
+    res.status(200).json({ success: true, data: request, message: 'Leave approved.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -156,7 +156,7 @@ export const rejectRequest = async (req: AuthRequest, res: Response): Promise<vo
     const userId = req.user?.id;
     const reason = (req.body.rejectionReason ?? req.body.comments) as string;
     const request = await rejectOrCancelLeave(req.params.id as string, 'Rejected', userId as string, reason);
-    res.status(200).json({ success: true, data: request, message: 'Leave rejected successfully' });
+    res.status(200).json({ success: true, data: request, message: 'Leave rejected.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -165,7 +165,7 @@ export const rejectRequest = async (req: AuthRequest, res: Response): Promise<vo
 export const cancelRequest = async (req: Request, res: Response): Promise<void> => {
   try {
     const request = await rejectOrCancelLeave(req.params.id as string, 'Cancelled');
-    res.status(200).json({ success: true, data: request, message: 'Leave cancelled successfully' });
+    res.status(200).json({ success: true, data: request, message: 'Leave cancelled.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -196,7 +196,7 @@ export const initializeBalances = async (req: Request, res: Response): Promise<v
       }
     }
 
-    res.status(200).json({ success: true, message: 'Leave balances initialized successfully' });
+    res.status(200).json({ success: true, message: 'Leave balances initialized.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }

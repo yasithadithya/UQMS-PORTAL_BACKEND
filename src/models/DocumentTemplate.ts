@@ -15,27 +15,27 @@ const documentTemplateSchema: Schema = new Schema(
   {
     documentName: {
       type: String,
-      required: [true, 'Document Name is required'],
+      required: [true, 'Document Name is required.'],
       unique: true,
       trim: true,
     },
     documentNumber: {
       type: String,
-      required: [true, 'Document Number is required'],
+      required: [true, 'Document Number is required.'],
       trim: true,
     },
     revision: {
       type: String,
-      required: [true, 'Revision is required'],
+      required: [true, 'Revision is required.'],
       trim: true,
     },
     effectiveDate: {
       type: Date,
-      required: [true, 'Effective Date is required'],
+      required: [true, 'Effective Date is required.'],
     },
     approvedBy: {
       type: String,
-      required: [true, 'Approved By is required'],
+      required: [true, 'Approved By is required.'],
       trim: true,
     },
   },

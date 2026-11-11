@@ -5,7 +5,7 @@ import Employee from '../models/Employee';
 export const getDepartments = async (req: Request, res: Response): Promise<void> => {
   try {
     const departments = await Department.find().populate('headOfDepartment');
-    res.status(200).json({ success: true, data: departments, message: 'Departments fetched successfully' });
+    res.status(200).json({ success: true, data: departments, message: 'Departments fetched.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -15,7 +15,7 @@ export const createDepartment = async (req: Request, res: Response): Promise<voi
   try {
     const department = new Department(req.body);
     await department.save();
-    res.status(201).json({ success: true, data: department, message: 'Department created successfully' });
+    res.status(201).json({ success: true, data: department, message: 'Department created.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -28,7 +28,7 @@ export const updateDepartment = async (req: Request, res: Response): Promise<voi
       res.status(404).json({ success: false, error: 'Department not found', details: [] });
       return;
     }
-    res.status(200).json({ success: true, data: department, message: 'Department updated successfully' });
+    res.status(200).json({ success: true, data: department, message: 'Department updated.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -47,7 +47,7 @@ export const deleteDepartment = async (req: Request, res: Response): Promise<voi
       res.status(404).json({ success: false, error: 'Department not found', details: [] });
       return;
     }
-    res.status(200).json({ success: true, data: department, message: 'Department deleted successfully' });
+    res.status(200).json({ success: true, data: department, message: 'Department deleted.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }

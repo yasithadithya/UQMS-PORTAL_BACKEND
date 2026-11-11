@@ -23,7 +23,7 @@ const guard = (check: (req: AuthRequest) => Promise<boolean>, describe: (req: Au
   (async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       if (!req.user) {
-        res.status(401).json({ success: false, message: 'Unauthorized' });
+        res.status(401).json({ success: false, message: 'Unauthorized.' });
         return;
       }
       if (await check(req)) {
@@ -33,7 +33,7 @@ const guard = (check: (req: AuthRequest) => Promise<boolean>, describe: (req: Au
       const [key, action] = describe(req);
       await forbid(res, key, action);
     } catch (error: any) {
-      res.status(500).json({ success: false, message: 'Error checking permissions.', error: error.message });
+      res.status(500).json({ success: false, message: 'Could not check permissions.', error: error.message });
     }
   }) as RequestHandler;
 

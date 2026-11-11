@@ -107,7 +107,7 @@ const syncVesselDetails = async (bookingData: any, userId?: string): Promise<mon
   } else {
     // Vessel does not exist, create a new one
     if (!bookingData.shipName) {
-      throw new Error('Ship Name (vesselName) is required to create a new vessel.');
+      throw new Error('Ship name (vesselName) is required to create a new vessel.');
     }
 
     const newVesselData = {
@@ -215,13 +215,13 @@ export const createFirstEntrySurveyBooking = async (req: Request, res: Response)
 
     res.status(201).json({
       success: true,
-      message: 'Visit plan created successfully.',
+      message: 'Visit plan created.',
       data: populatedBooking,
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error creating visit plan.',
+      message: 'Could not create visit plan.',
       error: error.message,
     });
   }
@@ -242,7 +242,7 @@ export const getAllFirstEntrySurveyBookings = async (req: Request, res: Response
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching visit plans.',
+      message: 'Could not load visit plans.',
       error: error.message,
     });
   }
@@ -274,7 +274,7 @@ export const getFirstEntrySurveyBookingById = async (req: Request, res: Response
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching visit plan.',
+      message: 'Could not load visit plan.',
       error: error.message,
     });
   }
@@ -413,13 +413,13 @@ export const updateFirstEntrySurveyBooking = async (req: Request, res: Response)
 
     res.status(200).json({
       success: true,
-      message: 'Visit plan updated successfully.',
+      message: 'Visit plan updated.',
       data: updatedBooking,
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error updating visit plan.',
+      message: 'Could not update visit plan.',
       error: error.message,
     });
   }
@@ -440,12 +440,12 @@ export const deleteFirstEntrySurveyBooking = async (req: Request, res: Response)
 
     res.status(200).json({
       success: true,
-      message: 'Visit plan deleted successfully.',
+      message: 'Visit plan deleted.',
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error deleting visit plan.',
+      message: 'Could not delete visit plan.',
       error: error.message,
     });
   }

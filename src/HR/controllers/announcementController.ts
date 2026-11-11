@@ -26,7 +26,7 @@ export const getAnnouncements = async (req: AuthRequest, res: Response): Promise
     res.status(200).json({
       success: true,
       data: { announcements, total, page, pages: Math.ceil(total / limit) },
-      message: 'Announcements fetched successfully'
+      message: 'Announcements fetched.'
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
@@ -37,7 +37,7 @@ export const createAnnouncement = async (req: AuthRequest, res: Response): Promi
   try {
     const announcement = new Announcement({ ...req.body, createdBy: req.user?.id });
     await announcement.save();
-    res.status(201).json({ success: true, data: announcement, message: 'Announcement created successfully' });
+    res.status(201).json({ success: true, data: announcement, message: 'Announcement created.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -50,7 +50,7 @@ export const updateAnnouncement = async (req: AuthRequest, res: Response): Promi
       res.status(404).json({ success: false, error: 'Announcement not found', details: [] });
       return;
     }
-    res.status(200).json({ success: true, data: announcement, message: 'Announcement updated successfully' });
+    res.status(200).json({ success: true, data: announcement, message: 'Announcement updated.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -63,7 +63,7 @@ export const deleteAnnouncement = async (req: AuthRequest, res: Response): Promi
       res.status(404).json({ success: false, error: 'Announcement not found', details: [] });
       return;
     }
-    res.status(200).json({ success: true, data: announcement, message: 'Announcement deleted successfully' });
+    res.status(200).json({ success: true, data: announcement, message: 'Announcement deleted.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }

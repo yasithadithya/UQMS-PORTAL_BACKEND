@@ -42,7 +42,7 @@ export const getEmployees = async (req: Request, res: Response): Promise<void> =
         page,
         pages: Math.ceil(total / limit)
       },
-      message: 'Employees fetched successfully'
+      message: 'Employees fetched.'
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
@@ -60,7 +60,7 @@ export const getEmployeeById = async (req: Request, res: Response): Promise<void
       res.status(404).json({ success: false, error: 'Employee not found', details: [] });
       return;
     }
-    res.status(200).json({ success: true, data: employee, message: 'Employee fetched successfully' });
+    res.status(200).json({ success: true, data: employee, message: 'Employee fetched.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -87,7 +87,7 @@ export const createEmployee = async (req: Request, res: Response): Promise<void>
       });
     }
 
-    res.status(201).json({ success: true, data: employee, message: 'Employee created successfully' });
+    res.status(201).json({ success: true, data: employee, message: 'Employee created.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -130,7 +130,7 @@ export const updateEmployee = async (req: Request, res: Response): Promise<void>
       }
     }
 
-    res.status(200).json({ success: true, data: employee, message: 'Employee updated successfully' });
+    res.status(200).json({ success: true, data: employee, message: 'Employee updated.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -143,7 +143,7 @@ export const deleteEmployee = async (req: Request, res: Response): Promise<void>
       res.status(404).json({ success: false, error: 'Employee not found', details: [] });
       return;
     }
-    res.status(200).json({ success: true, data: employee, message: 'Employee deleted successfully' });
+    res.status(200).json({ success: true, data: employee, message: 'Employee deleted.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -155,7 +155,7 @@ export const getEmployeeHistory = async (req: Request, res: Response): Promise<v
       .populate('jobTitle')
       .populate('department')
       .sort({ startDate: -1 });
-    res.status(200).json({ success: true, data: history, message: 'Employee history fetched successfully' });
+    res.status(200).json({ success: true, data: history, message: 'Employee history fetched.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -191,7 +191,7 @@ export const transferEmployee = async (req: Request, res: Response): Promise<voi
     if (jobTitle) employee.jobTitle = jobTitle;
     await employee.save();
 
-    res.status(200).json({ success: true, data: employee, message: 'Employee transferred successfully' });
+    res.status(200).json({ success: true, data: employee, message: 'Employee transferred.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -229,7 +229,7 @@ export const uploadPhoto = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    res.status(200).json({ success: true, data: employee, message: 'Photo uploaded successfully' });
+    res.status(200).json({ success: true, data: employee, message: 'Photo uploaded.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }

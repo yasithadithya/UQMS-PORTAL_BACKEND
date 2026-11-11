@@ -20,13 +20,13 @@ const surveyTypeSchema: Schema = new Schema(
   {
     code: {
       type: String,
-      required: [true, 'Survey type code is required'],
+      required: [true, 'Survey type code is required.'],
       unique: true,
       trim: true,
     },
     name: {
       type: String,
-      required: [true, 'Survey type name is required'],
+      required: [true, 'Survey type name is required.'],
       unique: true,
       trim: true,
     },

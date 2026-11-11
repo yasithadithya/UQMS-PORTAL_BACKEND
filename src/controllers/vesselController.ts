@@ -32,7 +32,7 @@ export const createVessel = async (req: Request, res: Response): Promise<void> =
 
     res.status(201).json({
       success: true,
-      message: 'Vessel created successfully.',
+      message: 'Vessel created.',
       data: populatedVessel,
     });
   } catch (error: any) {
@@ -40,7 +40,7 @@ export const createVessel = async (req: Request, res: Response): Promise<void> =
       res.status(409).json({ success: false, message: 'Duplicate key error. A vessel with this unique identifier already exists.', error: error.message });
       return;
     }
-    res.status(500).json({ success: false, message: 'Error creating vessel.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not create vessel.', error: error.message });
   }
 };
 
@@ -56,7 +56,7 @@ export const getAllVessels = async (_req: Request, res: Response): Promise<void>
 
     res.status(200).json({ success: true, count: vessels.length, data: vessels });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error fetching vessels.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load vessels.', error: error.message });
   }
 };
 
@@ -86,7 +86,7 @@ export const searchVessels = async (req: Request, res: Response): Promise<void> 
 
     res.status(200).json({ success: true, count: vessels.length, data: vessels });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error searching vessels.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not search vessels.', error: error.message });
   }
 };
 
@@ -111,7 +111,7 @@ export const getVesselById = async (req: Request, res: Response): Promise<void> 
 
     res.status(200).json({ success: true, data: vessel });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error fetching vessel.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load vessel.', error: error.message });
   }
 };
 
@@ -149,11 +149,11 @@ export const updateVessel = async (req: Request, res: Response): Promise<void> =
 
     res.status(200).json({
       success: true,
-      message: 'Vessel updated successfully.',
+      message: 'Vessel updated.',
       data: updatedVessel,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error updating vessel.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not update vessel.', error: error.message });
   }
 };
 
@@ -170,8 +170,8 @@ export const deleteVessel = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    res.status(200).json({ success: true, message: 'Vessel deleted successfully.' });
+    res.status(200).json({ success: true, message: 'Vessel deleted.' });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error deleting vessel.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not delete vessel.', error: error.message });
   }
 };

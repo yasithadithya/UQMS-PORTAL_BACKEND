@@ -11,13 +11,13 @@ const areaOfOperationSchema: Schema = new Schema(
   {
     AreaCategory: {
       type: String,
-      required: [true, 'Area of operation category is required'],
+      required: [true, 'Area of operation category is required.'],
       unique: true,
       trim: true,
     },
     description: {
       type: String,
-      required: [true, 'Area of operation description is required'],
+      required: [true, 'Area of operation description is required.'],
       trim: true,
     },
   },

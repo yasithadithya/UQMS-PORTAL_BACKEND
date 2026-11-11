@@ -97,7 +97,7 @@ export const createRole = async (req: AuthRequest, res: Response): Promise<void>
 
     res.status(201).json({
       success: true,
-      message: 'Role created successfully.',
+      message: 'Role created.',
       data: role,
     });
   } catch (error: any) {
@@ -110,7 +110,7 @@ export const createRole = async (req: AuthRequest, res: Response): Promise<void>
     }
     res.status(500).json({
       success: false,
-      message: 'Error creating role.',
+      message: 'Could not create role.',
       error: error.message,
     });
   }
@@ -129,7 +129,7 @@ export const getAllRoles = async (_req: Request, res: Response): Promise<void> =
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching roles.',
+      message: 'Could not load roles.',
       error: error.message,
     });
   }
@@ -162,7 +162,7 @@ export const getRoleById = async (req: Request, res: Response): Promise<void> =>
     }
     res.status(500).json({
       success: false,
-      message: 'Error fetching role.',
+      message: 'Could not load role.',
       error: error.message,
     });
   }
@@ -220,7 +220,7 @@ export const updateRole = async (req: AuthRequest, res: Response): Promise<void>
 
     res.status(200).json({
       success: true,
-      message: 'Role updated successfully.',
+      message: 'Role updated.',
       data: role,
     });
   } catch (error: any) {
@@ -240,7 +240,7 @@ export const updateRole = async (req: AuthRequest, res: Response): Promise<void>
     }
     res.status(500).json({
       success: false,
-      message: 'Error updating role.',
+      message: 'Could not update role.',
       error: error.message,
     });
   }
@@ -285,7 +285,7 @@ export const deleteRole = async (req: AuthRequest, res: Response): Promise<void>
 
     res.status(200).json({
       success: true,
-      message: 'Role deleted successfully.',
+      message: 'Role deleted.',
     });
   } catch (error: any) {
     if (error.kind === 'ObjectId') {
@@ -297,7 +297,7 @@ export const deleteRole = async (req: AuthRequest, res: Response): Promise<void>
     }
     res.status(500).json({
       success: false,
-      message: 'Error deleting role.',
+      message: 'Could not delete role.',
       error: error.message,
     });
   }

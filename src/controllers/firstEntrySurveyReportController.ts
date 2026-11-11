@@ -105,13 +105,13 @@ export const getPrePopulatedReportDataByBookingId = async (req: Request, res: Re
 
     res.status(200).json({
       success: true,
-      message: 'Pre-populated report data retrieved successfully.',
+      message: 'Pre-populated report data retrieved.',
       data: prePopulatedData,
     });
   } catch (error: any) {
     res.status(error.message.includes('not found') ? 404 : 400).json({
       success: false,
-      message: 'Error pre-populating report data.',
+      message: 'Could not fill in the report data.',
       error: error.message,
     });
   }
@@ -169,13 +169,13 @@ export const createFirstEntrySurveyReport = async (req: Request, res: Response):
 
     res.status(201).json({
       success: true,
-      message: 'First Entry Survey Report created successfully.',
+      message: 'First entry survey report created.',
       data: populatedReport,
     });
   } catch (error: any) {
     res.status(error.message.includes('not found') ? 404 : 500).json({
       success: false,
-      message: 'Error creating First Entry Survey Report.',
+      message: 'Could not create first entry survey report.',
       error: error.message,
     });
   }
@@ -198,7 +198,7 @@ export const getAllFirstEntrySurveyReports = async (req: Request, res: Response)
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching First Entry Survey Reports.',
+      message: 'Could not load first entry survey reports.',
       error: error.message,
     });
   }
@@ -222,7 +222,7 @@ export const getFirstEntrySurveyReportById = async (req: Request, res: Response)
       .populate('updatedBy', 'username email');
 
     if (!report) {
-      res.status(404).json({ success: false, message: 'First Entry Survey Report not found.' });
+      res.status(404).json({ success: false, message: 'First entry survey report not found.' });
       return;
     }
 
@@ -233,7 +233,7 @@ export const getFirstEntrySurveyReportById = async (req: Request, res: Response)
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching First Entry Survey Report.',
+      message: 'Could not load first entry survey report.',
       error: error.message,
     });
   }
@@ -275,19 +275,19 @@ export const updateFirstEntrySurveyReport = async (req: Request, res: Response):
       .populate('updatedBy', 'username email');
 
     if (!updatedReport) {
-      res.status(404).json({ success: false, message: 'First Entry Survey Report not found.' });
+      res.status(404).json({ success: false, message: 'First entry survey report not found.' });
       return;
     }
 
     res.status(200).json({
       success: true,
-      message: 'First Entry Survey Report updated successfully.',
+      message: 'First entry survey report updated.',
       data: updatedReport,
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error updating First Entry Survey Report.',
+      message: 'Could not update first entry survey report.',
       error: error.message,
     });
   }
@@ -306,18 +306,18 @@ export const deleteFirstEntrySurveyReport = async (req: Request, res: Response):
 
     const report = await FirstEntrySurveyReportModel.findByIdAndDelete(id);
     if (!report) {
-      res.status(404).json({ success: false, message: 'First Entry Survey Report not found.' });
+      res.status(404).json({ success: false, message: 'First entry survey report not found.' });
       return;
     }
 
     res.status(200).json({
       success: true,
-      message: 'First Entry Survey Report deleted successfully.',
+      message: 'First entry survey report deleted.',
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error deleting First Entry Survey Report.',
+      message: 'Could not delete first entry survey report.',
       error: error.message,
     });
   }

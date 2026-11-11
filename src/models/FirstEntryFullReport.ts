@@ -86,7 +86,7 @@ const checklistItemSchema = new Schema<IChecklistItem>({
   checklistQuestionId: { 
     type: Schema.Types.ObjectId, 
     ref: 'ChecklistQuestion', 
-    required: [true, 'Checklist question reference is required'] 
+    required: [true, 'Checklist question reference is required.'] 
   },
   isChecked: {
     type: Boolean,
@@ -172,18 +172,18 @@ const firstEntryFullReportSchema: Schema = new Schema(
     firstEntrySurveyReportId: {
       type: Schema.Types.ObjectId,
       ref: 'FirstEntrySurveyReport',
-      required: [true, 'First Entry Survey Report reference is required'],
+      required: [true, 'First entry survey report reference is required.'],
       unique: true // A survey report should map to at most one full report
     },
     bookingId: {
       type: Schema.Types.ObjectId,
       ref: 'FirstEntrySurveyBooking',
-      required: [true, 'Booking reference is required']
+      required: [true, 'Booking reference is required.']
     },
     vesselId: {
       type: Schema.Types.ObjectId,
       ref: 'Vessel',
-      required: [true, 'Vessel reference is required']
+      required: [true, 'Vessel reference is required.']
     },
     uqmsNo: {
       type: String,

@@ -31,19 +31,19 @@ const feeItemSchema: Schema = new Schema(
   {
     name: {
       type: String,
-      required: [true, 'Fee item name is required'],
+      required: [true, 'Fee item name is required.'],
       unique: true,
       trim: true,
     },
     category: {
       type: String,
       enum: FEE_CATEGORIES,
-      required: [true, 'Fee category is required'],
+      required: [true, 'Fee category is required.'],
     },
     currency: {
       type: String,
       enum: FEE_CURRENCIES,
-      required: [true, 'Currency is required'],
+      required: [true, 'Currency is required.'],
     },
     standardRate: {
       type: Number,
@@ -51,7 +51,7 @@ const feeItemSchema: Schema = new Schema(
     },
     rate: {
       type: Number,
-      required: [true, 'Fee is required'],
+      required: [true, 'Fee is required.'],
       min: 0,
     },
     unit: {

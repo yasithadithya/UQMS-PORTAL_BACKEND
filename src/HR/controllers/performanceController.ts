@@ -8,7 +8,7 @@ import Appraisal from '../models/Appraisal';
 export const getReviewCycles = async (req: Request, res: Response): Promise<void> => {
   try {
     const cycles = await ReviewCycle.find().sort({ periodStart: -1 });
-    res.status(200).json({ success: true, data: cycles, message: 'Review cycles fetched successfully' });
+    res.status(200).json({ success: true, data: cycles, message: 'Review cycles fetched.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -18,7 +18,7 @@ export const createReviewCycle = async (req: Request, res: Response): Promise<vo
   try {
     const cycle = new ReviewCycle(req.body);
     await cycle.save();
-    res.status(201).json({ success: true, data: cycle, message: 'Review cycle created successfully' });
+    res.status(201).json({ success: true, data: cycle, message: 'Review cycle created.' });
   } catch (error: any) {
     const code = error.code === 11000 ? 409 : 400;
     res.status(code).json({ success: false, error: error.code === 11000 ? 'Review cycle name already exists' : error.message, details: [] });
@@ -32,7 +32,7 @@ export const updateReviewCycle = async (req: Request, res: Response): Promise<vo
       res.status(404).json({ success: false, error: 'Review cycle not found', details: [] });
       return;
     }
-    res.status(200).json({ success: true, data: cycle, message: 'Review cycle updated successfully' });
+    res.status(200).json({ success: true, data: cycle, message: 'Review cycle updated.' });
   } catch (error: any) {
     const code = error.code === 11000 ? 409 : 400;
     res.status(code).json({ success: false, error: error.code === 11000 ? 'Review cycle name already exists' : error.message, details: [] });
@@ -63,7 +63,7 @@ export const getGoals = async (req: Request, res: Response): Promise<void> => {
     res.status(200).json({
       success: true,
       data: { goals, total, page, pages: Math.ceil(total / limit) },
-      message: 'Goals fetched successfully'
+      message: 'Goals fetched.'
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
@@ -74,7 +74,7 @@ export const createGoal = async (req: Request, res: Response): Promise<void> => 
   try {
     const goal = new Goal(req.body);
     await goal.save();
-    res.status(201).json({ success: true, data: goal, message: 'Goal created successfully' });
+    res.status(201).json({ success: true, data: goal, message: 'Goal created.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -87,7 +87,7 @@ export const updateGoal = async (req: Request, res: Response): Promise<void> => 
       res.status(404).json({ success: false, error: 'Goal not found', details: [] });
       return;
     }
-    res.status(200).json({ success: true, data: goal, message: 'Goal updated successfully' });
+    res.status(200).json({ success: true, data: goal, message: 'Goal updated.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -100,7 +100,7 @@ export const deleteGoal = async (req: Request, res: Response): Promise<void> => 
       res.status(404).json({ success: false, error: 'Goal not found', details: [] });
       return;
     }
-    res.status(200).json({ success: true, data: goal, message: 'Goal deleted successfully' });
+    res.status(200).json({ success: true, data: goal, message: 'Goal deleted.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -132,7 +132,7 @@ export const getAppraisals = async (req: Request, res: Response): Promise<void> 
     res.status(200).json({
       success: true,
       data: { appraisals, total, page, pages: Math.ceil(total / limit) },
-      message: 'Appraisals fetched successfully'
+      message: 'Appraisals fetched.'
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
@@ -143,7 +143,7 @@ export const createAppraisal = async (req: Request, res: Response): Promise<void
   try {
     const appraisal = new Appraisal({ ...req.body, status: 'Draft' });
     await appraisal.save();
-    res.status(201).json({ success: true, data: appraisal, message: 'Appraisal created successfully' });
+    res.status(201).json({ success: true, data: appraisal, message: 'Appraisal created.' });
   } catch (error: any) {
     const code = error.code === 11000 ? 409 : 400;
     res.status(code).json({ success: false, error: error.code === 11000 ? 'An appraisal already exists for this employee in this cycle' : error.message, details: [] });
@@ -166,7 +166,7 @@ export const updateAppraisal = async (req: Request, res: Response): Promise<void
     Object.assign(appraisal, updatable);
     await appraisal.save();
 
-    res.status(200).json({ success: true, data: appraisal, message: 'Appraisal updated successfully' });
+    res.status(200).json({ success: true, data: appraisal, message: 'Appraisal updated.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -197,7 +197,7 @@ export const submitAppraisal = async (req: Request, res: Response): Promise<void
     appraisal.submittedAt = new Date();
     await appraisal.save();
 
-    res.status(200).json({ success: true, data: appraisal, message: 'Appraisal submitted successfully' });
+    res.status(200).json({ success: true, data: appraisal, message: 'Appraisal submitted.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -220,7 +220,7 @@ export const acknowledgeAppraisal = async (req: Request, res: Response): Promise
     appraisal.acknowledgedAt = new Date();
     await appraisal.save();
 
-    res.status(200).json({ success: true, data: appraisal, message: 'Appraisal acknowledged successfully' });
+    res.status(200).json({ success: true, data: appraisal, message: 'Appraisal acknowledged.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }

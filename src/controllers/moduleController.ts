@@ -76,13 +76,13 @@ export const createModule = async (req: Request, res: Response): Promise<void> =
     await newModule.save();
     invalidateModuleCache();
 
-    res.status(201).json({ success: true, message: 'Module created successfully.', data: newModule });
+    res.status(201).json({ success: true, message: 'Module created.', data: newModule });
   } catch (error: any) {
     if (error.code === 11000) {
       res.status(409).json({ success: false, message: 'Module already exists.' });
       return;
     }
-    res.status(500).json({ success: false, message: 'Error creating module.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not create module.', error: error.message });
   }
 };
 
@@ -91,7 +91,7 @@ export const getModules = async (_req: Request, res: Response): Promise<void> =>
     const modules = await Module.find().sort({ order: 1, createdAt: 1 }).populate('parentId');
     res.status(200).json({ success: true, count: modules.length, data: modules });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error fetching modules.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load modules.', error: error.message });
   }
 };
 
@@ -117,7 +117,7 @@ export const updateModule = async (req: Request, res: Response): Promise<void> =
       if (order !== undefined) existing.order = order;
       await existing.save();
       invalidateModuleCache();
-      res.status(200).json({ success: true, message: 'Module updated successfully.', data: existing });
+      res.status(200).json({ success: true, message: 'Module updated.', data: existing });
       return;
     }
 
@@ -177,13 +177,13 @@ export const updateModule = async (req: Request, res: Response): Promise<void> =
       );
     }
 
-    res.status(200).json({ success: true, message: 'Module updated successfully.', data: mod });
+    res.status(200).json({ success: true, message: 'Module updated.', data: mod });
   } catch (error: any) {
     if (error.code === 11000) {
       res.status(409).json({ success: false, message: 'A module with this name already exists.' });
       return;
     }
-    res.status(500).json({ success: false, message: 'Error updating module.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not update module.', error: error.message });
   }
 };
 
@@ -219,8 +219,8 @@ export const deleteModule = async (req: Request, res: Response): Promise<void> =
     );
     invalidateModuleCache();
 
-    res.status(200).json({ success: true, message: 'Module deleted successfully.' });
+    res.status(200).json({ success: true, message: 'Module deleted.' });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error deleting module.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not delete module.', error: error.message });
   }
 };

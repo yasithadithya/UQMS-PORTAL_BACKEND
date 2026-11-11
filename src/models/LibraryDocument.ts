@@ -54,7 +54,7 @@ const fileSchema = new Schema(
 const libraryDocumentSchema = new Schema(
   {
     library: { type: String, required: true, enum: DOCUMENT_LIBRARY_KEYS, index: true },
-    title: { type: String, required: [true, 'Title is required'], trim: true },
+    title: { type: String, required: [true, 'Title is required.'], trim: true },
     referenceNumber: { type: String, trim: true },
     issueDate: { type: Date },
     remarks: { type: String, trim: true },

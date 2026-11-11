@@ -11,7 +11,7 @@ export const getTemplates = async (req: Request, res: Response): Promise<void> =
     if (req.query.activeOnly === 'true') filter.isActive = true;
 
     const templates = await ChecklistTemplate.find(filter).sort({ type: 1, name: 1 });
-    res.status(200).json({ success: true, data: templates, message: 'Checklist templates fetched successfully' });
+    res.status(200).json({ success: true, data: templates, message: 'Checklist templates fetched.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -21,7 +21,7 @@ export const createTemplate = async (req: Request, res: Response): Promise<void>
   try {
     const template = new ChecklistTemplate(req.body);
     await template.save();
-    res.status(201).json({ success: true, data: template, message: 'Checklist template created successfully' });
+    res.status(201).json({ success: true, data: template, message: 'Checklist template created.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -34,7 +34,7 @@ export const updateTemplate = async (req: Request, res: Response): Promise<void>
       res.status(404).json({ success: false, error: 'Checklist template not found', details: [] });
       return;
     }
-    res.status(200).json({ success: true, data: template, message: 'Checklist template updated successfully' });
+    res.status(200).json({ success: true, data: template, message: 'Checklist template updated.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -50,7 +50,7 @@ export const deleteTemplate = async (req: Request, res: Response): Promise<void>
         res.status(404).json({ success: false, error: 'Checklist template not found', details: [] });
         return;
       }
-      res.status(200).json({ success: true, data: template, message: 'Template is in use — deactivated instead of deleted' });
+      res.status(200).json({ success: true, data: template, message: 'Template is in use — deactivated instead of deleted.' });
       return;
     }
 
@@ -59,7 +59,7 @@ export const deleteTemplate = async (req: Request, res: Response): Promise<void>
       res.status(404).json({ success: false, error: 'Checklist template not found', details: [] });
       return;
     }
-    res.status(200).json({ success: true, data: template, message: 'Checklist template deleted successfully' });
+    res.status(200).json({ success: true, data: template, message: 'Checklist template deleted.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }
@@ -70,7 +70,7 @@ export const deleteTemplate = async (req: Request, res: Response): Promise<void>
 export const createChecklistFromTemplate = async (templateId: string, employeeId: string, startDate: Date) => {
   const template = await ChecklistTemplate.findById(templateId);
   if (!template) {
-    throw new Error('Checklist template not found');
+    throw new Error('Checklist template not found.');
   }
 
   const tasks = template.items.map(item => ({
@@ -99,7 +99,7 @@ export const createChecklist = async (req: Request, res: Response): Promise<void
     }
 
     const checklist = await createChecklistFromTemplate(templateId, employeeId, startDate ? new Date(startDate) : new Date());
-    res.status(201).json({ success: true, data: checklist, message: 'Checklist created successfully' });
+    res.status(201).json({ success: true, data: checklist, message: 'Checklist created.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -129,7 +129,7 @@ export const getChecklists = async (req: Request, res: Response): Promise<void> 
     res.status(200).json({
       success: true,
       data: { checklists, total, page, pages: Math.ceil(total / limit) },
-      message: 'Checklists fetched successfully'
+      message: 'Checklists fetched.'
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
@@ -164,7 +164,7 @@ export const updateChecklistTask = async (req: Request, res: Response): Promise<
     checklist.status = allClosed ? 'Completed' : 'InProgress';
 
     await checklist.save();
-    res.status(200).json({ success: true, data: checklist, message: 'Task updated successfully' });
+    res.status(200).json({ success: true, data: checklist, message: 'Task updated.' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message, details: [] });
   }
@@ -177,7 +177,7 @@ export const deleteChecklist = async (req: Request, res: Response): Promise<void
       res.status(404).json({ success: false, error: 'Checklist not found', details: [] });
       return;
     }
-    res.status(200).json({ success: true, data: checklist, message: 'Checklist deleted successfully' });
+    res.status(200).json({ success: true, data: checklist, message: 'Checklist deleted.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, details: [] });
   }

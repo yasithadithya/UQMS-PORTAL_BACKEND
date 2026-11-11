@@ -60,11 +60,11 @@ export const createFirstEntry = async (req: Request, res: Response): Promise<voi
 
     res.status(201).json({
       success: true,
-      message: 'First entry created successfully.',
+      message: 'First entry created.',
       data: populatedEntry,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error creating first entry.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not create first entry.', error: error.message });
   }
 };
 
@@ -81,7 +81,7 @@ export const getAllFirstEntries = async (req: Request, res: Response): Promise<v
     const result = await paginate(FirstEntryModel, {}, req, populateOptions, { createdAt: -1 });
     res.status(200).json(result);
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error fetching first entries.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load first entries.', error: error.message });
   }
 };
 
@@ -106,7 +106,7 @@ export const getFirstEntryById = async (req: Request, res: Response): Promise<vo
 
     res.status(200).json({ success: true, data: entry });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error fetching first entry.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load first entry.', error: error.message });
   }
 };
 
@@ -150,11 +150,11 @@ export const updateFirstEntry = async (req: Request, res: Response): Promise<voi
 
     res.status(200).json({
       success: true,
-      message: 'First entry updated successfully.',
+      message: 'First entry updated.',
       data: updatedEntry,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error updating first entry.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not update first entry.', error: error.message });
   }
 };
 
@@ -176,9 +176,9 @@ export const deleteFirstEntry = async (req: Request, res: Response): Promise<voi
       await ScheduleIIModel.findByIdAndDelete(entry.scheduleII);
     }
 
-    res.status(200).json({ success: true, message: 'First entry deleted successfully.' });
+    res.status(200).json({ success: true, message: 'First entry deleted.' });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error deleting first entry.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not delete first entry.', error: error.message });
   }
 };
 
@@ -249,11 +249,11 @@ export const createScheduleII = async (req: Request, res: Response): Promise<voi
 
     res.status(201).json({
       success: true,
-      message: 'Schedule II created successfully.',
+      message: 'Schedule II created.',
       data: populatedSchedule,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error creating Schedule II.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not create Schedule II.', error: error.message });
   }
 };
 
@@ -276,7 +276,7 @@ export const getScheduleIIById = async (req: Request, res: Response): Promise<vo
 
     res.status(200).json({ success: true, data: schedule });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error fetching Schedule II.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load Schedule II.', error: error.message });
   }
 };
 
@@ -308,11 +308,11 @@ export const updateScheduleII = async (req: Request, res: Response): Promise<voi
 
     res.status(200).json({
       success: true,
-      message: 'Schedule II updated successfully.',
+      message: 'Schedule II updated.',
       data: updatedSchedule,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error updating Schedule II.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not update Schedule II.', error: error.message });
   }
 };
 
@@ -334,9 +334,9 @@ export const deleteScheduleII = async (req: Request, res: Response): Promise<voi
       $unset: { scheduleII: 1 }
     });
 
-    res.status(200).json({ success: true, message: 'Schedule II deleted successfully.' });
+    res.status(200).json({ success: true, message: 'Schedule II deleted.' });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error deleting Schedule II.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not delete Schedule II.', error: error.message });
   }
 };
 
@@ -402,9 +402,9 @@ export const sendScheduleIIEmail = async (req: Request, res: Response): Promise<
     };
     await schedule.save();
 
-    res.status(200).json({ success: true, message: 'Email sent successfully.' });
+    res.status(200).json({ success: true, message: 'Email sent.' });
   } catch (error: any) {
     console.error('Error sending Schedule II email:', error);
-    res.status(500).json({ success: false, message: 'Error sending email.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not send email.', error: error.message });
   }
 };

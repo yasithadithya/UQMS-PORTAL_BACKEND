@@ -332,7 +332,7 @@ export const createQuotation = async (req: AuthRequest, res: Response): Promise<
       );
     }
 
-    res.status(201).json({ success: true, message: `Quotation ${quotation.quotationNumber} created successfully.`, data: quotation });
+    res.status(201).json({ success: true, message: `Quotation ${quotation.quotationNumber} created.`, data: quotation });
   } catch (error: any) {
     sendError(res, error, 'Error creating quotation.');
   }
@@ -353,7 +353,7 @@ export const updateQuotation = async (req: AuthRequest, res: Response): Promise<
       return;
     }
     if (!OPEN_QUOTATION_STATUSES.includes(quotation.status)) {
-      res.status(409).json({ success: false, message: `A ${quotation.status} quotation can't be edited. Create a revision instead.` });
+      res.status(409).json({ success: false, message: `A ${quotation.status} quotation cannot be edited. Create a revision instead.` });
       return;
     }
 
@@ -387,7 +387,7 @@ export const updateQuotation = async (req: AuthRequest, res: Response): Promise<
     }
     await quotation.save();
 
-    res.status(200).json({ success: true, message: 'Quotation updated successfully.', data: quotation });
+    res.status(200).json({ success: true, message: 'Quotation updated.', data: quotation });
   } catch (error: any) {
     sendError(res, error, 'Error updating quotation.');
   }
@@ -485,7 +485,7 @@ export const deleteQuotation = async (req: AuthRequest, res: Response): Promise<
     }
 
     await quotation.deleteOne();
-    res.status(200).json({ success: true, message: 'Quotation deleted successfully.' });
+    res.status(200).json({ success: true, message: 'Quotation deleted.' });
   } catch (error: any) {
     sendError(res, error, 'Error deleting quotation.');
   }
@@ -534,7 +534,7 @@ const loadOpenQuotation = async (req: AuthRequest, res: Response) => {
     return null;
   }
   if (!OPEN_QUOTATION_STATUSES.includes(quotation.status)) {
-    res.status(409).json({ success: false, message: `A ${quotation.status} quotation can't be changed.` });
+    res.status(409).json({ success: false, message: `A ${quotation.status} quotation cannot be changed.` });
     return null;
   }
   return quotation;

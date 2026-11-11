@@ -67,7 +67,7 @@ export const getFeeItems = async (req: Request, res: Response): Promise<void> =>
     feeItems.sort((a, b) => (CATEGORY_ORDER[a.category] ?? 9) - (CATEGORY_ORDER[b.category] ?? 9));
     res.status(200).json({ success: true, count: feeItems.length, data: feeItems });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error fetching fee structure.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load fee structure.', error: error.message });
   }
 };
 
@@ -81,13 +81,13 @@ export const createFeeItem = async (req: Request, res: Response): Promise<void> 
     }
 
     const feeItem = await FeeItem.create(parsed.values);
-    res.status(201).json({ success: true, message: 'Fee item created successfully.', data: feeItem });
+    res.status(201).json({ success: true, message: 'Fee item created.', data: feeItem });
   } catch (error: any) {
     if (error.code === 11000) {
       res.status(409).json({ success: false, message: 'A fee item with this name already exists.', error: error.message });
       return;
     }
-    res.status(500).json({ success: false, message: 'Error creating fee item.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not create fee item.', error: error.message });
   }
 };
 
@@ -119,13 +119,13 @@ export const updateFeeItem = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    res.status(200).json({ success: true, message: 'Fee item updated successfully.', data: feeItem });
+    res.status(200).json({ success: true, message: 'Fee item updated.', data: feeItem });
   } catch (error: any) {
     if (error.code === 11000) {
       res.status(409).json({ success: false, message: 'A fee item with this name already exists.', error: error.message });
       return;
     }
-    res.status(500).json({ success: false, message: 'Error updating fee item.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not update fee item.', error: error.message });
   }
 };
 
@@ -144,8 +144,8 @@ export const deleteFeeItem = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    res.status(200).json({ success: true, message: 'Fee item deleted successfully.' });
+    res.status(200).json({ success: true, message: 'Fee item deleted.' });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error deleting fee item.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not delete fee item.', error: error.message });
   }
 };

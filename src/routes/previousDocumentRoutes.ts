@@ -61,7 +61,7 @@ router.get('/', async (req: Request, res: Response) => {
     }
     res.status(200).json(await paginate(PreviousDocument, filter, req, [], { updatedAt: -1 }));
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error loading previous documents.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not load previous documents.', error: error.message });
   }
 });
 
@@ -106,7 +106,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
     res.status(200).json({ success: true, message: 'Saved.', data: doc });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'Error saving.', error: error.message });
+    res.status(500).json({ success: false, message: 'Could not save.', error: error.message });
   }
 });
 

@@ -17,7 +17,7 @@ export const getAllRecEquipQues = async (_req: Request, res: Response): Promise<
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching recommended equipment questions.',
+      message: 'Could not load recommended equipment questions.',
       error: error.message,
     });
   }
@@ -52,7 +52,7 @@ export const getRecEquipQuesById = async (req: Request, res: Response): Promise<
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching equipment question.',
+      message: 'Could not load equipment question.',
       error: error.message,
     });
   }
@@ -88,13 +88,13 @@ export const createRecEquipQues = async (req: Request, res: Response): Promise<v
 
     res.status(201).json({
       success: true,
-      message: 'Equipment question created successfully.',
+      message: 'Equipment question created.',
       data: newQuestion,
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error creating equipment question.',
+      message: 'Could not create equipment question.',
       error: error.message,
     });
   }
@@ -155,13 +155,13 @@ export const updateRecEquipQues = async (req: Request, res: Response): Promise<v
 
     res.status(200).json({
       success: true,
-      message: 'Equipment question updated successfully.',
+      message: 'Equipment question updated.',
       data: updatedQuestion,
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error updating equipment question.',
+      message: 'Could not update equipment question.',
       error: error.message,
     });
   }
@@ -191,12 +191,12 @@ export const deleteRecEquipQues = async (req: Request, res: Response): Promise<v
 
     res.status(200).json({
       success: true,
-      message: 'Equipment question deleted successfully.',
+      message: 'Equipment question deleted.',
     });
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      message: 'Error deleting equipment question.',
+      message: 'Could not delete equipment question.',
       error: error.message,
     });
   }
